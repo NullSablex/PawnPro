@@ -1,0 +1,10 @@
+{
+    "messages": [
+        "pawncc não encontrado em: {0}",
+        "Não foi possível detectar o executável pawncc. Configure \"pawnpro.compiler.path\"."
+    ],
+    "keys": [
+        "detect.missing.explicit",
+        "detect.missing"
+    ]
+}
