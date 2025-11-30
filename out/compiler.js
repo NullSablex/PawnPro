@@ -62,17 +62,17 @@ export function registerCompileCommand(context) {
             const cfg = vscode.workspace.getConfiguration();
             const exe = detectPawncc(cfg.get('pawnpro.compiler.path') || '', cfg.get('pawnpro.compiler.autoDetect') ?? true);
             await cfg.update('pawnpro.compiler.path', exe, vscode.ConfigurationTarget.Workspace);
-            vscode.window.showInformationMessage(localize('detect.ok', 'pawncc detectado: {0}', exe));
+            vscode.window.showInformationMessage(localize(0, null, exe));
         }
         catch (e) {
-            vscode.window.showErrorMessage(localize('detect.fail', '{0}', e?.message || String(e)));
+            vscode.window.showErrorMessage(localize(1, null, e?.message || String(e)));
         }
     }));
     // Comando: compilar arquivo atual
     const cmd = vscode.commands.registerCommand('pawnpro.compileCurrent', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor || !isPawnFile(editor.document.fileName)) {
-            vscode.window.showWarningMessage(localize('build.openPwn', 'Abra um arquivo .pwn para compilar.'));
+            vscode.window.showWarningMessage(localize(2, null));
             return;
         }
         await editor.document.save();
@@ -86,7 +86,7 @@ export function registerCompileCommand(context) {
             exe = detectPawncc(cfg.get('pawnpro.compiler.path') || '', cfg.get('pawnpro.compiler.autoDetect') ?? true);
         }
         catch (e) {
-            vscode.window.showErrorMessage(localize('detect.fail', '{0}', e?.message || String(e)));
+            vscode.window.showErrorMessage(localize(3, null, e?.message || String(e)));
             return;
         }
         const supported = detectSupportedFlags(exe); // 1) detectar flags suportadas do executável
@@ -121,13 +121,13 @@ export function registerCompileCommand(context) {
         const proc = spawn(exe, args, { cwd: fileDir, shell: false });
         proc.stdout.on('data', (d) => channel.append(iconv.decode(d, encoding)));
         proc.stderr.on('data', (d) => channel.append(iconv.decode(d, encoding)));
-        proc.on('error', (err) => vscode.window.showErrorMessage(localize('build.startError', 'Falha ao iniciar pawncc: {0}', err.message)));
+        proc.on('error', (err) => vscode.window.showErrorMessage(localize(4, null, err.message)));
         proc.on('close', (code, signal) => {
             if (code === 0) {
-                vscode.window.showInformationMessage(localize('build.success', 'Compilado com sucesso.'));
+                vscode.window.showInformationMessage(localize(5, null));
             }
             else {
-                vscode.window.showErrorMessage(localize('build.failed', 'Compilação falhou. code={0} signal={1}', code ?? 'null', signal ?? 'none'));
+                vscode.window.showErrorMessage(localize(6, null, code ?? 'null', signal ?? 'none'));
             }
         });
     });

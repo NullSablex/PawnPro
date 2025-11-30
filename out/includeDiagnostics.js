@@ -51,7 +51,7 @@ export function activateIncludeDiagnostics(context) {
             const fromDir = path.dirname(doc.fileName);
             const resolved = resolveInclude(token, fromDir, includePaths);
             if (!resolved) {
-                const d = new vscode.Diagnostic(range, localize('include.notFound', 'Include não encontrado: {0}', token), vscode.DiagnosticSeverity.Error);
+                const d = new vscode.Diagnostic(range, localize(0, null, token), vscode.DiagnosticSeverity.Error);
                 d.source = 'PawnPro';
                 diagnostics.push(d);
             }
