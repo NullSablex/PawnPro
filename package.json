@@ -303,7 +303,8 @@
     "vscode:prepublish": "npm run compile && npm run build-nls",
     "watch": "tsc -watch -p .",
     "package": "npm run package:full",
-    "package:full": "npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js"
+    "package:full": "npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js",
+    "package:pre": "npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

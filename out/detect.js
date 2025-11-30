@@ -112,7 +112,7 @@ export function detectPawncc(explicitPathRaw, autoDetect) {
         if (existsExecutable(p))
             return p;
         if (!autoDetect) {
-            throw new Error(localize('detect.missing.explicit', 'pawncc não encontrado em: {0}', normalized));
+            throw new Error(localize(0, null, normalized));
         }
     }
     // 2) PATH
@@ -129,6 +129,6 @@ export function detectPawncc(explicitPathRaw, autoDetect) {
         if (existsExecutable(c))
             return c;
     }
-    throw new Error(localize('detect.missing', 'Não foi possível detectar o executável pawncc. Configure "pawnpro.compiler.path".'));
+    throw new Error(localize(1, null));
 }
 //# sourceMappingURL=detect.js.map
