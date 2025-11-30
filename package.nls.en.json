@@ -1,0 +1,11 @@
+{
+  "text.description": "Compilation and diagnostics for PAWN files in VS Code, including #include checking and pawncc integration.",
+  "command.compile": "PawnPro: Compile current file",
+  "command.detect": "PawnPro: Detect compiler (pawncc)",
+  "config.includePaths": "Extra directories for #include resolution.",
+  "config.autoDetect": "Automatically detect pawncc path if the configured one does not exist or is empty.",
+  "config.compilerPath": "Path to the pawncc executable. Leave empty to auto-detect.",
+  "config.compilerArgs": "Default flags passed to pawncc.",
+  "config.outputEncoding": "Compiler output decoding.",
+  "config.showCommand": "Show the full pawncc command line in Output."
+}

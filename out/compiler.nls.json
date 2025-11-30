@@ -1,0 +1,20 @@
+{
+    "messages": [
+        "pawncc detectado: {0}",
+        "{0}",
+        "Abra um arquivo .pwn para compilar.",
+        "{0}",
+        "Falha ao iniciar pawncc: {0}",
+        "Compilado com sucesso.",
+        "Compilação falhou. code={0} signal={1}"
+    ],
+    "keys": [
+        "detect.ok",
+        "detect.fail",
+        "build.openPwn",
+        "detect.fail",
+        "build.startError",
+        "build.success",
+        "build.failed"
+    ]
+}
