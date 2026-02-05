@@ -146,7 +146,9 @@ export class PawnProConfigManager {
     let cursor: Record<string, unknown> = current;
     for (let i = 0; i < parts.length - 1; i++) {
       const key = parts[i];
-      if (!isPlainObject(cursor[key])) {
+      const valueAtKey = cursor[key];
+      if (!isPlainObject(valueAtKey)) {
+        // Ensure we only ever traverse into plain objects
         cursor[key] = {};
       }
       cursor = cursor[key] as Record<string, unknown>;
