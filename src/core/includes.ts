@@ -155,10 +155,23 @@ function stripCommentsWhole(text: string): string {
 
 /* ─── Recursive file listing ────────────────────────────────────── */
 
-export async function listIncFilesRecursive(root: string, maxDepth = 10, maxFiles = 500): Promise<string[]> {
+export async function listIncFilesRecursive(root: string, maxDepth = 20): Promise<string[]> {
   const out: string[] = [];
+  const visited = new Set<string>(); // Prevent symlink loops
+
   async function walk(dir: string, depth: number) {
-    if (depth > maxDepth || out.length >= maxFiles) return;
+    if (depth > maxDepth) return;
+
+    // Resolve real path to detect symlink loops
+    let realDir: string;
+    try {
+      realDir = await fsp.realpath(dir);
+    } catch {
+      return;
+    }
+    if (visited.has(realDir)) return;
+    visited.add(realDir);
+
     let entries;
     try {
       entries = await fsp.readdir(dir, { withFileTypes: true });
@@ -166,7 +179,6 @@ export async function listIncFilesRecursive(root: string, maxDepth = 10, maxFile
       return;
     }
     for (const e of entries) {
-      if (out.length >= maxFiles) break;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name === 'node_modules' || e.name === '.git' || e.name === '.vscode' || e.name === '.pawnpro') continue;
