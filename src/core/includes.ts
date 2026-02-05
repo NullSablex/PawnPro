@@ -155,9 +155,10 @@ function stripCommentsWhole(text: string): string {
 
 /* ─── Recursive file listing ────────────────────────────────────── */
 
-export async function listIncFilesRecursive(root: string): Promise<string[]> {
+export async function listIncFilesRecursive(root: string, maxDepth = 10, maxFiles = 500): Promise<string[]> {
   const out: string[] = [];
-  async function walk(dir: string) {
+  async function walk(dir: string, depth: number) {
+    if (depth > maxDepth || out.length >= maxFiles) return;
     let entries;
     try {
       entries = await fsp.readdir(dir, { withFileTypes: true });
@@ -165,16 +166,17 @@ export async function listIncFilesRecursive(root: string): Promise<string[]> {
       return;
     }
     for (const e of entries) {
+      if (out.length >= maxFiles) break;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name === 'node_modules' || e.name === '.git' || e.name === '.vscode' || e.name === '.pawnpro') continue;
-        await walk(p);
+        await walk(p, depth + 1);
       } else if (e.isFile() && e.name.toLowerCase().endsWith('.inc')) {
         out.push(p);
       }
     }
   }
-  await walk(root);
+  await walk(root, 0);
   return out;
 }
 
