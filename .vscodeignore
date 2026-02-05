@@ -1,0 +1,8 @@
+.vscode/**
+.pawnpro/**
+src/**
+test/**
+tests/**
+**/*.map
+scripts
+.claude

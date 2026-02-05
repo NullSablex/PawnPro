@@ -1,0 +1,226 @@
+{
+  "name": "pawnpro",
+  "displayName": "PawnPro",
+  "description": "%text.description%",
+  "version": "2.0.0",
+  "publisher": "NullSablex",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": ["Programming Languages", "Linters"],
+  "keywords": ["pawn", "sa-mp", "samp", "gta", "pwn", "server", "rcon"],
+  "activationEvents": ["onStartupFinished"],
+  "bugs": {
+    "url": "https://github.com/NullSablex/PawnPro/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NullSablex/PawnPro"
+  },
+  "icon": "images/logo.png",
+  "main": "./out/vscode/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "pawnpro", "title": "PawnPro", "icon": "images/icon.svg" }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "pawnpro.includesView.explorer",
+          "name": "Includes",
+          "icon": "symbol-method",
+          "when": "!config.pawnpro.ui.separateContainer"
+        },
+        {
+          "id": "pawnpro.serverView.explorer",
+          "name": "Servidor",
+          "icon": "symbol-method",
+          "type": "webview",
+          "when": "!config.pawnpro.ui.separateContainer"
+        }
+      ],
+      "pawnpro": [
+        {
+          "id": "pawnpro.includesView",
+          "name": "Includes",
+          "icon": "symbol-method",
+          "when": "config.pawnpro.ui.separateContainer"
+        },
+        {
+          "id": "pawnpro.serverView",
+          "name": "Servidor",
+          "icon": "symbol-method",
+          "type": "webview",
+          "when": "config.pawnpro.ui.separateContainer"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "pawnpro.compileCurrent",
+        "key": "ctrl+alt+b",
+        "when": "editorLangId == pawn && editorTextFocus"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pawn",
+        "scopeName": "source.pawn",
+        "path": "./syntaxes/pawn.tmLanguage.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "pawn",
+        "aliases": ["PAWN", "pawn"],
+        "extensions": [".pwn", ".inc"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "pawnpro.compileCurrent",
+        "title": "%command.compile%"
+      },
+      {
+        "command": "pawnpro.detectCompiler",
+        "title": "%command.detect%"
+      },
+      {
+        "command": "pawnpro.applySyntaxScheme",
+        "title": "PawnPro: Aplicar esquema de sintaxe"
+      },
+      {
+        "command": "pawnpro.resetSyntaxScheme",
+        "title": "PawnPro: Restaurar sintaxe (remover esquema PawnPro)"
+      },
+      {
+        "command": "pawnpro.server.start",
+        "title": "PawnPro: Start Server",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "pawnpro.server.stop",
+        "title": "PawnPro: Stop Server",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "pawnpro.server.restart",
+        "title": "PawnPro: Restart Server",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "pawnpro.server.show",
+        "title": "PawnPro: Show Server Console",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "pawnpro.server.showLog",
+        "title": "PawnPro: Show Server Log",
+        "icon": "$(output)"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "PawnPro",
+      "properties": {
+        "pawnpro.ui.separateContainer": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Synced from `.pawnpro/config.json`. When **enabled**, moves PawnPro views to a dedicated container in the Activity Bar. All other settings are managed via `.pawnpro/config.json`."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[pawn]": {
+        "files.encoding": "windows1252"
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "pawnpro.server.start",
+          "when": "view == pawnpro.serverView && !pawnpro.server.running",
+          "group": "navigation"
+        },
+        {
+          "command": "pawnpro.server.stop",
+          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "group": "navigation"
+        },
+        {
+          "command": "pawnpro.server.restart",
+          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawnpro.server.show",
+          "when": "view == pawnpro.serverView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pawnpro.server.showLog",
+          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "group": "navigation@3"
+        },
+
+        {
+          "command": "pawnpro.server.start",
+          "when": "view == pawnpro.serverView.explorer && !pawnpro.server.running",
+          "group": "navigation"
+        },
+        {
+          "command": "pawnpro.server.stop",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "group": "navigation"
+        },
+        {
+          "command": "pawnpro.server.restart",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawnpro.server.show",
+          "when": "view == pawnpro.serverView.explorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pawnpro.server.showLog",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        { "command": "pawnpro.server.start", "when": "true" },
+        { "command": "pawnpro.server.stop", "when": "true" },
+        { "command": "pawnpro.server.restart", "when": "true" },
+        { "command": "pawnpro.server.show", "when": "true" },
+        { "command": "pawnpro.server.showLog", "when": "true" }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "vscode:prepublish": "npm run compile",
+    "watch": "tsc -watch -p .",
+    "package": "npm run package:full",
+    "package:full": "npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js",
+    "package:pre": "npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/vscode": "^1.106.1",
+    "@vscode/vsce": "^3.7.1",
+    "jszip": "^3.10.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.2"
+  },
+  "packagedDependencies": ["iconv-lite", "safer-buffer"],
+  "bundledDependencies": ["iconv-lite", "safer-buffer"]
+}

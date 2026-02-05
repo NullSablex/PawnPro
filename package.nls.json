@@ -1,0 +1,5 @@
+{
+  "text.description": "Compilação e diagnósticos para arquivos PAWN, incluindo verificação de #include e integração com pawncc. Configurações em .pawnpro/config.json.",
+  "command.compile": "PawnPro: Compilar arquivo atual",
+  "command.detect": "PawnPro: Detectar compilador (pawncc)"
+}
