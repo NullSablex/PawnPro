@@ -137,6 +137,12 @@ export class PawnProConfigManager {
     const current = readJsonFile(filePath) ?? {};
 
     const parts = dotPath.split('.');
+    // Guard against prototype pollution
+    const forbidden = ['__proto__', 'constructor', 'prototype'];
+    if (parts.some(p => forbidden.includes(p))) {
+      throw new Error('Invalid config key: prototype pollution attempt');
+    }
+
     let cursor: Record<string, unknown> = current;
     for (let i = 0; i < parts.length - 1; i++) {
       const key = parts[i];
