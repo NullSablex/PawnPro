@@ -49,13 +49,13 @@ export class PawnProStateManager {
         writeJsonFile(this.filePath, this.data);
     }
     getAll() {
-        return this.data;
+        return structuredClone(this.data);
     }
     get(key) {
-        return this.data[key];
+        return structuredClone(this.data[key]);
     }
     update(key, value) {
-        this.data[key] = value;
+        this.data[key] = structuredClone(value);
         this.save();
     }
 }

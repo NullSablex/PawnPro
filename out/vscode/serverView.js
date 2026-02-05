@@ -196,13 +196,17 @@ export class ServerViewProvider {
   let favorites = [];
   let cursor = -1;
 
+  function escapeAttr(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
   function mkCmdRow(text, opts = {}) {
+    const safeText = String(text || '');
     const row = document.createElement('div');
     row.className = 'cmd-row';
     const span = document.createElement('div');
     span.className = 'cmd-text';
-    span.title = text;
-    span.textContent = text;
+    span.setAttribute('title', escapeAttr(safeText));
+    span.textContent = safeText;
     row.appendChild(span);
 
     if (opts.star !== undefined) {
@@ -212,7 +216,7 @@ export class ServerViewProvider {
       star.title = opts.star ? 'Remover dos favoritos' : 'Adicionar aos favoritos';
       star.addEventListener('click', (e) => {
         e.stopPropagation();
-        vscode.postMessage({ type: opts.star ? 'removeFavorite' : 'addFavorite', command: text });
+        vscode.postMessage({ type: opts.star ? 'removeFavorite' : 'addFavorite', command: safeText });
       });
       row.appendChild(star);
     }
@@ -222,12 +226,12 @@ export class ServerViewProvider {
       send.className = 'mini';
       send.textContent = 'Enviar';
       send.title = 'Enviar para o servidor';
-      send.addEventListener('click', (e) => { e.stopPropagation(); sendCmd(text); });
+      send.addEventListener('click', (e) => { e.stopPropagation(); sendCmd(safeText); });
       row.appendChild(send);
     }
 
     row.addEventListener('click', () => {
-      input.value = text;
+      input.value = safeText;
       input.focus();
       setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
     });
