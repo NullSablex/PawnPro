@@ -87,10 +87,19 @@ function decodeWithFallback(buf: Buffer): string {
 /* ─── File Text Cache ──────────────────────────────────────────── */
 
 export async function getFileText(filePath: string): Promise<string | null> {
+  const norm = path.normalize(filePath);
+
+  // Check for unsaved-document entry first (pseudo mtime is negative).
+  // This must come before getMtime() so in-memory edits are always preferred
+  // over the on-disk snapshot.
+  const cached = textCache.get(norm);
+  if (cached && cached.mtimeMs < 0) {
+    return cached.data;
+  }
+
   const mtime = await getMtime(filePath);
   if (mtime === null) return null;
 
-  const cached = textCache.get(filePath);
   if (cached && cached.mtimeMs === mtime) {
     return cached.data;
   }
@@ -98,7 +107,7 @@ export async function getFileText(filePath: string): Promise<string | null> {
   try {
     const buf = await fsp.readFile(filePath);
     const text = decodeWithFallback(buf);
-    textCache.set(filePath, { mtimeMs: mtime, data: text });
+    textCache.set(norm, { mtimeMs: mtime, data: text });
     evictOldest(textCache, MAX_TEXT_ENTRIES);
     return text;
   } catch {
@@ -109,10 +118,11 @@ export async function getFileText(filePath: string): Promise<string | null> {
 /* ─── File Identifiers Cache (for unused detection) ───────────── */
 
 export async function getFileIdents(filePath: string): Promise<Set<string>> {
+  const norm = path.normalize(filePath);
   const mtime = await getMtime(filePath);
   if (mtime === null) return new Set();
 
-  const cached = identsCache.get(filePath);
+  const cached = identsCache.get(norm);
   if (cached && cached.mtimeMs === mtime) {
     return cached.data;
   }
@@ -127,7 +137,7 @@ export async function getFileIdents(filePath: string): Promise<Set<string>> {
     idents.add(m[1]);
   }
 
-  identsCache.set(filePath, { mtimeMs: mtime, data: idents });
+  identsCache.set(norm, { mtimeMs: mtime, data: idents });
   evictOldest(identsCache, MAX_IDENTS_ENTRIES);
   return idents;
 }
@@ -312,10 +322,11 @@ function parseTextSymbols(text: string, file?: string): { sigs: Map<string, SigI
 }
 
 export async function getFileSymbols(filePath: string): Promise<{ sigs: Map<string, SigInfo>; macros: Set<string> }> {
+  const norm = path.normalize(filePath);
   const mtime = await getMtime(filePath);
   if (mtime === null) return { sigs: new Map(), macros: new Set() };
 
-  const cached = symbolsCache.get(filePath);
+  const cached = symbolsCache.get(norm);
   if (cached && cached.mtimeMs === mtime) {
     return cached.data;
   }
@@ -323,8 +334,8 @@ export async function getFileSymbols(filePath: string): Promise<{ sigs: Map<stri
   const text = await getFileText(filePath);
   if (!text) return { sigs: new Map(), macros: new Set() };
 
-  const parsed = parseTextSymbols(text, filePath);
-  symbolsCache.set(filePath, { mtimeMs: mtime, data: parsed });
+  const parsed = parseTextSymbols(text, norm);
+  symbolsCache.set(norm, { mtimeMs: mtime, data: parsed });
   evictOldest(symbolsCache, MAX_SYMBOLS_ENTRIES);
   return parsed;
 }
@@ -380,10 +391,11 @@ function chooseBestFuncs(funcs: LocalFunc[]): LocalFunc[] {
 }
 
 export async function getFileFunctions(filePath: string): Promise<LocalFunc[]> {
+  const norm = path.normalize(filePath);
   const mtime = await getMtime(filePath);
   if (mtime === null) return [];
 
-  const cached = funcsCache.get(filePath);
+  const cached = funcsCache.get(norm);
   if (cached && cached.mtimeMs === mtime) {
     return cached.data;
   }
@@ -392,7 +404,7 @@ export async function getFileFunctions(filePath: string): Promise<LocalFunc[]> {
   if (!text) return [];
 
   const funcs = chooseBestFuncs(parseTextFunctions(text));
-  funcsCache.set(filePath, { mtimeMs: mtime, data: funcs });
+  funcsCache.set(norm, { mtimeMs: mtime, data: funcs });
   evictOldest(funcsCache, MAX_FUNCS_ENTRIES);
   return funcs;
 }
@@ -467,10 +479,11 @@ function parseApiFile(file: string, text: string): Map<string, FuncEntry> {
 }
 
 export async function getApiFileFunctions(filePath: string): Promise<Map<string, FuncEntry>> {
+  const norm = path.normalize(filePath);
   const mtime = await getMtime(filePath);
   if (mtime === null) return new Map();
 
-  const cached = apiCache.get(filePath);
+  const cached = apiCache.get(norm);
   if (cached && cached.mtimeMs === mtime) {
     return cached.data;
   }
@@ -478,8 +491,8 @@ export async function getApiFileFunctions(filePath: string): Promise<Map<string,
   const text = await getFileText(filePath);
   if (!text) return new Map();
 
-  const funcs = parseApiFile(filePath, text);
-  apiCache.set(filePath, { mtimeMs: mtime, data: funcs });
+  const funcs = parseApiFile(norm, text);
+  apiCache.set(norm, { mtimeMs: mtime, data: funcs });
   evictOldest(apiCache, MAX_API_ENTRIES);
   return funcs;
 }
@@ -531,14 +544,17 @@ export async function getApiIndex(includePaths: string[]): Promise<Map<string, F
 
 /* ─── Included Files Cache ─────────────────────────────────────── */
 
-const INCLUDE_RX = /#\s*include\s*(<|")\s*([^>"]+)\s*(>|")/g;
+const INCLUDE_RX = /#\s*include\s*(?:<([^>]+)>|"([^"]+)")/;
 
 function collectIncludeTokens(text: string): string[] {
   const tokens = new Set<string>();
-  let m: RegExpExecArray | null;
-  INCLUDE_RX.lastIndex = 0;
-  while ((m = INCLUDE_RX.exec(text))) {
-    tokens.add(m[2].trim());
+  const lines = text.split(/\r?\n/);
+  let inBlock = false;
+  for (const rawLine of lines) {
+    const stripped = stripCommentsPreserveColumns(rawLine, inBlock);
+    inBlock = stripped.inBlock;
+    const m = INCLUDE_RX.exec(stripped.text);
+    if (m) tokens.add((m[1] ?? m[2]).trim());
   }
   return [...tokens];
 }
@@ -552,7 +568,7 @@ export async function getIncludedFiles(
   const rootMtime = await getMtime(rootFilePath);
   if (rootMtime === null) return [];
 
-  const cacheKey = rootFilePath;
+  const cacheKey = rootFilePath + '\0' + includePaths.join('\0');
   const cached = includesCache.get(cacheKey);
   if (cached && cached.rootMtimeMs === rootMtime) {
     return cached.files;
@@ -624,7 +640,9 @@ export function invalidateFile(filePath: string): void {
   apiCache.delete(norm);
 
   for (const [key, entry] of includesCache) {
-    if (entry.files.includes(norm) || key === norm) {
+    // key format: "<rootFilePath>\0<paths...>"
+    const rootOfKey = key.split('\0')[0];
+    if (entry.files.includes(norm) || rootOfKey === norm) {
       includesCache.delete(key);
     }
   }
