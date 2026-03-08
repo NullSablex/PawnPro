@@ -5,7 +5,7 @@ import { resolveInclude } from './utils.js';
 import type { DiagnosticData, NativeEntry, PawnProConfig } from './types.js';
 
 const INCLUDE_RX_GLOBAL = /#\s*include\s*(<|")\s*([^>"]+)\s*(>|")/g;
-const NATIVE_RX = /^\s*(?:forward\s+)?native\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*;/gm;
+const NATIVE_RX = /^\s*(?:forward\s+)?native\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(([^)]*)\)\s*;/gm;
 
 /* ─── Include path resolution ───────────────────────────────────── */
 
@@ -34,10 +34,68 @@ export function buildIncludePaths(config: PawnProConfig, workspaceRoot: string):
 
 /* ─── Diagnostics ───────────────────────────────────────────────── */
 
+function isOffsetInComment(text: string, offset: number): boolean {
+  // Check if offset is inside a comment (// or /* */)
+  let inBlock = false;
+  let i = 0;
+  while (i < offset && i < text.length) {
+    if (!inBlock) {
+      if (text[i] === '/' && text[i + 1] === '/') {
+        // Line comment - skip to end of line
+        const eol = text.indexOf('\n', i);
+        if (eol === -1 || offset <= eol) return offset > i;
+        i = eol + 1;
+        continue;
+      }
+      if (text[i] === '/' && text[i + 1] === '*') {
+        inBlock = true;
+        i += 2;
+        continue;
+      }
+    } else {
+      if (text[i] === '*' && text[i + 1] === '/') {
+        inBlock = false;
+        i += 2;
+        continue;
+      }
+    }
+    i++;
+  }
+  return inBlock;
+}
+
+export type IncludeMsgBuilder = (
+  token: string,
+  hasExtension: boolean,
+  isRelative: boolean,
+  fromDir: string,
+  includePaths: string[],
+) => string;
+
+function defaultIncludeMsg(
+  token: string,
+  hasExtension: boolean,
+  isRelative: boolean,
+  fromDir: string,
+  includePaths: string[],
+): string {
+  let msg = `Include não encontrada: "${token}"`;
+  if (!hasExtension) msg += ` (tentou: ${token}.inc)`;
+  if (isRelative) {
+    msg += `. Caminho relativo a: ${fromDir}`;
+  } else if (includePaths.length > 0) {
+    msg += `. Buscado em: ${includePaths.slice(0, 2).join(', ')}${includePaths.length > 2 ? '...' : ''}`;
+  } else {
+    msg += `. Nenhum includePaths configurado.`;
+  }
+  return msg;
+}
+
 export function analyzeIncludes(
   text: string,
   filePath: string,
   includePaths: string[],
+  buildMsg: IncludeMsgBuilder = defaultIncludeMsg,
 ): DiagnosticData[] {
   const diagnostics: DiagnosticData[] = [];
   const fromDir = path.dirname(filePath);
@@ -46,19 +104,19 @@ export function analyzeIncludes(
   INCLUDE_RX_GLOBAL.lastIndex = 0;
 
   while ((m = INCLUDE_RX_GLOBAL.exec(text))) {
-    const token = m[2].trim();
     const startOffset = m.index;
-    const endOffset = m.index + m[0].length;
+    if (isOffsetInComment(text, startOffset)) continue;
 
+    const token = m[2].trim();
+    const endOffset = m.index + m[0].length;
     const resolved = resolveInclude(token, fromDir, includePaths);
+
     if (!resolved) {
-      diagnostics.push({
-        startOffset,
-        endOffset,
-        message: `Include not found: ${token}`,
-        severity: 'error',
-        source: 'PawnPro',
-      });
+      const isRelative = token.startsWith('.') || token.includes('/') || token.includes('\\');
+      const hasExtension = token.toLowerCase().endsWith('.inc');
+      const message = buildMsg(token, hasExtension, isRelative, fromDir, includePaths);
+
+      diagnostics.push({ startOffset, endOffset, message, severity: 'error', source: 'PawnPro' });
     }
   }
 
@@ -197,8 +255,8 @@ export async function listIncFilesRecursive(root: string, maxDepth = 20): Promis
 export async function gatherIncludedFiles(
   rootFilePath: string,
   includePaths: string[],
-  maxDepth = 3,
-  maxFiles = 30,
+  maxDepth = 5,
+  maxFiles = 100,
 ): Promise<string[]> {
   const out: string[] = [];
   const seen = new Set<string>();

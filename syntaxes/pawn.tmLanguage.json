@@ -14,7 +14,8 @@
     { "include": "#builtins" },
     { "include": "#bplr" },
     { "include": "#functions" },
-    { "include": "#constants" }
+    { "include": "#constants" },
+    { "include": "#punctuation" }
   ],
   "repository": {
     "comments": {
@@ -147,6 +148,16 @@
           "name": "constant.other.define.pawn",
           "match": "\\b[A-Z_][A-Z0-9_]{2,}\\b"
         }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        { "name": "punctuation.paren.open.pawn", "match": "\\(" },
+        { "name": "punctuation.paren.close.pawn", "match": "\\)" },
+        { "name": "punctuation.bracket.open.pawn", "match": "\\[" },
+        { "name": "punctuation.bracket.close.pawn", "match": "\\]" },
+        { "name": "punctuation.brace.open.pawn", "match": "\\{" },
+        { "name": "punctuation.brace.close.pawn", "match": "\\}" }
       ]
     }
   },

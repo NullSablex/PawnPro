@@ -3,7 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
+import { invalidateFile, setDocumentText } from '../core/fileCache.js';
 import type { PawnProConfig } from '../core/types.js';
+import { msg } from './nls.js';
 
 let configManager: PawnProConfigManager | undefined;
 let stateManager: PawnProStateManager | undefined;
@@ -35,7 +37,7 @@ function syncSeparateContainer(cfg: PawnProConfig) {
 }
 
 async function migrateFromVsCodeSettings(
-  projectRoot: string,
+  _projectRoot: string,
   config: PawnProConfigManager,
   state: PawnProStateManager,
   context: vscode.ExtensionContext,
@@ -97,9 +99,7 @@ async function migrateFromVsCodeSettings(
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(config.projectConfigPath, JSON.stringify(partial, null, 2) + '\n', 'utf8');
     config.reload();
-    vscode.window.showInformationMessage(
-      'PawnPro: Settings migrated to .pawnpro/config.json',
-    );
+    vscode.window.showInformationMessage(msg.general.settingsMigrated());
   }
 }
 
@@ -151,6 +151,24 @@ export function activateConfigBridge(
 
   // Migration from VS Code settings (async, best-effort)
   void migrateFromVsCodeSettings(projectRoot, configManager, stateManager, context);
+
+  // Watch .pwn and .inc files for cache invalidation
+  const pawnWatcher = vscode.workspace.createFileSystemWatcher('**/*.{pwn,inc}');
+  const onFileChange = (uri: vscode.Uri) => invalidateFile(uri.fsPath);
+  pawnWatcher.onDidChange(onFileChange);
+  pawnWatcher.onDidCreate(onFileChange);
+  pawnWatcher.onDidDelete(onFileChange);
+  context.subscriptions.push(pawnWatcher);
+
+  // Update cache with unsaved document content
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      const doc = e.document;
+      if (doc.languageId === 'pawn' && doc.isDirty) {
+        setDocumentText(doc.fileName, doc.getText(), doc.version);
+      }
+    }),
+  );
 
   return { config: configManager, state: stateManager };
 }
