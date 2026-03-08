@@ -6,6 +6,60 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [2.1.0-rc.1] - 08/03/2026
+
+### Adicionado
+- **CodeLens com contagem de referências** - Mostra "X referências" acima de cada função
+- **Detecção de macros públicas** - CodeLens detecta funções declaradas via macro (`PREFIX::Nome()`), equivalentes a `forward + public`
+- **Detecção de símbolos não utilizados** - Alerta para variáveis e funções `stock` não utilizadas
+- **Sintaxe para pontuação** - Destaque para `()`, `[]` e `{}`
+- **Validação de declarações** - Verifica estrutura de `native/forward/public/stock`
+- **Signature Help** - Exibe assinatura e parâmetro ativo ao digitar `(` e `,`
+- **Auto-complete** - Sugestões de funções e macros de includes e API
+- **Internacionalização (NLS)** - Suporte a múltiplos idiomas via `vscode-nls` (PT-BR/EN); todas as strings de usuário migradas para `nls.ts`
+- **Comando de debug de cache** - `PawnPro: Cache Statistics (Debug)` exibe contadores internos do cache
+- **Painel "O que há de novo"** - Exibe automaticamente as novidades da versão na primeira execução após atualização; lê o `CHANGELOG.md` em tempo de execução; reabrível via `PawnPro: O que há de novo`
+- **Template de script** - Comando `PawnPro: Novo Script (Gamemode/Filterscript)` abre um documento Pawn com o template padrão SA-MP (inclui todos os callbacks; descomente `#define FILTERSCRIPT` para modo filterscript)
+
+### Alterado
+- **Hover em funções** - Busca apenas em arquivos efetivamente incluídos
+- **Natives com tags de retorno** - Reconhece `native bool:funcName(...)`, etc.
+- **Terminal do servidor** - Reutiliza terminal existente
+- **Diagnósticos ignoram comentários** - `#include` em comentários não gera alertas
+
+### Melhorado
+- **Cache centralizado** - Sistema de cache unificado (`fileCache.ts`) compartilhado por todos os componentes
+- **Invalidação por FileWatcher** - Cache invalida automaticamente quando arquivos `.pwn`/`.inc` mudam
+- **Pre-warming do cache** - Carregamento em background na ativação da extensão
+- **Suporte a documentos não salvos** - Cache usa `document.version` para arquivos abertos
+- **Performance do hover** - Migrado para cache centralizado
+- **Performance do apiIndex** - Migrado para cache centralizado (~100 linhas removidas)
+- **Proteção contra compilação dupla** - Bloqueia se já está compilando
+- **Status de compilação** - Notificação "Compilando: arquivo.pwn"
+- **Performance de diagnósticos** - Debounce e cancelamento
+- **IntelliSense com includes** - Usa funções de arquivos incluídos
+
+### Segurança
+- **CWE-400 (ReDoS)** - `unusedAnalyzer.ts`: adicionado `escapeRe()` em todas as interpolações de `new RegExp(name)` para prevenir backtracking catastrófico com identificadores maliciosos
+- **CVE em dependências transitivas de devDeps** - Adicionado `overrides` no `package.json` para fixar versões corrigidas de `minimatch` (≥10.2.3), `qs` (≥6.14.2), `ajv` (≥8.18.0), `markdown-it` (≥14.1.1) e `underscore` (≥1.13.8); `npm audit` retorna 0 vulnerabilidades
+- **SECURITY.md** - Adicionado relatório completo de auditoria (CWE-78, CWE-79, CWE-22, CWE-400, CWE-915 + análise CVE)
+
+---
+
+## [2.0.2-beta] - 05/02/2026
+
+### Segurança
+- **Proteção contra prototype pollution** (CWE-915) - `setKey()` bloqueia `__proto__`, `constructor`, `prototype`
+- **Cópia defensiva de estado** (CWE-471) - `structuredClone()` para evitar mutação externa
+- **Proteção contra loops de symlinks** (CWE-400) - `listIncFilesRecursive` usa `realpath` + `Set<string>`
+- **Prevenção de XSS** (CWE-79) - `serverView.ts` escapa atributos HTML
+- Dependências atualizadas via `npm audit fix`
+
+### Corrigido
+- Removido limite artificial de 500 arquivos em includes; usa `maxDepth=20` + detecção de symlinks cíclicos
+
+---
+
 ## [2.0.0] - 05/02/2026
 
 ### Alterado (Breaking Changes)

@@ -2,16 +2,29 @@
   "name": "pawnpro",
   "displayName": "PawnPro",
   "description": "%text.description%",
-  "version": "2.0.2",
+  "version": "2.1.0-rc.1",
   "publisher": "NullSablex",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
   "engines": {
     "vscode": "^1.106.0"
   },
-  "categories": ["Programming Languages", "Linters"],
-  "keywords": ["pawn", "sa-mp", "samp", "gta", "pwn", "server", "rcon"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "keywords": [
+    "pawn",
+    "sa-mp",
+    "samp",
+    "gta",
+    "pwn",
+    "server",
+    "rcon"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "bugs": {
     "url": "https://github.com/NullSablex/PawnPro/issues"
   },
@@ -24,7 +37,11 @@
   "contributes": {
     "viewsContainers": {
       "activitybar": [
-        { "id": "pawnpro", "title": "PawnPro", "icon": "images/icon.svg" }
+        {
+          "id": "pawnpro",
+          "title": "PawnPro",
+          "icon": "images/icon.svg"
+        }
       ]
     },
     "views": {
@@ -76,8 +93,14 @@
     "languages": [
       {
         "id": "pawn",
-        "aliases": ["PAWN", "pawn"],
-        "extensions": [".pwn", ".inc"],
+        "aliases": [
+          "PAWN",
+          "pawn"
+        ],
+        "extensions": [
+          ".pwn",
+          ".inc"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -122,6 +145,18 @@
         "command": "pawnpro.server.showLog",
         "title": "PawnPro: Show Server Log",
         "icon": "$(output)"
+      },
+      {
+        "command": "pawnpro.cacheStats",
+        "title": "PawnPro: Cache Statistics (Debug)"
+      },
+      {
+        "command": "pawnpro.whatsNew",
+        "title": "%command.whatsNew%"
+      },
+      {
+        "command": "pawnpro.newScript",
+        "title": "%command.newScript%"
       }
     ],
     "configuration": {
@@ -167,7 +202,6 @@
           "when": "view == pawnpro.serverView && pawnpro.server.running",
           "group": "navigation@3"
         },
-
         {
           "command": "pawnpro.server.start",
           "when": "view == pawnpro.serverView.explorer && !pawnpro.server.running",
@@ -195,11 +229,26 @@
         }
       ],
       "commandPalette": [
-        { "command": "pawnpro.server.start", "when": "true" },
-        { "command": "pawnpro.server.stop", "when": "true" },
-        { "command": "pawnpro.server.restart", "when": "true" },
-        { "command": "pawnpro.server.show", "when": "true" },
-        { "command": "pawnpro.server.showLog", "when": "true" }
+        {
+          "command": "pawnpro.server.start",
+          "when": "true"
+        },
+        {
+          "command": "pawnpro.server.stop",
+          "when": "true"
+        },
+        {
+          "command": "pawnpro.server.restart",
+          "when": "true"
+        },
+        {
+          "command": "pawnpro.server.show",
+          "when": "true"
+        },
+        {
+          "command": "pawnpro.server.showLog",
+          "when": "true"
+        }
       ]
     }
   },
@@ -212,15 +261,39 @@
     "package:pre": "npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
+    "@types/node": "^25.3.5",
     "@types/vscode": "^1.106.1",
     "@vscode/vsce": "^3.7.1",
     "jszip": "^3.10.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "iconv-lite": "^0.7.2"
+    "iconv-lite": "^0.7.2",
+    "vscode-nls": "^5.2.0"
   },
-  "packagedDependencies": ["iconv-lite", "safer-buffer"],
-  "bundledDependencies": ["iconv-lite", "safer-buffer"]
+  "packagedDependencies": [
+    "iconv-lite",
+    "safer-buffer",
+    "vscode-nls"
+  ],
+  "bundledDependencies": [
+    "iconv-lite",
+    "safer-buffer",
+    "vscode-nls"
+  ],
+  "bundleDependencies": [
+    "iconv-lite",
+    "safer-buffer",
+    "vscode-nls"
+  ],
+  "overrides": {
+    "@vscode/vsce": {
+      "minimatch": "3.1.5"
+    },
+    "minimatch": "10.2.3",
+    "qs": "6.14.2",
+    "ajv": "8.18.0",
+    "markdown-it": "14.1.1",
+    "underscore": "1.13.8"
+  }
 }

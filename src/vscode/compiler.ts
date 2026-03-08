@@ -4,6 +4,7 @@ import { detectPawncc, buildCompileArgs, runCompile } from '../core/compiler.js'
 import { computeMinimalArgs, detectSupportedFlags } from '../core/flags.js';
 import { PawnProConfigManager } from '../core/config.js';
 import { getWorkspaceRoot } from './configBridge.js';
+import { msg } from './nls.js';
 
 let buildChannel: vscode.OutputChannel | undefined;
 function getBuildChannel(context: vscode.ExtensionContext): vscode.OutputChannel {
@@ -13,6 +14,9 @@ function getBuildChannel(context: vscode.ExtensionContext): vscode.OutputChannel
   }
   return buildChannel;
 }
+
+// Track files currently being compiled to prevent double compilation
+const compilingFiles = new Set<string>();
 
 export function registerCompileCommand(
   context: vscode.ExtensionContext,
@@ -26,7 +30,7 @@ export function registerCompileCommand(
         const ws = getWorkspaceRoot();
         const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
         config.setKey('compiler.path', exe, 'project');
-        vscode.window.showInformationMessage(`pawncc detectado: ${exe}`);
+        vscode.window.showInformationMessage(msg.compiler.detected(exe));
       } catch (e: any) {
         vscode.window.showErrorMessage(e?.message || String(e));
       }
@@ -37,65 +41,87 @@ export function registerCompileCommand(
   const cmd = vscode.commands.registerCommand('pawnpro.compileCurrent', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor || !isPawnFile(editor.document.fileName)) {
-      vscode.window.showWarningMessage('Abra um arquivo .pwn para compilar.');
+      vscode.window.showWarningMessage(msg.compiler.notPawnFile());
       return;
     }
-    await editor.document.save();
 
-    const channel = getBuildChannel(context);
-    channel.clear();
-    channel.show(true);
+    const filePath = editor.document.fileName;
+    const baseName = filePath.split(/[\\/]/).pop() || filePath;
 
-    const cfg = config.getAll();
-    const ws = getWorkspaceRoot();
+    // Prevent double compilation of the same file
+    if (compilingFiles.has(filePath)) {
+      vscode.window.showWarningMessage(msg.compiler.alreadyCompiling(baseName));
+      return;
+    }
+
+    compilingFiles.add(filePath);
 
     try {
-      const compileArgs = buildCompileArgs({
-        config: cfg,
-        filePath: editor.document.fileName,
-        workspaceRoot: ws,
-      });
+      await editor.document.save();
 
-      // Log removed flags
-      for (const flag of compileArgs.removedFlags) {
-        channel.appendLine(`[PawnPro] Removendo flag nao suportada para este pawncc: ${flag}`);
-      }
+      const channel = getBuildChannel(context);
+      channel.clear();
+      channel.show(true);
 
-      // If compiler.args was empty, we used a preset - save it
-      if (cfg.compiler.args.length === 0) {
-        const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
-        const supported = detectSupportedFlags(exe);
-        const preset = computeMinimalArgs(supported);
-        config.setKey('compiler.args', preset, 'project');
-        channel.appendLine(`[PawnPro] Nenhum argumento configurado. Aplicando preset minimo: ${preset.join(' ')}`);
-      }
+      const cfg = config.getAll();
+      const ws = getWorkspaceRoot();
 
-      // Log command if configured
-      if (cfg.build.showCommand) {
-        const show = (s: string) => (/\s/.test(s) ? `"${s}"` : s);
-        channel.appendLine(`[PawnPro] cwd=${compileArgs.cwd}`);
-        channel.appendLine(`[PawnPro] ${show(compileArgs.exe)} ${compileArgs.args.map(show).join(' ')}`);
-      }
+      // Use withProgress for visible feedback
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: msg.compiler.compiling(baseName),
+          cancellable: false,
+        },
+        async () => {
+          const compileArgs = buildCompileArgs({
+            config: cfg,
+            filePath,
+            workspaceRoot: ws,
+          });
 
-      // Run compilation
-      const result = await runCompile(
-        compileArgs.exe,
-        compileArgs.args,
-        compileArgs.cwd,
-        cfg.output.encoding,
+          // Log removed flags
+          for (const flag of compileArgs.removedFlags) {
+            channel.appendLine(`[PawnPro] Removendo flag não suportada para este pawncc: ${flag}`);
+          }
+
+          // If compiler.args was empty, we used a preset - save it
+          if (cfg.compiler.args.length === 0) {
+            const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
+            const supported = detectSupportedFlags(exe);
+            const preset = computeMinimalArgs(supported);
+            config.setKey('compiler.args', preset, 'project');
+            channel.appendLine(`[PawnPro] Nenhum argumento configurado. Aplicando preset mínimo: ${preset.join(' ')}`);
+          }
+
+          // Log command if configured
+          if (cfg.build.showCommand) {
+            const show = (s: string) => (/\s/.test(s) ? `"${s}"` : s);
+            channel.appendLine(`[PawnPro] cwd=${compileArgs.cwd}`);
+            channel.appendLine(`[PawnPro] ${show(compileArgs.exe)} ${compileArgs.args.map(show).join(' ')}`);
+          }
+
+          // Run compilation
+          const result = await runCompile(
+            compileArgs.exe,
+            compileArgs.args,
+            compileArgs.cwd,
+            cfg.output.encoding,
+          );
+
+          channel.append(result.output);
+
+          if (result.exitCode === 0) {
+            vscode.window.showInformationMessage(msg.compiler.success(baseName));
+          } else {
+            vscode.window.showErrorMessage(msg.compiler.failed(baseName));
+          }
+        },
       );
-
-      channel.append(result.output);
-
-      if (result.exitCode === 0) {
-        vscode.window.showInformationMessage('Compilado com sucesso.');
-      } else {
-        vscode.window.showErrorMessage(
-          `Compilacao falhou. code=${result.exitCode ?? 'null'} signal=${result.signal ?? 'none'}`,
-        );
-      }
     } catch (e: any) {
-      vscode.window.showErrorMessage(`Falha ao iniciar pawncc: ${e?.message || e}`);
+      vscode.window.showErrorMessage(`${msg.compiler.compilerNotFound('')}: ${e?.message || e}`);
+    } finally {
+      compilingFiles.delete(filePath);
     }
   });
 
