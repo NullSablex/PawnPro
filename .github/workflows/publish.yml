@@ -1,0 +1,63 @@
+name: Publish Extension
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Package (pre-release)
+        if: github.event.release.prerelease == true
+        run: npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js
+
+      - name: Package (release)
+        if: github.event.release.prerelease == false
+        run: npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js
+
+      - name: Find VSIX
+        id: vsix
+        run: echo "file=$(ls *.vsix | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload VSIX to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.vsix.outputs.file }}
+
+      - name: Publish to VS Code Marketplace
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            FLAGS="--pre-release"
+          fi
+          npx @vscode/vsce publish --packagePath "${{ steps.vsix.outputs.file }}" $FLAGS
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            FLAGS="--pre-release"
+          fi
+          npx ovsx publish "${{ steps.vsix.outputs.file }}" $FLAGS
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
