@@ -68,6 +68,8 @@ Todas as configurações são gerenciadas via arquivos JSON — **não** nas con
 - `pawnpro.server.show` — Mostrar **Console**
 - `pawnpro.server.showLog` — Mostrar **Log**
 - `pawnpro.cacheStats` — Estatísticas do cache interno (debug)
+- `pawnpro.whatsNew` — Exibir painel "O que há de novo"
+- `pawnpro.newScript` — Criar novo script Pawn (Gamemode/Filterscript) com template padrão SA-MP
 
 ## Leitura do `server.cfg`
 A extensão **lê localmente** (não modifica) para configurar o RCON:

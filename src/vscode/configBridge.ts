@@ -164,9 +164,17 @@ export function activateConfigBridge(
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((e) => {
       const doc = e.document;
-      if (doc.languageId === 'pawn' && doc.isDirty) {
+      if (doc.languageId !== 'pawn') return;
+      if (doc.isDirty) {
         setDocumentText(doc.fileName, doc.getText(), doc.version);
+      } else {
+        // Document was reverted or saved — drop the pseudo-mtime entry so
+        // subsequent reads pick up the on-disk snapshot.
+        invalidateFile(doc.fileName);
       }
+    }),
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      if (doc.languageId === 'pawn') invalidateFile(doc.fileName);
     }),
   );
 
