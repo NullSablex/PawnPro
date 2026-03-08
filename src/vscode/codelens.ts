@@ -13,19 +13,35 @@ type FunctionDecl = {
   kind: 'public' | 'stock' | 'forward' | 'native';
 };
 
+/** Returns the net brace delta for a comment-stripped line, ignoring string literals. */
+function braceDelta(line: string): number {
+  let delta = 0;
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    const prev = i > 0 ? line[i - 1] : '';
+    if (ch === '"' && !inSingle && prev !== '\\') { inDouble = !inDouble; continue; }
+    if (ch === "'" && !inDouble && prev !== '\\') { inSingle = !inSingle; continue; }
+    if (inSingle || inDouble) continue;
+    if (ch === '{') delta++;
+    else if (ch === '}') delta--;
+  }
+  return delta;
+}
+
 /* ─── Parse functions in a file ────────────────────────────────── */
 
 function parseFunctions(text: string): FunctionDecl[] {
   const lines = text.split(/\r?\n/);
   const funcs: FunctionDecl[] = [];
   let inBlock = false;
+  let depth = 0;
 
   const rxFunc = /^\s*(public|stock|forward)\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(/;
   const rxNative = /^\s*(?:forward\s+)?native\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(/;
-  // Macro-based public declarations: PREFIX::FuncName(params)
-  // e.g. BPR::IsAMoto(carid) or ACC::OnPlayerConnect(playerid)
-  // In SA-MP Pawn, IDENTIFIER:: at the start of a line is always a
-  // macro declaration (expands to forward+public), never a call expression.
+  // Macro-based public declarations: PREFIX::FuncName(params).
+  // Only matched at top level (depth === 0); inside a body it would be a call.
   const rxMacroPublic = /^\s*[A-Za-z_]\w*::([A-Za-z_]\w*)\s*\(/;
 
   for (let i = 0; i < lines.length; i++) {
@@ -42,6 +58,7 @@ function parseFunctions(text: string): FunctionDecl[] {
         col: col >= 0 ? col : 0,
         kind: mFunc[1] as FunctionDecl['kind'],
       });
+      depth = Math.max(0, depth + braceDelta(line));
       continue;
     }
 
@@ -54,20 +71,25 @@ function parseFunctions(text: string): FunctionDecl[] {
         col: col >= 0 ? col : 0,
         kind: 'native',
       });
+      depth = Math.max(0, depth + braceDelta(line));
       continue;
     }
 
-    const mMacro = rxMacroPublic.exec(line);
-    if (mMacro) {
-      const name = mMacro[1];
-      const col = line.indexOf(name, mMacro.index);
-      funcs.push({
-        name,
-        line: i,
-        col: col >= 0 ? col : 0,
-        kind: 'public',
-      });
+    if (depth === 0) {
+      const mMacro = rxMacroPublic.exec(line);
+      if (mMacro) {
+        const name = mMacro[1];
+        const col = line.indexOf(name, mMacro.index);
+        funcs.push({
+          name,
+          line: i,
+          col: col >= 0 ? col : 0,
+          kind: 'public',
+        });
+      }
     }
+
+    depth = Math.max(0, depth + braceDelta(line));
   }
 
   return funcs;

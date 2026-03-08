@@ -627,10 +627,11 @@ export function setDocumentText(filePath: string, text: string, version: number)
   symbolsCache.delete(norm);
   funcsCache.delete(norm);
   apiCache.delete(norm);
-  // Invalidate include graph entries where this file is the root,
-  // since #include directives may have changed in the unsaved edit.
-  for (const key of includesCache.keys()) {
-    if (key.split('\0')[0] === norm) includesCache.delete(key);
+  // Invalidate include graph entries where this file is the root OR an
+  // included dependency, since #include directives may have changed.
+  for (const [key, entry] of includesCache) {
+    const rootOfKey = key.split('\0')[0];
+    if (rootOfKey === norm || entry.files.includes(norm)) includesCache.delete(key);
   }
 }
 
