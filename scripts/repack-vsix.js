@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'package.json'), 'utf8'));
 const VSIX_NAME = `${pkg.name}-${pkg.version}.vsix`;
-const DEPS = ['iconv-lite', 'safer-buffer', 'vscode-nls'];
+const DEPS = ['iconv-lite', 'safer-buffer'];
 
 async function addDir(zip, diskPath, zipPath) {
   const entries = fs.readdirSync(diskPath, { withFileTypes: true });

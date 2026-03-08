@@ -3,8 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
-import { invalidateFile, setDocumentText } from '../core/fileCache.js';
-import { msg } from './nls.js';
 let configManager;
 let stateManager;
 export function getConfig() {
@@ -27,7 +25,7 @@ function syncSeparateContainer(cfg) {
         void vscode.workspace.getConfiguration().update('pawnpro.ui.separateContainer', cfg.ui.separateContainer, vscode.ConfigurationTarget.Global);
     }
 }
-async function migrateFromVsCodeSettings(_projectRoot, config, state, context) {
+async function migrateFromVsCodeSettings(projectRoot, config, state, context) {
     if (config.hasProjectConfig())
         return;
     const cfg = vscode.workspace.getConfiguration();
@@ -81,7 +79,7 @@ async function migrateFromVsCodeSettings(_projectRoot, config, state, context) {
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(config.projectConfigPath, JSON.stringify(partial, null, 2) + '\n', 'utf8');
         config.reload();
-        vscode.window.showInformationMessage(msg.general.settingsMigrated());
+        vscode.window.showInformationMessage('PawnPro: Settings migrated to .pawnpro/config.json');
     }
 }
 export function activateConfigBridge(context) {
@@ -126,20 +124,6 @@ export function activateConfigBridge(context) {
     }
     // Migration from VS Code settings (async, best-effort)
     void migrateFromVsCodeSettings(projectRoot, configManager, stateManager, context);
-    // Watch .pwn and .inc files for cache invalidation
-    const pawnWatcher = vscode.workspace.createFileSystemWatcher('**/*.{pwn,inc}');
-    const onFileChange = (uri) => invalidateFile(uri.fsPath);
-    pawnWatcher.onDidChange(onFileChange);
-    pawnWatcher.onDidCreate(onFileChange);
-    pawnWatcher.onDidDelete(onFileChange);
-    context.subscriptions.push(pawnWatcher);
-    // Update cache with unsaved document content
-    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument((e) => {
-        const doc = e.document;
-        if (doc.languageId === 'pawn' && doc.isDirty) {
-            setDocumentText(doc.fileName, doc.getText(), doc.version);
-        }
-    }));
     return { config: configManager, state: stateManager };
 }
 //# sourceMappingURL=configBridge.js.map

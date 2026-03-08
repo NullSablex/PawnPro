@@ -3,7 +3,6 @@ import * as path from 'path';
 import { LogTailer, SampRconClient, loadSampConfig, resolveServerConfig } from '../core/server.js';
 import { ServerViewProvider } from './serverView.js';
 import { getWorkspaceRoot } from './configBridge.js';
-import { msg } from './nls.js';
 const IS_WINDOWS = process.platform === 'win32';
 function norm(p) {
     const unq = p.trim().replace(/^["']|["']$/g, '');
@@ -19,10 +18,10 @@ function createOutputSink(channel) {
     };
 }
 /* ─── Server controller ─────────────────────────────────────────── */
-const TERMINAL_NAME = 'PawnPro Server';
 class ServerController {
     config;
     term = null;
+    state = 'stopped';
     tailer;
     rconCfg = null;
     restarting = false;
@@ -31,17 +30,8 @@ class ServerController {
         this.tailer = new LogTailer(createOutputSink(outputChannel));
     }
     getTailer() { return this.tailer; }
-    findExistingTerminal() {
-        return vscode.window.terminals.find(t => t.name === TERMINAL_NAME) ?? null;
-    }
-    closeOrphanedTerminals() {
-        for (const t of vscode.window.terminals) {
-            if (t.name === TERMINAL_NAME && t !== this.term) {
-                t.dispose();
-            }
-        }
-    }
     setState(next) {
+        this.state = next;
         const running = !!this.term && next === 'running';
         void vscode.commands.executeCommand('setContext', 'pawnpro.server.running', running);
     }
@@ -59,7 +49,7 @@ class ServerController {
             txt = txt.replace(/^\/?rcon\s+/i, '');
             txt = txt.replace(/^login\s+\S+\s*/i, '');
             if (!txt) {
-                vscode.window.showInformationMessage(`PawnPro: ${msg.server.rconHint()}`);
+                vscode.window.showInformationMessage('PawnPro: envie apenas o comando, ex.: "gmx" ou "say oii".');
                 return;
             }
         }
@@ -78,39 +68,31 @@ class ServerController {
                 return;
             }
             catch (e) {
-                vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(e?.message || String(e))}`);
+                vscode.window.showErrorMessage(`PawnPro: falha ao enviar RCON: ${e?.message || e}`);
                 return;
             }
         }
         else {
-            vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconInvalidPassword()}`);
+            vscode.window.showWarningMessage('PawnPro: senha RCON vazia ou invalida ("changename"). Comando nao enviado.');
         }
         if (!this.term) {
-            vscode.window.showWarningMessage(`PawnPro: ${msg.server.notRunning()}`);
+            vscode.window.showWarningMessage('PawnPro: servidor nao esta em execucao.');
             return;
         }
         this.term.sendText(txt, true);
         this.tailer.markVisible();
     }
     start() {
-        const existing = this.findExistingTerminal();
-        if (existing) {
-            if (this.term !== existing) {
-                this.term = existing;
-                this.setState('running');
-            }
-            if (!this.restarting) {
-                vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunning()}`);
-                existing.show(false);
-            }
+        if (this.term) {
+            if (!this.restarting)
+                vscode.window.showInformationMessage('PawnPro: servidor ja esta em execucao.');
             return;
         }
-        this.closeOrphanedTerminals();
         const cfg = this.config.getAll();
         const ws = getWorkspaceRoot();
         const resolved = resolveServerConfig(cfg.server, ws);
         if (!resolved.exe) {
-            vscode.window.showErrorMessage(`PawnPro: ${msg.server.notConfigured()}`);
+            vscode.window.showErrorMessage('PawnPro: configure "server.path" em .pawnpro/config.json (executavel do servidor).');
             return;
         }
         if (resolved.clearOnStart)
@@ -119,7 +101,7 @@ class ServerController {
         this.setState('starting');
         try {
             const t = vscode.window.createTerminal({
-                name: TERMINAL_NAME,
+                name: 'PawnPro Server',
                 cwd: resolved.cwd,
                 shellPath: norm(resolved.exe),
                 shellArgs: resolved.args,
@@ -146,7 +128,7 @@ class ServerController {
         catch (e) {
             this.term = null;
             this.setState('stopped');
-            vscode.window.showErrorMessage(`PawnPro: ${msg.server.failedStart(e?.message || String(e))}`);
+            vscode.window.showErrorMessage(`PawnPro: falha ao iniciar servidor: ${e?.message || e}`);
         }
         finally {
             this.restarting = false;
@@ -202,7 +184,7 @@ class ServerController {
     }
     revealConsole() {
         if (!this.term) {
-            vscode.window.showInformationMessage(`PawnPro: ${msg.server.notRunning()}`);
+            vscode.window.showInformationMessage('PawnPro: servidor nao esta em execucao.');
             return;
         }
         this.term.show(false);

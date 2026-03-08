@@ -1,15 +1,19 @@
 import * as path from 'path';
+import * as fsp from 'fs/promises';
 import { resolveInclude } from './utils.js';
+import { findFunction, type FuncEntry } from './apiIndex.js';
 import {
   stripCommentsPreserveColumns,
   getStringSpans,
   posInAnyString,
+  collectIncludeTokens,
+  gatherIncludedFiles,
 } from './includes.js';
-import { getFileFunctions, getIncludedFiles, LocalFunc } from './fileCache.js';
 import type { HoverData, HoverSection, HoverParams } from './types.js';
 
 const INCLUDE_RX = /#\s*include\s*(<|")\s*([^>"]+)\s*(>|")/;
 
+type LocalFunc = { name: string; signature: string; line: number; kind: 'public' | 'stock' | 'forward' };
 type DefineAlias = { name: string; target: string };
 type DefineFn = { name: string; params: string; body: string };
 type DefinePlaceholder = { macroBase: string; body: string };
@@ -38,7 +42,7 @@ export function getWordRangeAtPosition(
 
 function parseLocalFunctionsByLines(lines: string[]): LocalFunc[] {
   const out: LocalFunc[] = [];
-  const rx = /^\s*(public|stock|forward)\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(([^)]*)\)/;
+  const rx = /^\s*(public|stock|forward)\s+([A-Za-z_]\w*)\s*\(([^)]*)\)/;
 
   let inBlock = false;
   for (let i = 0; i < lines.length; i++) {
@@ -51,24 +55,6 @@ function parseLocalFunctionsByLines(lines: string[]): LocalFunc[] {
     const name = m[2];
     const params = (m[3] ?? '').trim();
     out.push({ name, signature: `${name}(${params})`, line: i, kind });
-  }
-  return out;
-}
-
-function parseNativesByLines(lines: string[]): LocalFunc[] {
-  const out: LocalFunc[] = [];
-  const rx = /^\s*(?:forward\s+)?native\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(([^)]*)\)\s*;/;
-
-  let inBlock = false;
-  for (let i = 0; i < lines.length; i++) {
-    const stripped = stripCommentsPreserveColumns(lines[i], inBlock);
-    inBlock = stripped.inBlock;
-
-    const m = rx.exec(stripped.text);
-    if (!m) continue;
-    const name = m[1];
-    const params = (m[2] ?? '').trim();
-    out.push({ name, signature: `${name}(${params})`, line: i, kind: 'native' });
   }
   return out;
 }
@@ -148,6 +134,11 @@ function expandPlaceholderBody(body: string, name: string, args: string): string
 
 /* ─── Call collection ───────────────────────────────────────────── */
 
+function rangeInAnyString(start: number, end: number, line: string, spans?: Array<{ start: number; end: number }>): boolean {
+  const ss = spans ?? getStringSpans(line);
+  return ss.some(sp => start >= sp.start && end <= sp.end);
+}
+
 function scanParenClose(line: string, openIdx: number, spans: Array<{ start: number; end: number }>): number {
   let depth = 0;
   for (let k = openIdx; k < line.length; k++) {
@@ -211,13 +202,21 @@ function innermostCallAt(line: string, ch: number): { ident: string; span: [numb
   return { ident: pick.ident, span: [pick.start, pick.end] };
 }
 
+function wordLooksLikeCall(line: string, range: { start: number; end: number }, spans?: Array<{ start: number; end: number }>): boolean {
+  const ss = spans ?? getStringSpans(line);
+  if (rangeInAnyString(range.start, range.end, line, ss)) return false;
+  let j = range.end;
+  while (j < line.length && /\s/.test(line[j])) j++;
+  return line[j] === '(';
+}
+
 function escapeRe(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function isHoveringOwnDecl(ident: string, lineText: string, char: number): boolean {
   {
-    const rx = new RegExp(String.raw`^\s*(?:public|stock|forward)\s+(?:[A-Za-z_]\w*:)?\s*(${escapeRe(ident)})\s*\(`, 'i');
+    const rx = new RegExp(String.raw`^\s*(?:public|stock|forward)\s+(${escapeRe(ident)})\s*\(`, 'i');
     const m = rx.exec(lineText);
     if (m) {
       const start = m.index + m[0].indexOf(m[1]);
@@ -240,7 +239,7 @@ function isHoveringOwnDecl(ident: string, lineText: string, char: number): boole
 /* ─── Best local selection ──────────────────────────────────────── */
 
 function chooseBestLocals(locals: LocalFunc[]): LocalFunc[] {
-  const rank: Record<LocalFunc['kind'], number> = { forward: 0, stock: 1, public: 1, native: 2 };
+  const rank: Record<LocalFunc['kind'], number> = { forward: 0, stock: 1, public: 1 };
   const byName = new Map<string, LocalFunc>();
   for (const f of locals) {
     const cur = byName.get(f.name);
@@ -249,39 +248,27 @@ function chooseBestLocals(locals: LocalFunc[]): LocalFunc[] {
   return [...byName.values()];
 }
 
-/* ─── Cross-file search (uses centralized cache) ─────────────────── */
-
-type FuncWithFile = LocalFunc & { filePath: string };
-
-async function getIncludedFuncsMap(
-  rootFilePath: string,
-  includePaths: string[],
-): Promise<Map<string, FuncWithFile>> {
-  const includedFiles = await getIncludedFiles(rootFilePath, includePaths);
-  const funcsMap = new Map<string, FuncWithFile>();
-
-  for (const fp of includedFiles) {
-    const funcs = await getFileFunctions(fp);
-    for (const f of funcs) {
-      if (!funcsMap.has(f.name)) {
-        funcsMap.set(f.name, { ...f, filePath: fp });
-      }
-    }
-  }
-
-  return funcsMap;
-}
+/* ─── Cross-file search ─────────────────────────────────────────── */
 
 async function findInIncludedFiles(
   ident: string,
   rootFilePath: string,
   includePaths: string[],
 ): Promise<{ filePath: string; def: LocalFunc } | undefined> {
-  const funcsMap = await getIncludedFuncsMap(rootFilePath, includePaths);
-  const hit = funcsMap.get(ident);
-  if (hit) {
-    const { filePath, ...def } = hit;
-    return { filePath, def };
+  const filePaths = await gatherIncludedFiles(rootFilePath, includePaths);
+  for (const fp of filePaths) {
+    try {
+      const text = await fsp.readFile(fp, 'utf8');
+      const lines = text.split(/\r?\n/);
+      const defs = chooseBestLocals([
+        ...parseLocalFunctionsByLines(lines),
+        ...parseMacroLocalFunctionsByLines(lines, parseDefines(text)),
+      ]);
+      const hit = defs.find(d => d.name === ident);
+      if (hit) return { filePath: fp, def: hit };
+    } catch {
+      // continue
+    }
   }
   return undefined;
 }
@@ -331,11 +318,11 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
         const resolved = resolveInclude(token, fromDir, includePaths);
 
         const sections: HoverSection[] = [];
-        sections.push({ kind: 'text', content: `**#include** \`${token}\`\n\n` });
+        sections.push({ kind: 'text', content: `**${token}**\n\n` });
 
         if (resolved) {
           const norm = prettyPathFromWorkspace(resolved, workspaceRoot);
-          sections.push({ kind: 'text', content: `\`${norm}\`\n\n` });
+          sections.push({ kind: 'text', content: `Caminho: \`${norm}\`\n\n` });
           sections.push({
             kind: 'fileLink',
             label: 'Abrir arquivo',
@@ -343,7 +330,7 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
             line: 0,
           });
         } else {
-          sections.push({ kind: 'text', content: '_Arquivo nao encontrado nas include paths._' });
+          sections.push({ kind: 'text', content: '_Nao encontrado nas include paths._' });
         }
 
         return { sections };
@@ -358,6 +345,7 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
   // 3) Word under cursor vs innermost call
   const wordRange = getWordRangeAtPosition(lineText, character, /[A-Za-z_][\w:]*/);
   const wordIdent = wordRange ? lineText.slice(wordRange.start, wordRange.end) : undefined;
+  const wordIsCall = wordRange ? wordLooksLikeCall(lineText, wordRange, spans) : false;
 
   const innerCall = innermostCallAt(lineText, character);
   let callIdent = innerCall?.ident;
@@ -368,13 +356,12 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
     if (!overlapsCalleeName) callIdent = undefined;
   }
 
-  const tryIdentsInOrder = [wordIdent, callIdent].filter((v, i, arr) => v && arr.indexOf(v) === i) as string[];
+  const tryIdentsInOrder = [wordIsCall ? wordIdent : undefined, callIdent].filter(Boolean) as string[];
 
   const defs = parseDefines(text);
   const localsBase = parseLocalFunctionsByLines(lines);
-  const localsNative = parseNativesByLines(lines);
   const localsMacro = parseMacroLocalFunctionsByLines(lines, defs);
-  const locals = chooseBestLocals([...localsBase, ...localsNative, ...localsMacro]);
+  const locals = chooseBestLocals([...localsBase, ...localsMacro]);
 
   for (const ident of tryIdentsInOrder) {
     // 4.1) Placeholder Base::Name
@@ -409,15 +396,24 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
         { kind: 'code', content: `#define ${alias.name} ${alias.target}`, language: 'pawn' },
       ];
 
-      const hitLocal = locals.find(f => f.name === alias.target);
-      if (hitLocal) {
-        sections.push({ kind: 'text', content: '\n— alias de:\n\n' });
-        sections.push({ kind: 'code', content: `${hitLocal.signature};`, language: 'pawn' });
-      } else {
+      const targetEntry = await (async () => {
+        const hitLocal = locals.find(f => f.name === alias.target);
+        if (hitLocal) {
+          return { name: alias.target, signature: hitLocal.signature, file: '', doc: undefined } as FuncEntry;
+        }
         const cross = await findInIncludedFiles(alias.target, filePath, includePaths);
         if (cross) {
-          sections.push({ kind: 'text', content: '\n— alias de:\n\n' });
-          sections.push({ kind: 'code', content: `${cross.def.signature};`, language: 'pawn' });
+          return { name: alias.target, signature: cross.def.signature, file: cross.filePath, doc: undefined } as FuncEntry;
+        }
+        return findFunction(alias.target, includePaths);
+      })();
+
+      if (targetEntry) {
+        sections.push({ kind: 'text', content: '\n— alias de:\n\n' });
+        sections.push({ kind: 'code', content: `${targetEntry.signature};`, language: 'pawn' });
+        if (targetEntry.doc && targetEntry.doc.trim()) {
+          sections.push({ kind: 'text', content: '\n' });
+          sections.push({ kind: 'code', content: targetEntry.doc.trim(), language: 'pawn' });
         }
       }
       return { sections };
@@ -456,7 +452,7 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
       return { sections };
     }
 
-    // 4.5) Cross-file included functions (only from actually #included files)
+    // 4.5) Cross-file included functions
     const cross = await findInIncludedFiles(ident, filePath, includePaths);
     if (cross) {
       const { filePath: crossPath, def } = cross;
@@ -470,6 +466,21 @@ export async function computeHover(params: HoverParams): Promise<HoverData | nul
           { kind: 'code', content: def.signature + ';', language: 'pawn' },
         ],
       };
+    }
+
+    // 4.6) Standard includes index (natives/forwards)
+    const fn = await findFunction(ident, includePaths);
+    if (fn) {
+      const sections: HoverSection[] = [
+        { kind: 'text', content: `**${fn.name}**  \n` },
+      ];
+      if (fn.file) sections.push({ kind: 'text', content: `${prettyPathFromWorkspace(fn.file, workspaceRoot)}\n\n` });
+      sections.push({ kind: 'code', content: fn.signature + ';', language: 'pawn' });
+      if (fn.doc && fn.doc.trim()) {
+        sections.push({ kind: 'text', content: '\n' });
+        sections.push({ kind: 'code', content: fn.doc.trim(), language: 'pawn' });
+      }
+      return { sections };
     }
   }
 

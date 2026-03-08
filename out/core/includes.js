@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import { resolveInclude } from './utils.js';
 const INCLUDE_RX_GLOBAL = /#\s*include\s*(<|")\s*([^>"]+)\s*(>|")/g;
-const NATIVE_RX = /^\s*(?:forward\s+)?native\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(([^)]*)\)\s*;/gm;
+const NATIVE_RX = /^\s*(?:forward\s+)?native\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*;/gm;
 /* ─── Include path resolution ───────────────────────────────────── */
 function existsDir(p) {
     try {
@@ -29,69 +29,24 @@ export function buildIncludePaths(config, workspaceRoot) {
     return all;
 }
 /* ─── Diagnostics ───────────────────────────────────────────────── */
-function isOffsetInComment(text, offset) {
-    // Check if offset is inside a comment (// or /* */)
-    let inBlock = false;
-    let i = 0;
-    while (i < offset && i < text.length) {
-        if (!inBlock) {
-            if (text[i] === '/' && text[i + 1] === '/') {
-                // Line comment - skip to end of line
-                const eol = text.indexOf('\n', i);
-                if (eol === -1 || offset <= eol)
-                    return offset > i;
-                i = eol + 1;
-                continue;
-            }
-            if (text[i] === '/' && text[i + 1] === '*') {
-                inBlock = true;
-                i += 2;
-                continue;
-            }
-        }
-        else {
-            if (text[i] === '*' && text[i + 1] === '/') {
-                inBlock = false;
-                i += 2;
-                continue;
-            }
-        }
-        i++;
-    }
-    return inBlock;
-}
-function defaultIncludeMsg(token, hasExtension, isRelative, fromDir, includePaths) {
-    let msg = `Include não encontrada: "${token}"`;
-    if (!hasExtension)
-        msg += ` (tentou: ${token}.inc)`;
-    if (isRelative) {
-        msg += `. Caminho relativo a: ${fromDir}`;
-    }
-    else if (includePaths.length > 0) {
-        msg += `. Buscado em: ${includePaths.slice(0, 2).join(', ')}${includePaths.length > 2 ? '...' : ''}`;
-    }
-    else {
-        msg += `. Nenhum includePaths configurado.`;
-    }
-    return msg;
-}
-export function analyzeIncludes(text, filePath, includePaths, buildMsg = defaultIncludeMsg) {
+export function analyzeIncludes(text, filePath, includePaths) {
     const diagnostics = [];
     const fromDir = path.dirname(filePath);
     let m;
     INCLUDE_RX_GLOBAL.lastIndex = 0;
     while ((m = INCLUDE_RX_GLOBAL.exec(text))) {
-        const startOffset = m.index;
-        if (isOffsetInComment(text, startOffset))
-            continue;
         const token = m[2].trim();
+        const startOffset = m.index;
         const endOffset = m.index + m[0].length;
         const resolved = resolveInclude(token, fromDir, includePaths);
         if (!resolved) {
-            const isRelative = token.startsWith('.') || token.includes('/') || token.includes('\\');
-            const hasExtension = token.toLowerCase().endsWith('.inc');
-            const message = buildMsg(token, hasExtension, isRelative, fromDir, includePaths);
-            diagnostics.push({ startOffset, endOffset, message, severity: 'error', source: 'PawnPro' });
+            diagnostics.push({
+                startOffset,
+                endOffset,
+                message: `Include not found: ${token}`,
+                severity: 'error',
+                source: 'PawnPro',
+            });
         }
     }
     return diagnostics;
@@ -184,23 +139,11 @@ function stripCommentsWhole(text) {
     return out.join('\n');
 }
 /* ─── Recursive file listing ────────────────────────────────────── */
-export async function listIncFilesRecursive(root, maxDepth = 20) {
+export async function listIncFilesRecursive(root, maxDepth = 10, maxFiles = 500) {
     const out = [];
-    const visited = new Set(); // Prevent symlink loops
     async function walk(dir, depth) {
-        if (depth > maxDepth)
+        if (depth > maxDepth || out.length >= maxFiles)
             return;
-        // Resolve real path to detect symlink loops
-        let realDir;
-        try {
-            realDir = await fsp.realpath(dir);
-        }
-        catch {
-            return;
-        }
-        if (visited.has(realDir))
-            return;
-        visited.add(realDir);
         let entries;
         try {
             entries = await fsp.readdir(dir, { withFileTypes: true });
@@ -209,6 +152,8 @@ export async function listIncFilesRecursive(root, maxDepth = 20) {
             return;
         }
         for (const e of entries) {
+            if (out.length >= maxFiles)
+                break;
             const p = path.join(dir, e.name);
             if (e.isDirectory()) {
                 if (e.name === 'node_modules' || e.name === '.git' || e.name === '.vscode' || e.name === '.pawnpro')
@@ -224,7 +169,7 @@ export async function listIncFilesRecursive(root, maxDepth = 20) {
     return out;
 }
 /* ─── Gather included files recursively ─────────────────────────── */
-export async function gatherIncludedFiles(rootFilePath, includePaths, maxDepth = 5, maxFiles = 100) {
+export async function gatherIncludedFiles(rootFilePath, includePaths, maxDepth = 3, maxFiles = 30) {
     const out = [];
     const seen = new Set();
     const queue = [];
