@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
-import { invalidateFile, setDocumentText } from '../core/fileCache.js';
+import { invalidateFile, setDocumentText, clearDocumentText } from '../core/fileCache.js';
 import type { PawnProConfig } from '../core/types.js';
 import { msg } from './nls.js';
 
@@ -174,7 +174,7 @@ export function activateConfigBridge(
       }
     }),
     vscode.workspace.onDidCloseTextDocument((doc) => {
-      if (doc.languageId === 'pawn') invalidateFile(doc.fileName);
+      if (doc.languageId === 'pawn') clearDocumentText(doc.fileName);
     }),
   );
 
