@@ -168,9 +168,9 @@ export function activateConfigBridge(
       if (doc.isDirty) {
         setDocumentText(doc.fileName, doc.getText(), doc.version);
       } else {
-        // Document was reverted or saved — drop the pseudo-mtime entry so
-        // subsequent reads pick up the on-disk snapshot.
-        invalidateFile(doc.fileName);
+        // Document was reverted or saved — drop only the pseudo-mtime entry.
+        // Disk state is unchanged so apiIndexCache must not be cleared.
+        clearDocumentText(doc.fileName);
       }
     }),
     vscode.workspace.onDidCloseTextDocument((doc) => {

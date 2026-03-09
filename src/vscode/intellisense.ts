@@ -218,9 +218,15 @@ function findInnermostOpen(s: string): number {
   const stack: number[] = [];
   let inSingle = false;
   let inDouble = false;
+  let inBlock = false;
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
     const prev = i > 0 ? s[i - 1] : '';
+    // Block comment enter/exit
+    if (!inSingle && !inDouble && !inBlock && ch === '/' && s[i + 1] === '*') { inBlock = true; i++; continue; }
+    if (inBlock) { if (prev === '*' && ch === '/') inBlock = false; continue; }
+    // Line comment — rest of string is a comment
+    if (!inSingle && !inDouble && ch === '/' && s[i + 1] === '/') break;
     if (ch === '"' && !inSingle && prev !== '\\') { inDouble = !inDouble; continue; }
     if (ch === "'" && !inDouble && prev !== '\\') { inSingle = !inSingle; continue; }
     if (inSingle || inDouble) continue;
