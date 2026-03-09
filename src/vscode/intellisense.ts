@@ -213,9 +213,32 @@ function parseTextSymbols(text: string, file?: string): { sigs: Map<string, SigI
   return { sigs, macros };
 }
 
+/** Returns the index of the innermost still-open '(' in `s`, or -1. */
+function findInnermostOpen(s: string): number {
+  const stack: number[] = [];
+  let inSingle = false;
+  let inDouble = false;
+  let inBlock = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    const prev = i > 0 ? s[i - 1] : '';
+    // Block comment enter/exit
+    if (!inSingle && !inDouble && !inBlock && ch === '/' && s[i + 1] === '*') { inBlock = true; i++; continue; }
+    if (inBlock) { if (prev === '*' && ch === '/') inBlock = false; continue; }
+    // Line comment — rest of string is a comment
+    if (!inSingle && !inDouble && ch === '/' && s[i + 1] === '/') break;
+    if (ch === '"' && !inSingle && prev !== '\\') { inDouble = !inDouble; continue; }
+    if (ch === "'" && !inDouble && prev !== '\\') { inSingle = !inSingle; continue; }
+    if (inSingle || inDouble) continue;
+    if (ch === '(') stack.push(i);
+    else if (ch === ')') stack.pop();
+  }
+  return stack.length > 0 ? stack[stack.length - 1] : -1;
+}
+
 export function getCallContext(lineText: string, character: number): { name: string; activeParam: number } | undefined {
   const before = lineText.slice(0, character);
-  const open = before.lastIndexOf('(');
+  const open = findInnermostOpen(before);
   if (open < 0) return undefined;
 
   const nameMatch = /([A-Za-z_][\w:]*)\s*$/.exec(before.slice(0, open));

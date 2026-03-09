@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
-import { invalidateFile, setDocumentText } from '../core/fileCache.js';
+import { invalidateFile, setDocumentText, clearDocumentText } from '../core/fileCache.js';
 import type { PawnProConfig } from '../core/types.js';
 import { msg } from './nls.js';
 
@@ -164,9 +164,17 @@ export function activateConfigBridge(
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((e) => {
       const doc = e.document;
-      if (doc.languageId === 'pawn' && doc.isDirty) {
+      if (doc.languageId !== 'pawn') return;
+      if (doc.isDirty) {
         setDocumentText(doc.fileName, doc.getText(), doc.version);
+      } else {
+        // Document was reverted or saved — drop only the pseudo-mtime entry.
+        // Disk state is unchanged so apiIndexCache must not be cleared.
+        clearDocumentText(doc.fileName);
       }
+    }),
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      if (doc.languageId === 'pawn') clearDocumentText(doc.fileName);
     }),
   );
 

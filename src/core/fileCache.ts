@@ -627,9 +627,36 @@ export function setDocumentText(filePath: string, text: string, version: number)
   symbolsCache.delete(norm);
   funcsCache.delete(norm);
   apiCache.delete(norm);
+  // Invalidate include graph entries where this file is the root OR an
+  // included dependency, since #include directives may have changed.
+  for (const [key, entry] of includesCache) {
+    const rootOfKey = key.split('\0')[0];
+    if (rootOfKey === norm || entry.files.includes(norm)) includesCache.delete(key);
+  }
 }
 
 /* ─── Cache Invalidation ───────────────────────────────────────── */
+
+/**
+ * Clears only the unsaved-document snapshot for a file (pseudo-mtime < 0).
+ * Does NOT touch apiIndexCache — use this when closing/discarding a tab
+ * so the next read falls back to the on-disk snapshot without causing a
+ * full IntelliSense rescan.
+ */
+export function clearDocumentText(filePath: string): void {
+  const norm = path.normalize(filePath);
+  const cached = textCache.get(norm);
+  if (!cached || cached.mtimeMs >= 0) return; // nothing to clear
+  textCache.delete(norm);
+  identsCache.delete(norm);
+  symbolsCache.delete(norm);
+  funcsCache.delete(norm);
+  apiCache.delete(norm);
+  for (const [key, entry] of includesCache) {
+    const rootOfKey = key.split('\0')[0];
+    if (rootOfKey === norm || entry.files.includes(norm)) includesCache.delete(key);
+  }
+}
 
 export function invalidateFile(filePath: string): void {
   const norm = path.normalize(filePath);
