@@ -2,7 +2,7 @@
   "name": "pawnpro",
   "displayName": "PawnPro",
   "description": "%text.description%",
-  "version": "2.1.0-rc.1",
+  "version": "2.1.0",
   "publisher": "NullSablex",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
