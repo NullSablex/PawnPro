@@ -57,8 +57,8 @@ function extractSection(changelogPath: string, version: string): string {
   for (const line of lines) {
     if (/^##\s*\[/.test(line)) {
       if (inside) break;
-      // Match [version] or [version-suffix] (e.g. [2.1.0-beta])
-      if (line.includes(`[${version}]`)) inside = true;
+      // Match [version] or [version-suffix] (e.g. [2.1.0-rc.1])
+      if (new RegExp(`\\[${version.replace(/\./g, '\\.')}(?:[^\\]]*)?\\]`).test(line)) inside = true;
       continue;
     }
     if (inside) sectionLines.push(line);

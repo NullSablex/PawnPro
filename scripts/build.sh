@@ -5,6 +5,10 @@ cd "$(dirname "$0")/.."
 # Limpa artefatos anteriores
 rm -rf out/ *.vsix
 
+# Atualiza dependências e lock file
+echo "[build] Instalando dependências..."
+npm install
+
 # Compila TypeScript
 echo "[build] Compilando TypeScript..."
 npx tsc -p .

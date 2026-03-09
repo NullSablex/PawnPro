@@ -6,6 +6,14 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [2.1.1-rc.1] - 08/03/2026
+
+### Corrigido
+- **Painel "O que há de novo"** - Correspondência de versão agora aceita entradas com sufixo no changelog (ex: `2.1.1` localiza `[2.1.1-rc.1]`)
+- **Script de build** - `build.sh` executa `npm install` para manter o `package-lock.json` sempre atualizado
+
+---
+
 ## [2.1.0-rc.1] - 08/03/2026
 
 ### Adicionado
