@@ -72,8 +72,17 @@ async function migrateFromVsCodeSettings(
   migrate('pawnpro.build.showCommand', 'build', 'showCommand', false);
   migrate('pawnpro.syntax.scheme', 'syntax', 'scheme', 'none');
   migrate('pawnpro.syntax.applyOnStartup', 'syntax', 'applyOnStartup', false);
-  migrate('pawnpro.analysis.sdk.platform', 'analysis', 'sdk', { platform: 'omp', filePath: '' });
-  migrate('pawnpro.analysis.sdk.filePath', 'analysis', 'sdk', { platform: 'omp', filePath: '' });
+  // sdk.platform e sdk.filePath precisam ser merged no mesmo objeto sdk
+  const sdkPlatform = cfg.get('pawnpro.analysis.sdk.platform');
+  const sdkFilePath = cfg.get('pawnpro.analysis.sdk.filePath');
+  if (sdkPlatform !== undefined && sdkPlatform !== 'omp' || sdkFilePath !== undefined && sdkFilePath !== '') {
+    if (!partial['analysis']) partial['analysis'] = {};
+    const analysis = partial['analysis'] as Record<string, unknown>;
+    const sdk: Record<string, unknown> = {};
+    if (sdkPlatform !== undefined && sdkPlatform !== 'omp') sdk['platform'] = sdkPlatform;
+    if (sdkFilePath !== undefined && sdkFilePath !== '') sdk['filePath'] = sdkFilePath;
+    if (Object.keys(sdk).length > 0) { analysis['sdk'] = sdk; hasValues = true; }
+  }
   migrate('pawnpro.ui.separateContainer', 'ui', 'separateContainer', false);
   migrateFlat('pawnpro.showIncludePaths', 'showIncludePaths', false);
   migrate('pawnpro.server.path', 'server', 'path', '');

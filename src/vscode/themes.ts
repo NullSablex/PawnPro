@@ -13,6 +13,7 @@ import { msg } from './nls.js';
 let isApplying = false;
 let lastAppliedKey = '';
 let schemeWasApplied = false;
+let appliedSemanticKeys: string[] = [];
 
 function getThemeKind(): ThemeKind {
   const k = vscode.window.activeColorTheme.kind;
@@ -28,7 +29,23 @@ function themedKey(name: string): string {
 async function clearTokenColors() {
   const cfg = vscode.workspace.getConfiguration();
   await cfg.update('editor.tokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
-  await cfg.update('editor.semanticTokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
+  await clearSemanticTokenColors(cfg);
+}
+
+async function clearSemanticTokenColors(cfg: vscode.WorkspaceConfiguration) {
+  if (appliedSemanticKeys.length === 0) return;
+  const current = cfg.get<Record<string, unknown>>('editor.semanticTokenColorCustomizations') ?? {};
+  const existingRules = { ...(current['rules'] as Record<string, unknown> | undefined) ?? {} };
+  for (const key of appliedSemanticKeys) delete existingRules[key];
+  const updated: Record<string, unknown> = { ...current, rules: existingRules };
+  if (Object.keys(existingRules).length === 0) delete updated['rules'];
+  const isEmpty = Object.keys(updated).length === 0;
+  await cfg.update(
+    'editor.semanticTokenColorCustomizations',
+    isEmpty ? undefined : updated,
+    vscode.ConfigurationTarget.Global,
+  );
+  appliedSemanticKeys = [];
 }
 
 async function applySchemeByName(
@@ -80,13 +97,13 @@ async function applySchemeByName(
       await vscfg.update('editor.tokenColorCustomizations', clone, vscode.ConfigurationTarget.Global);
     }
 
-    // Apply semantic token colors so SDK functions get the right color regardless of active theme
+    // Merge semantic token colors — preserve user's existing rules, only add/replace PawnPro keys
     if (scheme.semanticRules) {
-      await vscfg.update(
-        'editor.semanticTokenColorCustomizations',
-        { rules: scheme.semanticRules },
-        vscode.ConfigurationTarget.Global,
-      );
+      const currentSemantic = vscfg.get<Record<string, unknown>>('editor.semanticTokenColorCustomizations') ?? {};
+      const existingRules = (currentSemantic['rules'] as Record<string, unknown> | undefined) ?? {};
+      const merged = { ...currentSemantic, rules: { ...existingRules, ...scheme.semanticRules } };
+      await vscfg.update('editor.semanticTokenColorCustomizations', merged, vscode.ConfigurationTarget.Global);
+      appliedSemanticKeys = Object.keys(scheme.semanticRules);
     }
 
     lastAppliedKey = key;
@@ -181,7 +198,7 @@ export async function cleanupThemeCustomizations() {
           await vscfg.update('editor.tokenColorCustomizations', clone, vscode.ConfigurationTarget.Global);
         }
       }
-      await vscfg.update('editor.semanticTokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
+      await clearSemanticTokenColors(vscfg);
     } catch {
       // deactivate has limited time, ignore errors
     }
