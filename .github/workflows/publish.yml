@@ -69,9 +69,9 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: |
-          FLAGS="--target ${{ matrix.vsce_target }}"
+          FLAGS=""
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            FLAGS="$FLAGS --pre-release"
+            FLAGS="--pre-release"
           fi
           npx @vscode/vsce publish --packagePath "${{ steps.vsix.outputs.file }}" $FLAGS
         env:
@@ -79,9 +79,9 @@ jobs:
 
       - name: Publish to Open VSX
         run: |
-          FLAGS="--target ${{ matrix.vsce_target }}"
+          FLAGS=""
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            FLAGS="$FLAGS --pre-release"
+            FLAGS="--pre-release"
           fi
           npx ovsx publish "${{ steps.vsix.outputs.file }}" $FLAGS
         env:
