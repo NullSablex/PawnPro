@@ -14,15 +14,20 @@ import path from 'path';
 import JSZip from 'jszip';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'package.json'), 'utf8'));
-const VSIX_NAME = `${pkg.name}-${pkg.version}.vsix`;
 
 async function main() {
   const cwd = process.cwd();
-  const vsixPath = path.join(cwd, VSIX_NAME);
-  if (!fs.existsSync(vsixPath)) {
-    console.error(`[repack] VSIX não encontrado: ${vsixPath}`);
+
+  // Localiza o VSIX gerado — suporta nomes com e sem target (ex: pawnpro-linux-x64-3.0.0.vsix)
+  const candidates = fs.readdirSync(cwd).filter(f => f.startsWith(pkg.name) && f.endsWith('.vsix'));
+  if (candidates.length === 0) {
+    console.error(`[repack] Nenhum arquivo .vsix encontrado em: ${cwd}`);
     process.exit(1);
   }
+  if (candidates.length > 1) {
+    console.warn(`[repack] Múltiplos .vsix encontrados, usando o primeiro: ${candidates[0]}`);
+  }
+  const vsixPath = path.join(cwd, candidates[0]);
 
   const buf = fs.readFileSync(vsixPath);
   const zip = await JSZip.loadAsync(buf);
