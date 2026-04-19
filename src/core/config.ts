@@ -11,10 +11,14 @@ const DEFAULTS: PawnProConfig = {
   syntax: { scheme: 'none', applyOnStartup: false },
   ui: { separateContainer: false, showIncludePaths: false },
   server: {
-    path: '', cwd: '${workspaceFolder}', args: [],
-    clearOnStart: true, logPath: '${workspaceFolder}/server_log.txt',
+    type: 'auto', path: '', cwd: '${workspaceFolder}', args: [],
+    clearOnStart: true, logPath: '',
     logEncoding: 'windows1252',
     output: { follow: 'visible' },
+  },
+  analysis: {
+    warnUnusedInInc: false,
+    sdk: { platform: 'omp', filePath: '' },
   },
 };
 
@@ -24,9 +28,16 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isSafeKey(key: string): boolean {
+  return !FORBIDDEN_KEYS.has(key);
+}
+
 function deepMerge<T extends Record<string, unknown>>(base: T, override: Record<string, unknown>): T {
   const result = { ...base } as Record<string, unknown>;
   for (const key of Object.keys(override)) {
+    if (!isSafeKey(key)) continue;
     const bv = result[key];
     const ov = override[key];
     if (isPlainObject(bv) && isPlainObject(ov)) {
@@ -82,6 +93,7 @@ export class PawnProConfigManager {
     global: {},
     project: {},
   };
+  private externalDefaults: Record<string, unknown> = {};
   private listeners: Listener[] = [];
 
   constructor(private projectRoot: string) {
@@ -90,20 +102,35 @@ export class PawnProConfigManager {
     this.reload();
   }
 
+  /**
+   * Define defaults externos (ex: settings do VS Code) com prioridade menor que os
+   * arquivos de config. Ordem: DEFAULTS < externalDefaults < global < project.
+   */
+  setExternalDefaults(overrides: Record<string, unknown>): void {
+    this.externalDefaults = overrides;
+    this.applyMerge();
+  }
+
+  private applyMerge(): void {
+    const merged = deepMerge(
+      deepMerge(
+        deepMerge(structuredClone(DEFAULTS) as unknown as Record<string, unknown>, this.externalDefaults),
+        this.raw.global,
+      ),
+      this.raw.project,
+    ) as unknown as PawnProConfig;
+
+    this.merged = substituteWorkspace(merged, this.projectRoot) as PawnProConfig;
+    this.notify();
+  }
+
   get globalConfigPath(): string { return this.globalPath; }
   get projectConfigPath(): string { return this.projectPath; }
 
   reload(): void {
     this.raw.global = readJsonFile(this.globalPath) ?? {};
     this.raw.project = readJsonFile(this.projectPath) ?? {};
-
-    const merged = deepMerge(
-      deepMerge(structuredClone(DEFAULTS) as unknown as Record<string, unknown>, this.raw.global),
-      this.raw.project,
-    ) as unknown as PawnProConfig;
-
-    this.merged = substituteWorkspace(merged, this.projectRoot) as PawnProConfig;
-    this.notify();
+    this.applyMerge();
   }
 
   getAll(): Readonly<PawnProConfig> {
@@ -119,11 +146,18 @@ export class PawnProConfigManager {
     value: Partial<PawnProConfig[K]>,
     scope: 'global' | 'project',
   ): void {
+    if (!isSafeKey(section as string)) {
+      throw new Error('Invalid config section');
+    }
     const filePath = scope === 'global' ? this.globalPath : this.projectPath;
     const current = readJsonFile(filePath) ?? {};
 
     if (isPlainObject(current[section]) && isPlainObject(value)) {
-      current[section] = { ...(current[section] as Record<string, unknown>), ...value };
+      const merged: Record<string, unknown> = { ...(current[section] as Record<string, unknown>) };
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        if (isSafeKey(key)) merged[key] = (value as Record<string, unknown>)[key];
+      }
+      current[section] = merged;
     } else {
       current[section] = value as unknown;
     }
@@ -137,9 +171,7 @@ export class PawnProConfigManager {
     const current = readJsonFile(filePath) ?? {};
 
     const parts = dotPath.split('.');
-    // Guard against prototype pollution
-    const forbidden = ['__proto__', 'constructor', 'prototype'];
-    if (parts.some(p => forbidden.includes(p))) {
+    if (parts.some(p => !isSafeKey(p))) {
       throw new Error('Invalid config key: prototype pollution attempt');
     }
 

@@ -4,12 +4,29 @@ on:
   release:
     types: [published]
 
+permissions: {}
+
 jobs:
   publish:
-    name: Build & Publish
+    name: Publish ${{ matrix.vsce_target }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - vsce_target: linux-x64
+            engine_artifact: pawnpro-engine-linux-x64
+          - vsce_target: linux-arm64
+            engine_artifact: pawnpro-engine-linux-arm64
+          - vsce_target: win32-x64
+            engine_artifact: pawnpro-engine-win32-x64.exe
+          - vsce_target: darwin-x64
+            engine_artifact: pawnpro-engine-darwin-x64
+          - vsce_target: darwin-arm64
+            engine_artifact: pawnpro-engine-darwin-arm64
 
     steps:
       - name: Checkout
@@ -24,16 +41,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Compile TypeScript
+      - name: Download engine binary
+        run: node scripts/download-engine.js --artifact ${{ matrix.engine_artifact }}
+        env:
+          CI: 'true'
+
+      - name: Type check
         run: npm run compile
 
+      # vsce package chama npm run vscode:prepublish (= npm run bundle) automaticamente
       - name: Package (pre-release)
         if: github.event.release.prerelease == true
-        run: npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js
+        run: npx @vscode/vsce package --target ${{ matrix.vsce_target }} --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js
 
       - name: Package (release)
         if: github.event.release.prerelease == false
-        run: npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js
+        run: npx @vscode/vsce package --target ${{ matrix.vsce_target }} --no-dependencies --no-yarn && node scripts/repack-vsix.js
 
       - name: Find VSIX
         id: vsix
@@ -46,9 +69,9 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: |
-          FLAGS=""
+          FLAGS="--target ${{ matrix.vsce_target }}"
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            FLAGS="--pre-release"
+            FLAGS="$FLAGS --pre-release"
           fi
           npx @vscode/vsce publish --packagePath "${{ steps.vsix.outputs.file }}" $FLAGS
         env:
@@ -56,9 +79,9 @@ jobs:
 
       - name: Publish to Open VSX
         run: |
-          FLAGS=""
+          FLAGS="--target ${{ matrix.vsce_target }}"
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            FLAGS="--pre-release"
+            FLAGS="$FLAGS --pre-release"
           fi
           npx ovsx publish "${{ steps.vsix.outputs.file }}" $FLAGS
         env:

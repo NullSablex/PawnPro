@@ -18,30 +18,6 @@ export const msg = {
     notDetected: () => localize('compiler.notDetected', 'Compilador não detectado automaticamente.'),
   },
 
-  diagnostics: {
-    includeNotFound: (token: string) => localize('diagnostics.includeNotFound', 'Include não encontrada: "{0}"', token),
-    triedExtension: (token: string) => localize('diagnostics.triedExtension', ' (tentou: {0}.inc)', token),
-    relativePath: (dir: string) => localize('diagnostics.relativePath', '. Caminho relativo a: {0}', dir),
-    searchedIn: (paths: string) => localize('diagnostics.searchedIn', '. Buscado em: {0}', paths),
-    noIncludePaths: () => localize('diagnostics.noIncludePaths', '. Nenhum includePaths configurado.'),
-    unusedVariable: (name: string) => localize('diagnostics.unusedVariable', '"{0}" variável declarada mas não utilizada', name),
-    unusedStock: (name: string) => localize('diagnostics.unusedStock', '"{0}" função stock declarada mas não utilizada', name),
-  },
-
-  hover: {
-    openFile: () => localize('hover.openFile', 'Abrir arquivo'),
-    fileNotFound: () => localize('hover.fileNotFound', 'Arquivo não encontrado nas include paths.'),
-    aliasOf: () => localize('hover.aliasOf', '— alias de:'),
-    goToLine: () => localize('hover.goToLine', 'Ir para a linha'),
-    line: (n: number) => localize('hover.line', ' linha {0}', n),
-  },
-
-  codelens: {
-    reference: () => localize('codelens.reference', '1 referência'),
-    references: (n: number) => localize('codelens.references', '{0} referências', n),
-    showReferences: () => localize('codelens.showReferences', 'Mostrar todas as referências'),
-  },
-
   server: {
     starting: () => localize('server.starting', 'Iniciando servidor...'),
     started: () => localize('server.started', 'Servidor iniciado'),
@@ -60,12 +36,42 @@ export const msg = {
 
   general: {
     settingsMigrated: () => localize('general.settingsMigrated', 'PawnPro: Configurações migradas para .pawnpro/config.json'),
-    cachePrewarmed: () => localize('general.cachePrewarmed', 'Cache pré-aquecido'),
-    cacheStats: (stats: string) => localize('general.cacheStats', 'Estatísticas do cache: {0}', stats),
   },
 
-  debug: {
-    cacheStatsTitle: () => localize('debug.cacheStatsTitle', 'PawnPro: Estatísticas do Cache'),
+  themes: {
+    schemeNotFound: (name: string) => localize('themes.schemeNotFound', '[PawnPro] Esquema não encontrado: {0}', name),
+    schemePicker: () => localize('themes.schemePicker', 'Escolha o esquema de sintaxe PawnPro'),
+    schemeApplied: (name: string) => localize('themes.schemeApplied', 'PawnPro: esquema aplicado: {0}', name),
+    syntaxRestored: () => localize('themes.syntaxRestored', 'PawnPro: sintaxe restaurada (removidas regras PawnPro).'),
+  },
+
+  extension: {
+    cacheCleaned: () => localize('extension.cacheCleaned', 'PawnPro: cache limpo.'),
+    activationError: (err: string) => localize('extension.activationError', '[PawnPro] Erro de ativação: {0}', err),
+    sdkFileNotFound: (platform: string) => localize('extension.sdkFileNotFound', 'PawnPro: arquivo SDK ({0}) não encontrado. Configure "analysis.sdk.filePath" em .pawnpro/config.json.', platform),
+  },
+
+  statusBar: {
+    tooltip: (mode: string) => localize('statusBar.tooltip', 'PawnPro — {0}', mode),
+    modeRust: () => localize('statusBar.modeRust', 'Motor Rust LSP ativo'),
+    menuTitle: () => localize('statusBar.menuTitle', 'PawnPro — Ações'),
+    restartEngine: () => localize('statusBar.restartEngine', 'Reiniciar motor'),
+    restartEngineDetail: () => localize('statusBar.restartEngineDetail', 'Reinicia o servidor LSP e limpa o cache'),
+    openConfig: () => localize('statusBar.openConfig', 'Abrir .pawnpro/config.json'),
+    openConfigDetail: () => localize('statusBar.openConfigDetail', 'Edita as configurações do projeto'),
+    engineRestarted: () => localize('statusBar.engineRestarted', 'PawnPro: motor reiniciado.'),
+    configNotFound: () => localize('statusBar.configNotFound', 'Nenhum workspace aberto.'),
+    sectionServer: () => localize('statusBar.sectionServer', 'Servidor'),
+    serverStart: () => localize('statusBar.serverStart', 'Iniciar servidor'),
+    serverStop: () => localize('statusBar.serverStop', 'Parar servidor'),
+    serverRestart: () => localize('statusBar.serverRestart', 'Reiniciar servidor'),
+    editServerCfg: () => localize('statusBar.editServerCfg', 'Editar configuração do servidor'),
+    editServerCfgDetail: () => localize('statusBar.editServerCfgDetail', 'Abre server.cfg (SA-MP) ou config.json (open.mp)'),
+    serverCfgNotFound: (p: string) => localize('statusBar.serverCfgNotFound', 'Arquivo de configuração não encontrado em: {0}', p),
+    sectionTemplates: () => localize('statusBar.sectionTemplates', 'Novo script'),
+    newGamemode: () => localize('statusBar.newGamemode', 'Novo Gamemode'),
+    newFilterscript: () => localize('statusBar.newFilterscript', 'Novo Filterscript'),
+    newInclude: () => localize('statusBar.newInclude', 'Novo Include'),
   },
 };
 
@@ -78,19 +84,19 @@ export function buildIncludeErrorMessage(
   fromDir: string,
   includePaths: string[],
 ): string {
-  let message = msg.diagnostics.includeNotFound(token);
+  let message = `Include não encontrada: "${token}"`;
 
   if (!hasExtension) {
-    message += msg.diagnostics.triedExtension(token);
+    message += ` (tentou: ${token}.inc)`;
   }
 
   if (isRelative) {
-    message += msg.diagnostics.relativePath(fromDir);
+    message += `. Caminho relativo a: ${fromDir}`;
   } else if (includePaths.length > 0) {
     const pathsStr = includePaths.slice(0, 2).join(', ') + (includePaths.length > 2 ? '...' : '');
-    message += msg.diagnostics.searchedIn(pathsStr);
+    message += `. Buscado em: ${pathsStr}`;
   } else {
-    message += msg.diagnostics.noIncludePaths();
+    message += '. Nenhum includePaths configurado.';
   }
 
   return message;

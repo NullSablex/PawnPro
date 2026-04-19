@@ -1,0 +1,352 @@
+{
+  "If": {
+    "prefix": "if",
+    "body": [
+      "if (${1:condição})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Condicional if"
+  },
+  "If/Else": {
+    "prefix": "ife",
+    "body": [
+      "if (${1:condição})",
+      "{",
+      "\t$2",
+      "}",
+      "else",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Condicional if/else"
+  },
+  "For Loop": {
+    "prefix": "for",
+    "body": [
+      "for (new ${1:i} = 0; ${1:i} < ${2:limite}; ${1:i}++)",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Loop for"
+  },
+  "While Loop": {
+    "prefix": "while",
+    "body": [
+      "while (${1:condição})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Loop while"
+  },
+  "Do-While Loop": {
+    "prefix": "dowhile",
+    "body": [
+      "do",
+      "{",
+      "\t$1",
+      "}",
+      "while (${2:condição});"
+    ],
+    "description": "Loop do-while"
+  },
+  "Switch": {
+    "prefix": "switch",
+    "body": [
+      "switch (${1:variável})",
+      "{",
+      "\tcase ${2:valor}: $3",
+      "\tdefault: $0",
+      "}"
+    ],
+    "description": "Switch/case"
+  },
+  "Public Function": {
+    "prefix": "public",
+    "body": [
+      "public ${1:NomeFuncao}(${2:params})",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Função public (callback)"
+  },
+  "Stock Function": {
+    "prefix": "stock",
+    "body": [
+      "stock ${1:NomeFuncao}(${2:params})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função stock"
+  },
+  "Static Function": {
+    "prefix": "static",
+    "body": [
+      "static ${1:NomeFuncao}(${2:params})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função static (escopo de arquivo)"
+  },
+  "Forward Declaration": {
+    "prefix": "forward",
+    "body": [
+      "forward ${1:NomeFuncao}(${2:params});"
+    ],
+    "description": "Declaração forward"
+  },
+  "Forward + Public": {
+    "prefix": "fwdpublic",
+    "body": [
+      "forward ${1:NomeFuncao}(${2:params});",
+      "public ${1:NomeFuncao}(${2:params})",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Par forward + public"
+  },
+  "Native Declaration": {
+    "prefix": "native",
+    "body": [
+      "native ${1:NomeFuncao}(${2:params});"
+    ],
+    "description": "Declaração native"
+  },
+  "New Variable": {
+    "prefix": "new",
+    "body": [
+      "new ${1:variavel} = ${2:valor};"
+    ],
+    "description": "Declara variável"
+  },
+  "New Array": {
+    "prefix": "newarr",
+    "body": [
+      "new ${1:array}[${2:tamanho}];"
+    ],
+    "description": "Declara array"
+  },
+  "New String": {
+    "prefix": "newstr",
+    "body": [
+      "new ${1:str}[${2:128}];"
+    ],
+    "description": "Declara string"
+  },
+  "Define Constant": {
+    "prefix": "#define",
+    "body": [
+      "#define ${1:NOME} ${2:valor}"
+    ],
+    "description": "Constante #define"
+  },
+  "Define Macro": {
+    "prefix": "#definef",
+    "body": [
+      "#define ${1:MACRO}(%1) (${2:expressão})"
+    ],
+    "description": "Macro #define com parâmetro"
+  },
+  "Include Library": {
+    "prefix": "#include",
+    "body": [
+      "#include <${1:biblioteca}>"
+    ],
+    "description": "Include de biblioteca"
+  },
+  "Include Local": {
+    "prefix": "#includel",
+    "body": [
+      "#include \"${1:arquivo}\""
+    ],
+    "description": "Include de arquivo local"
+  },
+  "Conditional Compilation": {
+    "prefix": "#if",
+    "body": [
+      "#if defined ${1:SIMBOLO}",
+      "\t$0",
+      "#endif"
+    ],
+    "description": "Compilação condicional #if defined"
+  },
+  "OnGameModeInit": {
+    "prefix": "OnGameModeInit",
+    "body": [
+      "public OnGameModeInit()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de inicialização do gamemode"
+  },
+  "OnGameModeExit": {
+    "prefix": "OnGameModeExit",
+    "body": [
+      "public OnGameModeExit()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de saída do gamemode"
+  },
+  "OnFilterScriptInit": {
+    "prefix": "OnFilterScriptInit",
+    "body": [
+      "public OnFilterScriptInit()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de inicialização do filterscript"
+  },
+  "OnFilterScriptExit": {
+    "prefix": "OnFilterScriptExit",
+    "body": [
+      "public OnFilterScriptExit()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de saída do filterscript"
+  },
+  "OnPlayerConnect": {
+    "prefix": "OnPlayerConnect",
+    "body": [
+      "public OnPlayerConnect(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de conexão de jogador"
+  },
+  "OnPlayerDisconnect": {
+    "prefix": "OnPlayerDisconnect",
+    "body": [
+      "public OnPlayerDisconnect(playerid, reason)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de desconexão de jogador"
+  },
+  "OnPlayerSpawn": {
+    "prefix": "OnPlayerSpawn",
+    "body": [
+      "public OnPlayerSpawn(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de spawn de jogador"
+  },
+  "OnPlayerDeath": {
+    "prefix": "OnPlayerDeath",
+    "body": [
+      "public OnPlayerDeath(playerid, killerid, reason)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de morte de jogador"
+  },
+  "OnPlayerCommandText": {
+    "prefix": "OnPlayerCommandText",
+    "body": [
+      "public OnPlayerCommandText(playerid, cmdtext[])",
+      "{",
+      "\tif (!strcmp(cmdtext, \"/${1:comando}\", true))",
+      "\t{",
+      "\t\t$0",
+      "\t\treturn 1;",
+      "\t}",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "Callback de comando de texto"
+  },
+  "OnPlayerText": {
+    "prefix": "OnPlayerText",
+    "body": [
+      "public OnPlayerText(playerid, text[])",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback de mensagem de chat"
+  },
+  "CMD (ZCMD/DCMD)": {
+    "prefix": "CMD",
+    "body": [
+      "CMD:${1:comando}(playerid, params[])",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Comando ZCMD/DCMD"
+  },
+  "Format + SendClientMessage": {
+    "prefix": "fmsg",
+    "body": [
+      "new ${1:str}[128];",
+      "format(${1:str}, sizeof(${1:str}), \"${2:mensagem}\", ${3:args});",
+      "SendClientMessage(playerid, ${4:0xFFFFFFFF}, ${1:str});"
+    ],
+    "description": "Format + SendClientMessage"
+  },
+  "SetTimer": {
+    "prefix": "settimer",
+    "body": [
+      "SetTimer(\"${1:NomeFuncao}\", ${2:1000}, ${3:false});"
+    ],
+    "description": "SetTimer"
+  },
+  "SetTimerEx": {
+    "prefix": "settimerex",
+    "body": [
+      "SetTimerEx(\"${1:NomeFuncao}\", ${2:1000}, ${3:false}, \"${4:formato}\", ${5:args});"
+    ],
+    "description": "SetTimerEx com argumentos"
+  },
+  "OnTimerCallback": {
+    "prefix": "timer",
+    "body": [
+      "forward ${1:NomeFuncao}();",
+      "public ${1:NomeFuncao}()",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Timer callback (forward + public)"
+  },
+  "Main (Gamemode)": {
+    "prefix": "main",
+    "body": [
+      "main()",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função main (entry point do gamemode)"
+  }
+}

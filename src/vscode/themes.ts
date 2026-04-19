@@ -8,6 +8,7 @@ import {
 } from '../core/themes.js';
 import { PawnProConfigManager } from '../core/config.js';
 import type { TokenColorRule, ThemeKind } from '../core/types.js';
+import { msg } from './nls.js';
 
 let isApplying = false;
 let lastAppliedKey = '';
@@ -27,6 +28,7 @@ function themedKey(name: string): string {
 async function clearTokenColors() {
   const cfg = vscode.workspace.getConfiguration();
   await cfg.update('editor.tokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
+  await cfg.update('editor.semanticTokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
 }
 
 async function applySchemeByName(
@@ -49,7 +51,7 @@ async function applySchemeByName(
 
     const scheme = readSchemeFromFile(extensionDir, resolved);
     if (!scheme) {
-      vscode.window.showWarningMessage(`[PawnPro] Esquema nao encontrado: ${resolved}`);
+      vscode.window.showWarningMessage(msg.themes.schemeNotFound(resolved));
       return;
     }
 
@@ -78,6 +80,15 @@ async function applySchemeByName(
       await vscfg.update('editor.tokenColorCustomizations', clone, vscode.ConfigurationTarget.Global);
     }
 
+    // Apply semantic token colors so SDK functions get the right color regardless of active theme
+    if (scheme.semanticRules) {
+      await vscfg.update(
+        'editor.semanticTokenColorCustomizations',
+        { rules: scheme.semanticRules },
+        vscode.ConfigurationTarget.Global,
+      );
+    }
+
     lastAppliedKey = key;
     schemeWasApplied = true;
   } finally {
@@ -95,14 +106,14 @@ export function registerSyntaxSchemeCommands(
     vscode.commands.registerCommand('pawnpro.applySyntaxScheme', async () => {
       const entries = AVAILABLE_SCHEMES.map(e => e.label);
       const picked = await vscode.window.showQuickPick(entries, {
-        placeHolder: 'Escolha o esquema de sintaxe PawnPro',
+        placeHolder: msg.themes.schemePicker(),
       });
       if (!picked) return;
       const choice = AVAILABLE_SCHEMES.find(e => e.label === picked)!.value;
 
       // Persist choice first (single write, triggers onChange → applySchemeByName)
       config.set('syntax', { scheme: choice, applyOnStartup: true }, 'project');
-      vscode.window.showInformationMessage(`PawnPro: esquema aplicado -> ${picked}`);
+      vscode.window.showInformationMessage(msg.themes.schemeApplied(picked));
     }),
 
     vscode.commands.registerCommand('pawnpro.resetSyntaxScheme', async () => {
@@ -111,7 +122,7 @@ export function registerSyntaxSchemeCommands(
       await clearTokenColors();
       lastAppliedKey = 'none';
       schemeWasApplied = false;
-      vscode.window.showInformationMessage('PawnPro: sintaxe restaurada (removidas regras PawnPro).');
+      vscode.window.showInformationMessage(msg.themes.syntaxRestored());
     }),
   );
 
@@ -170,6 +181,7 @@ export async function cleanupThemeCustomizations() {
           await vscfg.update('editor.tokenColorCustomizations', clone, vscode.ConfigurationTarget.Global);
         }
       }
+      await vscfg.update('editor.semanticTokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
     } catch {
       // deactivate has limited time, ignore errors
     }

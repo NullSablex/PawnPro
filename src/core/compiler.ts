@@ -62,6 +62,7 @@ function workspaceCandidates(workspaceRoot?: string): string[] {
     ? ['pawncc.exe', 'pawncc64.exe', 'pawncc.bat']
     : ['pawncc'];
   const dirs = [
+    path.join(workspaceRoot, 'qawno'),    // open.mp
     path.join(workspaceRoot, 'pawno'),
     path.join(workspaceRoot, 'include'),
     path.join(workspaceRoot, 'tools'),

@@ -9,7 +9,8 @@
     "moduleResolution": "nodenext",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node"]
   },
   "include": ["src"]
 }

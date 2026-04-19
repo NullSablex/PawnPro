@@ -1,85 +1,116 @@
 import * as vscode from 'vscode';
 import { activateConfigBridge, getWorkspaceRoot } from './configBridge.js';
-import { activateDiagnostics } from './diagnostics.js';
 import { registerCompileCommand } from './compiler.js';
 import { registerSyntaxSchemeCommands, applySchemeOnActivate, cleanupThemeCustomizations } from './themes.js';
 import { registerIncludesContainer } from './includeTree.js';
 import { registerServerControls } from './server.js';
-import { registerIncludeHover } from './hover.js';
-import { registerCodeLens } from './codelens.js';
-import { registerSignatureHelp } from './signatureHelp.js';
-import { registerCompletion } from './completion.js';
-import { prewarmCache, getCacheStats } from '../core/fileCache.js';
-import { buildIncludePaths } from '../core/includes.js';
 import { msg } from './nls.js';
 import { registerWhatsNew } from './whatsNew.js';
 import { registerTemplates } from './templates.js';
+import { startLspClient, stopLspClient, restartLspClient, resolveSdkFilePath } from './lspClient.js';
+import { buildIncludePaths } from '../core/includes.js';
+import { activateStatusBar } from './statusBar.js';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   try {
-    console.log('[PawnPro] activating...');
-
-    // Initialize config/state bridge (must be first)
     const { config, state } = activateConfigBridge(context);
 
-    // Diagnostics and build
-    activateDiagnostics(context, config);
     registerCompileCommand(context, config);
-
-    // Syntax themes
     registerSyntaxSchemeCommands(context, config);
     void applySchemeOnActivate(context, config);
-
-    // Include tree, hover, and CodeLens
     registerIncludesContainer(context, config);
-    registerIncludeHover(context, config);
-    registerCodeLens(context, config);
-    registerSignatureHelp(context, config);
-    registerCompletion(context, config);
-
-    // Server controls
     registerServerControls(context, config, state);
-
-    // What's New panel (shows on first run or version change)
     registerWhatsNew(context);
-
-    // File templates
     registerTemplates(context);
 
-    // Focus container once on activation (not on every config change)
     if (config.getAll().ui.separateContainer) {
       void vscode.commands.executeCommand('workbench.view.extension.pawnpro');
     }
 
-    // Debug: cache statistics command
     context.subscriptions.push(
-      vscode.commands.registerCommand('pawnpro.cacheStats', () => {
-        const s = getCacheStats();
-        const detail = `text:${s.text}  idents:${s.idents}  symbols:${s.symbols}  funcs:${s.funcs}  api:${s.api}  includes:${s.includes}  apiIndex:${s.apiIndex}`;
-        vscode.window.showInformationMessage(msg.debug.cacheStatsTitle(), { detail, modal: true });
+      vscode.commands.registerCommand('pawnpro.clearEngineCache', async () => {
+        await restartLspClient();
+        vscode.window.showInformationMessage(msg.extension.cacheCleaned());
       }),
     );
 
-    // Pre-warm cache in background
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        'pawnpro.findReferences',
+        async (...rawArgs: unknown[]) => {
+          let uriStr: string | undefined;
+          let line: number | undefined;
+          let character: number | undefined;
+
+          const first = rawArgs[0];
+          if (typeof first === 'string') {
+            uriStr    = first;
+            line      = typeof rawArgs[1] === 'number' ? rawArgs[1] as number : undefined;
+            character = typeof rawArgs[2] === 'number' ? rawArgs[2] as number : undefined;
+          } else if (Array.isArray(first)) {
+            const [a, b, c] = first as unknown[];
+            uriStr    = typeof a === 'string' ? a : undefined;
+            line      = typeof b === 'number' ? b : undefined;
+            character = typeof c === 'number' ? c : undefined;
+          }
+
+          if (!uriStr || line === undefined || character === undefined) {
+            return;
+          }
+
+          try {
+            const uri      = vscode.Uri.parse(uriStr);
+            const position = new vscode.Position(line, character);
+
+            const locations = await vscode.commands.executeCommand<vscode.Location[]>(
+              'vscode.executeReferenceProvider',
+              uri,
+              position,
+            );
+
+            if (locations && locations.length > 0) {
+              await vscode.commands.executeCommand(
+                'editor.action.showReferences',
+                uri,
+                position,
+                locations,
+              );
+            }
+          } catch {
+            // Silencioso — o usuário pode usar Shift+F12 como alternativa
+          }
+        },
+      ),
+    );
+
     const ws = getWorkspaceRoot();
-    if (ws) {
-      const cfg = config.getAll();
-      const includePaths = buildIncludePaths(cfg, ws);
-      vscode.workspace.findFiles('**/*.pwn', null, 10).then(async (files) => {
-        const rootFiles = files.map(f => f.fsPath);
-        await prewarmCache(rootFiles, includePaths);
-        console.log('[PawnPro] cache pre-warmed');
-      });
+    await startLspClient(context, config, ws);
+
+    const cfg = config.getAll();
+    const sdkPlatform = cfg.analysis.sdk.platform;
+    if (sdkPlatform !== 'none') {
+      const resolved = resolveSdkFilePath(
+        sdkPlatform,
+        cfg.analysis.sdk.filePath,
+        buildIncludePaths(cfg, ws),
+        ws,
+      );
+      if (!resolved) {
+        void vscode.window.showWarningMessage(
+          msg.extension.sdkFileNotFound(sdkPlatform),
+        );
+      }
     }
 
-    console.log('[PawnPro] activated');
-  } catch (err: any) {
-    console.error('[PawnPro] activation error:', err);
-    vscode.window.showErrorMessage(`[PawnPro] activation error: ${err?.message || err}`);
+    activateStatusBar(context, config);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(msg.extension.activationError(message));
     throw err;
   }
 }
 
-export function deactivate() {
+export async function deactivate() {
+  await stopLspClient();
   void cleanupThemeCustomizations();
 }

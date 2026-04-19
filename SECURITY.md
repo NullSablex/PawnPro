@@ -1,121 +1,37 @@
-# Security Audit — PawnPro v2.1
+# Política de Segurança — PawnPro
 
-**Date:** 2026-03-07
-**Scope:** Source code (CWE analysis) + npm dependency tree (CVE analysis)
-**Tools:** `npm audit`, manual grep, static analysis
+## Reportar uma vulnerabilidade
 
----
+Encontrou uma vulnerabilidade de segurança? Não abra uma issue pública.
 
-## Summary
+**Contato:** abra um [Security Advisory](https://github.com/NullSablex/PawnPro/security/advisories/new) privado no GitHub ou envie um e-mail diretamente ao mantenedor.
 
-| Severity | Findings |
-|----------|----------|
-| Critical | 0 |
-| High     | 0 |
-| Medium   | 1 (devDep only, not shipped) |
-| Low      | 2 (devDep only, not shipped) |
-| Code     | 1 CWE-400 — **fixed in this release** |
+Resposta esperada em até **7 dias úteis**.
 
 ---
 
-## 1. Dependency Vulnerabilities (CVE)
+## Escopo
 
-All findings are in transitive dependencies of `@vscode/vsce` (a devDependency used only at package-build time). **None of these packages are bundled or shipped in the `.vsix` extension.**
+Esta política cobre o código-fonte da extensão PawnPro (repositório `NullSablex/PawnPro`) e o motor LSP ([`NullSablex/PawnPro-Engine`](https://github.com/NullSablex/PawnPro-Engine)).
 
-| Package | CVE | CVSS | Description | Status |
-|---------|-----|------|-------------|--------|
-| `minimatch` < 3.0.5 | CVE-2022-3517 | 7.5 (High) | ReDoS via crafted glob string | Not shipped |
-| `underscore` < 1.12.1 | CVE-2021-23358 | 7.2 (High) | Arbitrary code injection via `template` | Not shipped |
-| `ajv` < 6.12.3 | CVE-2020-15366 | 5.6 (Medium) | Prototype pollution via `additionalProperties` | Not shipped |
-| `markdown-it` < 12.3.2 | CVE-2022-21670 | 5.3 (Medium) | ReDoS via crafted Markdown | Not shipped |
-| `qs` < 6.7.3 | CVE-2022-24999 | 6.5 (Medium) | Prototype pollution | Not shipped |
-
-**Mitigation:** No action required for extension users. These vulnerabilities only affect the development build toolchain. To eliminate from audit output, run `npm audit --omit=dev`.
+Vulnerabilidades em dependências de terceiros devem ser reportadas aos respectivos mantenedores. Dependências de desenvolvimento (`devDependencies`) **não são empacotadas** no `.vsix` e não afetam os usuários finais.
 
 ---
 
-## 2. Source Code — CWE Analysis
+## Dependências empacotadas no `.vsix`
 
-### CWE-78: OS Command Injection
+Apenas três pacotes são embutidos no bundle da extensão:
 
-**File:** `src/vscode/compiler.ts`, `src/core/flags.ts`
+| Pacote | Finalidade |
+|--------|-----------|
+| `iconv-lite` | Decodificação do log do servidor (windows-1252, latin-1) |
+| `safer-buffer` | Dependência de `iconv-lite` |
+| `vscode-nls` | Internacionalização das mensagens |
 
-Both use `child_process.spawn` / `spawnSync` with `shell: false` (default). Arguments are passed as a string array, never concatenated into a shell string. No interpolation into shell commands.
-
-**Status:** Safe. No action required.
-
----
-
-### CWE-79: Cross-Site Scripting (XSS in WebView)
-
-**File:** `src/vscode/serverView.ts`
-
-The server console WebView appends log output using `textContent` (not `innerHTML`) for user-controlled data. The one use of `innerHTML` is for clearing: `el.innerHTML = ''`. No untrusted string is injected as HTML.
-
-**Status:** Safe. No action required.
+Todas as demais dependências (incluindo `@vscode/vsce`, `typescript`, `esbuild`, etc.) são `devDependencies` e **não estão presentes** no pacote distribuído.
 
 ---
 
-### CWE-22: Path Traversal
+## Versões suportadas
 
-**File:** `src/core/`, `src/vscode/`
-
-All file paths are constructed from workspace-root-relative settings values. No user input (e.g., HTTP request parameters) reaches `fs.readFile` or `fs.writeFile`. Include path resolution via `resolveInclude()` only resolves within configured include directories.
-
-**Status:** Safe. No action required.
-
----
-
-### CWE-915: Prototype Pollution
-
-**File:** `src/core/config.ts`
-
-The `deepMerge` function explicitly blocks prototype-polluting keys:
-
-```typescript
-const forbidden = ['__proto__', 'constructor', 'prototype'];
-if (forbidden.includes(key)) continue;
-```
-
-**Status:** Protected. No action required.
-
----
-
-### CWE-400: Uncontrolled Resource Consumption (ReDoS) — FIXED
-
-**File:** `src/core/unusedAnalyzer.ts`
-
-Three locations constructed `new RegExp(name)` by directly interpolating a parsed identifier name without escaping special regex characters:
-
-```typescript
-// Before fix (lines 61, 93, 138):
-new RegExp(`\\b${keyword}\\s+${name}\\b`)
-new RegExp(`\\bstock\\s+(?:[A-Za-z_]\\w*:)?\\s*(${name})\\s*\\(`)
-new RegExp(`\\b(new|static|const)\\s+${name}\\b`)
-```
-
-Although Pawn identifiers are constrained to `[A-Za-z_]\w*` (no regex metacharacters in practice), a crafted source file could theoretically supply an identifier-like token through macro expansion or edge-case parsing, triggering catastrophic backtracking.
-
-**Fix applied:** Added `escapeRe()` helper and applied it to all three interpolation sites:
-
-```typescript
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// After fix:
-new RegExp(`\\b${escapeRe(keyword)}\\s+${escapeRe(name)}\\b`)
-new RegExp(`\\bstock\\s+(?:[A-Za-z_]\\w*:)?\\s*(${escapeRe(name)})\\s*\\(`)
-new RegExp(`\\b(new|static|const)\\s+${escapeRe(name)}\\b`)
-```
-
-**CVSS v3.1 (hypothetical):** 4.3 (Medium) — AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L
-**Status:** Fixed in v2.1.
-
----
-
-## 3. Recommendations
-
-1. Pin `@vscode/vsce` devDependency to a version that resolves its transitive CVEs, or add `overrides` in `package.json` for the affected packages.
-2. Consider adding a pre-publish `npm audit --omit=dev --audit-level=high` check to CI to catch future high/critical devDep chains early.
-3. The `escapeRe` fix is already committed. No further remediation needed for CWE-400.
+Somente a versão mais recente recebe correções de segurança. A extensão é distribuída via [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=NullSablex.pawnpro), [Open VSX](https://open-vsx.org/extension/NullSablex/pawnpro) e como artefato `.vsix` nas [Releases do GitHub](https://github.com/NullSablex/PawnPro/releases).

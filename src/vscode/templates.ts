@@ -1,250 +1,70 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
+import { getConfig } from './configBridge.js';
 
-/* ─── Template content ──────────────────────────────────────────── */
+type TemplateKind = 'gamemode' | 'filterscript' | 'include';
 
-const BLANK_TEMPLATE = `// This is a comment
-// uncomment the line below if you want to write a filterscript
-//#define FILTERSCRIPT
+type TemplateOption = {
+  label: string;
+  description: string;
+  file: string;
+  platform: 'omp' | 'samp';
+  kind: TemplateKind;
+};
 
-#include <a_samp>
+const TEMPLATES: TemplateOption[] = [
+  { label: 'Gamemode — open.mp',     description: '#include <open.mp>', file: 'gamemode.omp.pwn',      platform: 'omp',  kind: 'gamemode'     },
+  { label: 'Gamemode — SA-MP',       description: '#include <a_samp>',  file: 'gamemode.samp.pwn',     platform: 'samp', kind: 'gamemode'     },
+  { label: 'Filterscript — open.mp', description: '#include <open.mp>', file: 'filterscript.omp.pwn',  platform: 'omp',  kind: 'filterscript' },
+  { label: 'Filterscript — SA-MP',   description: '#include <a_samp>',  file: 'filterscript.samp.pwn', platform: 'samp', kind: 'filterscript' },
+  { label: 'Include — open.mp',      description: '.inc para open.mp',  file: 'include.omp.inc',       platform: 'omp',  kind: 'include'      },
+];
 
-#if defined FILTERSCRIPT
-
-public OnFilterScriptInit()
-{
-	print("\\n--------------------------------------");
-	print(" Blank Filterscript by your name here");
-	print("--------------------------------------\\n");
-	return 1;
+function readTemplate(context: vscode.ExtensionContext, name: string): string {
+  const file = path.join(context.extensionPath, 'templates', name);
+  return fs.readFileSync(file, 'utf8');
 }
 
-public OnFilterScriptExit()
-{
-	return 1;
+function getPlatform(): string {
+  try {
+    return getConfig().getAll().analysis.sdk.platform;
+  } catch {
+    return 'none';
+  }
 }
-
-#else
-
-main()
-{
-	print("\\n----------------------------------");
-	print(" Blank Gamemode by your name here");
-	print("----------------------------------\\n");
-}
-
-#endif
-
-public OnGameModeInit()
-{
-	// Don't use these lines if it's a filterscript
-	SetGameModeText("Blank Script");
-	AddPlayerClass(0, 1958.3783, 1343.1572, 15.3746, 269.1425, 0, 0, 0, 0, 0, 0);
-	return 1;
-}
-
-public OnGameModeExit()
-{
-	return 1;
-}
-
-public OnPlayerRequestClass(playerid, classid)
-{
-	SetPlayerPos(playerid, 1958.3783, 1343.1572, 15.3746);
-	SetPlayerCameraPos(playerid, 1958.3783, 1343.1572, 15.3746);
-	SetPlayerCameraLookAt(playerid, 1958.3783, 1343.1572, 15.3746);
-	return 1;
-}
-
-public OnPlayerConnect(playerid)
-{
-	return 1;
-}
-
-public OnPlayerDisconnect(playerid, reason)
-{
-	return 1;
-}
-
-public OnPlayerSpawn(playerid)
-{
-	return 1;
-}
-
-public OnPlayerDeath(playerid, killerid, reason)
-{
-	return 1;
-}
-
-public OnVehicleSpawn(vehicleid)
-{
-	return 1;
-}
-
-public OnVehicleDeath(vehicleid, killerid)
-{
-	return 1;
-}
-
-public OnPlayerText(playerid, text[])
-{
-	return 1;
-}
-
-public OnPlayerCommandText(playerid, cmdtext[])
-{
-	if (strcmp("/mycommand", cmdtext, true, 10) == 0)
-	{
-		// Do something here
-		return 1;
-	}
-	return 0;
-}
-
-public OnPlayerEnterVehicle(playerid, vehicleid, ispassenger)
-{
-	return 1;
-}
-
-public OnPlayerExitVehicle(playerid, vehicleid)
-{
-	return 1;
-}
-
-public OnPlayerStateChange(playerid, newstate, oldstate)
-{
-	return 1;
-}
-
-public OnPlayerEnterCheckpoint(playerid)
-{
-	return 1;
-}
-
-public OnPlayerLeaveCheckpoint(playerid)
-{
-	return 1;
-}
-
-public OnPlayerEnterRaceCheckpoint(playerid)
-{
-	return 1;
-}
-
-public OnPlayerLeaveRaceCheckpoint(playerid)
-{
-	return 1;
-}
-
-public OnRconCommand(cmd[])
-{
-	return 1;
-}
-
-public OnPlayerRequestSpawn(playerid)
-{
-	return 1;
-}
-
-public OnObjectMoved(objectid)
-{
-	return 1;
-}
-
-public OnPlayerObjectMoved(playerid, objectid)
-{
-	return 1;
-}
-
-public OnPlayerPickUpPickup(playerid, pickupid)
-{
-	return 1;
-}
-
-public OnVehicleMod(playerid, vehicleid, componentid)
-{
-	return 1;
-}
-
-public OnVehiclePaintjob(playerid, vehicleid, paintjobid)
-{
-	return 1;
-}
-
-public OnVehicleRespray(playerid, vehicleid, color1, color2)
-{
-	return 1;
-}
-
-public OnPlayerSelectedMenuRow(playerid, row)
-{
-	return 1;
-}
-
-public OnPlayerExitedMenu(playerid)
-{
-	return 1;
-}
-
-public OnPlayerInteriorChange(playerid, newinteriorid, oldinteriorid)
-{
-	return 1;
-}
-
-public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
-{
-	return 1;
-}
-
-public OnRconLoginAttempt(ip[], password[], success)
-{
-	return 1;
-}
-
-public OnPlayerUpdate(playerid)
-{
-	return 1;
-}
-
-public OnPlayerStreamIn(playerid, forplayerid)
-{
-	return 1;
-}
-
-public OnPlayerStreamOut(playerid, forplayerid)
-{
-	return 1;
-}
-
-public OnVehicleStreamIn(vehicleid, forplayerid)
-{
-	return 1;
-}
-
-public OnVehicleStreamOut(vehicleid, forplayerid)
-{
-	return 1;
-}
-
-public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
-{
-	return 1;
-}
-
-public OnPlayerClickPlayer(playerid, clickedplayerid, source)
-{
-	return 1;
-}
-`;
-
-/* ─── Registration ───────────────────────────────────────────────── */
 
 export function registerTemplates(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('pawnpro.newScript', async () => {
-      const doc = await vscode.workspace.openTextDocument({
-        language: 'pawn',
-        content: BLANK_TEMPLATE,
-      });
+    vscode.commands.registerCommand('pawnpro.newScript', async (kind?: TemplateKind) => {
+      const platform = getPlatform();
+      const options = TEMPLATES.filter(t => platform === 'none' || t.platform === platform);
+
+      let chosen: TemplateOption | undefined;
+
+      if (kind) {
+        const filtered = options.filter(t => t.kind === kind);
+        if (filtered.length === 1) {
+          chosen = filtered[0];
+        } else if (filtered.length > 1) {
+          const pick = await vscode.window.showQuickPick(
+            filtered.map(t => ({ label: t.label, description: t.description, _opt: t })),
+            { placeHolder: 'Selecione a variante' },
+          );
+          chosen = pick?._opt;
+        }
+      } else {
+        const pick = await vscode.window.showQuickPick(
+          options.map(t => ({ label: t.label, description: t.description, _opt: t })),
+          { placeHolder: 'Selecione o tipo de script' },
+        );
+        chosen = pick?._opt;
+      }
+
+      if (!chosen) return;
+
+      const content = readTemplate(context, chosen.file);
+      const doc = await vscode.workspace.openTextDocument({ language: 'pawn', content });
       await vscode.window.showTextDocument(doc);
     }),
   );
