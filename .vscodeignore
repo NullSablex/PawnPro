@@ -1,8 +1,26 @@
+# Fontes — nunca incluir no VSIX
+src/**
+
+# Documentação
+docs/**
+
+# Source maps
+out/**/*.map
+
+# Configuração de build e dev
+tsconfig.json
 .vscode/**
 .pawnpro/**
-src/**
+scripts/
+.gitignore
+.claude
+
+# CI/CD
+.github/**
+
+# Testes
 test/**
 tests/**
-**/*.map
-scripts
-.claude
+
+# node_modules — dependências já embutidas no bundle esbuild
+node_modules/**

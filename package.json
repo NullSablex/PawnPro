@@ -2,13 +2,20 @@
   "name": "pawnpro",
   "displayName": "PawnPro",
   "description": "%text.description%",
-  "version": "2.1.1",
+  "version": "3.0.0",
   "publisher": "NullSablex",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
   "engines": {
     "vscode": "^1.106.0"
   },
+  "platforms": [
+    "linux-x64",
+    "linux-arm64",
+    "win32-x64",
+    "darwin-x64",
+    "darwin-arm64"
+  ],
   "categories": [
     "Programming Languages",
     "Linters"
@@ -33,6 +40,12 @@
     "url": "https://github.com/NullSablex/PawnPro"
   },
   "icon": "images/logo.png",
+  "engineVersion": "1.0.0",
+  "engineRepository": "https://github.com/NullSablex/PawnPro-Engine",
+  "author": {
+    "name": "NullSablex",
+    "url": "https://github.com/NullSablex"
+  },
   "main": "./out/vscode/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -83,11 +96,25 @@
         "when": "editorLangId == pawn && editorTextFocus"
       }
     ],
+    "snippets": [
+      {
+        "language": "pawn",
+        "path": "./snippets/pawn.json"
+      }
+    ],
     "grammars": [
       {
         "language": "pawn",
         "scopeName": "source.pawn",
         "path": "./syntaxes/pawn.tmLanguage.json"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "pawn",
+        "scopes": {
+          "function": ["support.function.pawn"]
+        }
       }
     ],
     "languages": [
@@ -115,40 +142,40 @@
       },
       {
         "command": "pawnpro.applySyntaxScheme",
-        "title": "PawnPro: Aplicar esquema de sintaxe"
+        "title": "%command.applySyntaxScheme%"
       },
       {
         "command": "pawnpro.resetSyntaxScheme",
-        "title": "PawnPro: Restaurar sintaxe (remover esquema PawnPro)"
+        "title": "%command.resetSyntaxScheme%"
       },
       {
         "command": "pawnpro.server.start",
-        "title": "PawnPro: Start Server",
+        "title": "%command.server.start%",
         "icon": "$(debug-start)"
       },
       {
         "command": "pawnpro.server.stop",
-        "title": "PawnPro: Stop Server",
+        "title": "%command.server.stop%",
         "icon": "$(debug-stop)"
       },
       {
         "command": "pawnpro.server.restart",
-        "title": "PawnPro: Restart Server",
+        "title": "%command.server.restart%",
         "icon": "$(debug-restart)"
       },
       {
         "command": "pawnpro.server.show",
-        "title": "PawnPro: Show Server Console",
+        "title": "%command.server.show%",
         "icon": "$(terminal)"
       },
       {
         "command": "pawnpro.server.showLog",
-        "title": "PawnPro: Show Server Log",
+        "title": "%command.server.showLog%",
         "icon": "$(output)"
       },
       {
-        "command": "pawnpro.cacheStats",
-        "title": "PawnPro: Cache Statistics (Debug)"
+        "command": "pawnpro.clearEngineCache",
+        "title": "%command.clearEngineCache%"
       },
       {
         "command": "pawnpro.whatsNew",
@@ -163,10 +190,67 @@
       "type": "object",
       "title": "PawnPro",
       "properties": {
+        "pawnpro.includePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "%config.includePaths%"
+        },
+        "pawnpro.compiler.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.compiler.path%"
+        },
+        "pawnpro.compiler.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "%config.compiler.args%"
+        },
+        "pawnpro.analysis.warnUnusedInInc": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.analysis.warnUnusedInInc%"
+        },
+        "pawnpro.analysis.sdk.platform": {
+          "type": "string",
+          "enum": ["omp", "samp", "none"],
+          "enumDescriptions": [
+            "%config.analysis.sdk.platform.omp%",
+            "%config.analysis.sdk.platform.samp%",
+            "%config.analysis.sdk.platform.none%"
+          ],
+          "default": "omp",
+          "markdownDescription": "%config.analysis.sdk.platform%"
+        },
+        "pawnpro.analysis.sdk.filePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.analysis.sdk.filePath%"
+        },
         "pawnpro.ui.separateContainer": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Synced from `.pawnpro/config.json`. When **enabled**, moves PawnPro views to a dedicated container in the Activity Bar. All other settings are managed via `.pawnpro/config.json`."
+          "markdownDescription": "%config.ui.separateContainer%"
+        },
+        "pawnpro.server.type": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "samp",
+            "omp"
+          ],
+          "enumDescriptions": [
+            "%config.server.type.auto%",
+            "%config.server.type.samp%",
+            "%config.server.type.omp%"
+          ],
+          "default": "auto",
+          "markdownDescription": "%config.server.type%"
         }
       }
     },
@@ -253,39 +337,28 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "vscode:prepublish": "npm run compile",
-    "watch": "tsc -watch -p .",
+    "compile": "tsc --noEmit -p .",
+    "bundle": "node scripts/bundle.mjs",
+    "bundle:dev": "node scripts/bundle.mjs --dev",
+    "vscode:prepublish": "npm run bundle",
+    "watch": "node scripts/bundle.mjs --watch",
     "package": "npm run package:full",
-    "package:full": "npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js",
-    "package:pre": "npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
+    "package:full": "npm run bundle && npx @vscode/vsce package --no-dependencies --no-yarn && node scripts/repack-vsix.js",
+    "package:pre": "npm run bundle && npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
   },
   "devDependencies": {
-    "@types/node": "^25.3.5",
-    "@types/vscode": "^1.106.1",
-    "@vscode/vsce": "^3.7.1",
+    "@types/node": "^25.6.0",
+    "@types/vscode": "1.106.0",
+    "@vscode/vsce": "^3.9.1",
+    "esbuild": "^0.28.0",
     "jszip": "^3.10.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "iconv-lite": "^0.7.2",
+    "vscode-languageclient": "^9.0.1",
     "vscode-nls": "^5.2.0"
   },
-  "packagedDependencies": [
-    "iconv-lite",
-    "safer-buffer",
-    "vscode-nls"
-  ],
-  "bundledDependencies": [
-    "iconv-lite",
-    "safer-buffer",
-    "vscode-nls"
-  ],
-  "bundleDependencies": [
-    "iconv-lite",
-    "safer-buffer",
-    "vscode-nls"
-  ],
   "overrides": {
     "@vscode/vsce": {
       "minimatch": "3.1.5"

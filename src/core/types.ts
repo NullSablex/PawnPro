@@ -36,7 +36,10 @@ export interface ServerOutputConfig {
   follow: 'visible' | 'always' | 'off';
 }
 
+export type ServerType = 'auto' | 'samp' | 'omp';
+
 export interface ServerConfig {
+  type: ServerType;
   path: string;
   cwd: string;
   args: string[];
@@ -44,6 +47,19 @@ export interface ServerConfig {
   logPath: string;
   logEncoding: string;
   output: ServerOutputConfig;
+}
+
+export type SdkPlatform = 'omp' | 'samp' | 'none';
+
+export interface AnalysisSdkConfig {
+  platform: SdkPlatform;
+  /** Caminho absoluto ou com ${workspaceFolder} para o .inc centralizador do SDK. */
+  filePath: string;
+}
+
+export interface AnalysisConfig {
+  warnUnusedInInc: boolean;
+  sdk: AnalysisSdkConfig;
 }
 
 export interface PawnProConfig {
@@ -54,6 +70,7 @@ export interface PawnProConfig {
   syntax: SyntaxConfig;
   ui: UiConfig;
   server: ServerConfig;
+  analysis: AnalysisConfig;
 }
 
 /* ─── State ─────────────────────────────────────────────────────── */
@@ -151,6 +168,7 @@ export interface TokenColorRule {
 
 export interface TokenColorScheme {
   textMateRules: TokenColorRule[];
+  semanticRules?: Record<string, Record<string, unknown>>;
 }
 
 /* ─── Output interface (for LogTailer and similar) ──────────────── */

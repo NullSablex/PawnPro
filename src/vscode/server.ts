@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LogTailer, SampRconClient, loadSampConfig, resolveServerConfig } from '../core/server.js';
+import { LogTailer, SampRconClient, loadServerConfig, resolveServerConfig } from '../core/server.js';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
 import { ServerViewProvider } from './serverView.js';
@@ -66,7 +66,7 @@ class ServerController {
     const cfg = this.config.getAll();
     const ws = getWorkspaceRoot();
     const resolved = resolveServerConfig(cfg.server, ws);
-    this.rconCfg = await loadSampConfig(resolved.cwd);
+    this.rconCfg = await loadServerConfig(resolved.cwd, cfg.server.type);
   }
 
   async sendLine(line: string) {

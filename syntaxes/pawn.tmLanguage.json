@@ -11,8 +11,7 @@
     { "include": "#types" },
     { "include": "#storage" },
     { "include": "#labels" },
-    { "include": "#builtins" },
-    { "include": "#bplr" },
+    { "include": "#namespace_call" },
     { "include": "#functions" },
     { "include": "#constants" },
     { "include": "#punctuation" }
@@ -113,15 +112,7 @@
         }
       ]
     },
-    "builtins": {
-      "patterns": [
-        {
-          "name": "support.function.pawn",
-          "match": "\\b(printf|format|SendClientMessage|SetTimer|KillTimer|SetPlayerPos|GivePlayerMoney|CreateVehicle|DestroyVehicle)\\b"
-        }
-      ]
-    },
-    "bplr": {
+    "namespace_call": {
       "patterns": [
         {
           "match": "\\b([A-Za-z_][\\w]*)(::)([A-Za-z_][\\w]*)(?=\\s*\\()",

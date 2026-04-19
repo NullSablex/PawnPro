@@ -3,9 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
-import { invalidateFile, setDocumentText, clearDocumentText } from '../core/fileCache.js';
 import type { PawnProConfig } from '../core/types.js';
 import { msg } from './nls.js';
+import { sendConfigurationToEngine } from './lspClient.js';
 
 let configManager: PawnProConfigManager | undefined;
 let stateManager: PawnProStateManager | undefined;
@@ -37,7 +37,6 @@ function syncSeparateContainer(cfg: PawnProConfig) {
 }
 
 async function migrateFromVsCodeSettings(
-  _projectRoot: string,
   config: PawnProConfigManager,
   state: PawnProStateManager,
   context: vscode.ExtensionContext,
@@ -73,6 +72,17 @@ async function migrateFromVsCodeSettings(
   migrate('pawnpro.build.showCommand', 'build', 'showCommand', false);
   migrate('pawnpro.syntax.scheme', 'syntax', 'scheme', 'none');
   migrate('pawnpro.syntax.applyOnStartup', 'syntax', 'applyOnStartup', false);
+  // sdk.platform e sdk.filePath precisam ser merged no mesmo objeto sdk
+  const sdkPlatform = cfg.get('pawnpro.analysis.sdk.platform');
+  const sdkFilePath = cfg.get('pawnpro.analysis.sdk.filePath');
+  if (sdkPlatform !== undefined && sdkPlatform !== 'omp' || sdkFilePath !== undefined && sdkFilePath !== '') {
+    if (!partial['analysis']) partial['analysis'] = {};
+    const analysis = partial['analysis'] as Record<string, unknown>;
+    const sdk: Record<string, unknown> = {};
+    if (sdkPlatform !== undefined && sdkPlatform !== 'omp') sdk['platform'] = sdkPlatform;
+    if (sdkFilePath !== undefined && sdkFilePath !== '') sdk['filePath'] = sdkFilePath;
+    if (Object.keys(sdk).length > 0) { analysis['sdk'] = sdk; hasValues = true; }
+  }
   migrate('pawnpro.ui.separateContainer', 'ui', 'separateContainer', false);
   migrateFlat('pawnpro.showIncludePaths', 'showIncludePaths', false);
   migrate('pawnpro.server.path', 'server', 'path', '');
@@ -83,7 +93,6 @@ async function migrateFromVsCodeSettings(
   migrate('pawnpro.server.logEncoding', 'server', 'logEncoding', 'windows1252');
   migrate('pawnpro.server.output.follow', 'server', 'follow', 'visible');
 
-  // Migrate workspaceState
   const favorites = context.workspaceState.get<string[]>('pawnpro.server.favorites');
   const history = context.workspaceState.get<string[]>('pawnpro.server.history');
   if ((favorites && favorites.length > 0) || (history && history.length > 0)) {
@@ -103,6 +112,43 @@ async function migrateFromVsCodeSettings(
   }
 }
 
+function readVsCodeSettings(): Record<string, unknown> {
+  const cfg = vscode.workspace.getConfiguration('pawnpro');
+  const result: Record<string, unknown> = {};
+
+  const paths = cfg.get<string[]>('includePaths');
+  if (paths !== undefined) result['includePaths'] = paths;
+
+  const compilerPath = cfg.get<string>('compiler.path');
+  const compilerArgs = cfg.get<string[]>('compiler.args');
+  if (compilerPath !== undefined || compilerArgs !== undefined) {
+    result['compiler'] = {
+      ...(compilerPath !== undefined ? { path: compilerPath } : {}),
+      ...(compilerArgs !== undefined ? { args: compilerArgs } : {}),
+    };
+  }
+
+  const warnUnused = cfg.get<boolean>('analysis.warnUnusedInInc');
+  const sdkPlatform = cfg.get<string>('analysis.sdk.platform');
+  const sdkFilePath = cfg.get<string>('analysis.sdk.filePath');
+  if (warnUnused !== undefined || sdkPlatform !== undefined || sdkFilePath !== undefined) {
+    result['analysis'] = {
+      ...(warnUnused !== undefined ? { warnUnusedInInc: warnUnused } : {}),
+      ...(sdkPlatform !== undefined || sdkFilePath !== undefined ? {
+        sdk: {
+          ...(sdkPlatform !== undefined ? { platform: sdkPlatform } : {}),
+          ...(sdkFilePath !== undefined ? { filePath: sdkFilePath } : {}),
+        },
+      } : {}),
+    };
+  }
+
+  const serverType = cfg.get<string>('server.type');
+  if (serverType !== undefined) result['server'] = { ...(result['server'] as object ?? {}), type: serverType };
+
+  return result;
+}
+
 export function activateConfigBridge(
   context: vscode.ExtensionContext,
 ): { config: PawnProConfigManager; state: PawnProStateManager } {
@@ -111,72 +157,57 @@ export function activateConfigBridge(
   configManager = new PawnProConfigManager(projectRoot);
   stateManager = new PawnProStateManager(projectRoot);
 
-  // Sync separateContainer to VS Code for when clauses
+  configManager.setExternalDefaults(readVsCodeSettings());
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('pawnpro')) {
+        configManager?.setExternalDefaults(readVsCodeSettings());
+        sendConfigurationToEngine(configManager!, projectRoot);
+      }
+    }),
+  );
+
   syncSeparateContainer(configManager.getAll());
   configManager.onChange((cfg) => syncSeparateContainer(cfg));
 
-  // Watch project .pawnpro/config.json
   if (projectRoot) {
     const pattern = new vscode.RelativePattern(projectRoot, '.pawnpro/config.json');
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    const reload = () => configManager?.reload();
+    const reload = () => {
+      configManager?.reload();
+      sendConfigurationToEngine(configManager!, projectRoot);
+    };
     watcher.onDidCreate(reload);
     watcher.onDidChange(reload);
     watcher.onDidDelete(reload);
     context.subscriptions.push(watcher);
   }
 
-  // Watch global ~/.pawnpro/config.json
   const globalPath = configManager.globalConfigPath;
   try {
     const dir = path.dirname(globalPath);
     if (fs.existsSync(dir)) {
       const fsWatcher = fs.watch(dir, (_: string, filename: string | null) => {
-        if (filename === 'config.json') configManager?.reload();
+        if (filename === 'config.json') {
+          configManager?.reload();
+          sendConfigurationToEngine(configManager!, projectRoot);
+        }
       });
       context.subscriptions.push({ dispose: () => fsWatcher.close() });
     }
   } catch {
-    // Global config dir doesn't exist yet, that's OK
+    // diretório global pode não existir ainda
   }
 
-  // Watch .pawnpro/state.json for external changes
   if (projectRoot) {
     const statePattern = new vscode.RelativePattern(projectRoot, '.pawnpro/state.json');
     const stateWatcher = vscode.workspace.createFileSystemWatcher(statePattern);
-    const reloadState = () => stateManager?.load();
-    stateWatcher.onDidChange(reloadState);
+    stateWatcher.onDidChange(() => stateManager?.load());
     context.subscriptions.push(stateWatcher);
   }
 
-  // Migration from VS Code settings (async, best-effort)
-  void migrateFromVsCodeSettings(projectRoot, configManager, stateManager, context);
-
-  // Watch .pwn and .inc files for cache invalidation
-  const pawnWatcher = vscode.workspace.createFileSystemWatcher('**/*.{pwn,inc}');
-  const onFileChange = (uri: vscode.Uri) => invalidateFile(uri.fsPath);
-  pawnWatcher.onDidChange(onFileChange);
-  pawnWatcher.onDidCreate(onFileChange);
-  pawnWatcher.onDidDelete(onFileChange);
-  context.subscriptions.push(pawnWatcher);
-
-  // Update cache with unsaved document content
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument((e) => {
-      const doc = e.document;
-      if (doc.languageId !== 'pawn') return;
-      if (doc.isDirty) {
-        setDocumentText(doc.fileName, doc.getText(), doc.version);
-      } else {
-        // Document was reverted or saved — drop only the pseudo-mtime entry.
-        // Disk state is unchanged so apiIndexCache must not be cleared.
-        clearDocumentText(doc.fileName);
-      }
-    }),
-    vscode.workspace.onDidCloseTextDocument((doc) => {
-      if (doc.languageId === 'pawn') clearDocumentText(doc.fileName);
-    }),
-  );
+  void migrateFromVsCodeSettings(configManager, stateManager, context);
 
   return { config: configManager, state: stateManager };
 }

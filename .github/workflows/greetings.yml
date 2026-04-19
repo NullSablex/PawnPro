@@ -1,13 +1,21 @@
 name: Greetings
 
-on: [pull_request_target, issues]
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions: {}
 
 jobs:
   greeting:
+    name: Greet first-time contributors
     runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
+
     steps:
       - uses: actions/first-interaction@v1
         with:

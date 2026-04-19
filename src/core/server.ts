@@ -21,11 +21,11 @@ function existsExecutable(p: string): boolean {
   } catch { return false; }
 }
 
-/* ─── Auto-detect SA-MP server executable ───────────────────────── */
+/* ─── Auto-detect server executable (SA-MP + open.mp) ──────────── */
 
 const SERVER_NAMES = process.platform === 'win32'
-  ? ['samp-server.exe', 'samp03svr.exe']
-  : ['samp03svr', 'samp-server'];
+  ? ['omp-server.exe', 'samp-server.exe', 'samp03svr.exe']
+  : ['omp-server', 'samp03svr', 'samp-server'];
 
 function serverCandidates(workspaceRoot: string): string[] {
   if (!workspaceRoot) return [];
@@ -35,6 +35,7 @@ function serverCandidates(workspaceRoot: string): string[] {
     path.join(workspaceRoot, 'samp'),
     path.join(workspaceRoot, 'samp-server'),
     path.join(workspaceRoot, 'samp03'),
+    path.join(workspaceRoot, 'open.mp'),
   ];
   const out: string[] = [];
   for (const d of dirs) {
@@ -52,7 +53,7 @@ export function detectServerExecutable(workspaceRoot: string): string | null {
   return null;
 }
 
-/* ─── Read server.cfg ───────────────────────────────────────────── */
+/* ─── Read server.cfg (SA-MP) ───────────────────────────────────── */
 
 export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
   const cfgPath = path.join(cwd || '', 'server.cfg');
@@ -85,6 +86,33 @@ export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
   return { rconPassword: rcon_password, port: prt, host, cfgPath };
 }
 
+/* ─── Read config.json (open.mp) ────────────────────────────────── */
+
+export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
+  const cfgPath = path.join(cwd || '', 'config.json');
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(await fsp.readFile(cfgPath, 'utf8')) as Record<string, unknown>; } catch {}
+
+  const rcon = json?.['rcon'] as Record<string, unknown> | undefined;
+  const network = json?.['network'] as Record<string, unknown> | undefined;
+  const rconPassword = String(rcon?.['password'] ?? '');
+  const rawPort = network?.['port'] ?? 7777;
+  const bind = String(network?.['bind'] ?? '');
+  const host = bind && bind !== '0.0.0.0' ? bind : '127.0.0.1';
+
+  return { rconPassword, port: Math.max(1, Number(rawPort) || 7777), host, cfgPath };
+}
+
+/* ─── Unified loader ────────────────────────────────────────────── */
+
+export async function loadServerConfig(cwd: string, serverType: import('./types.js').ServerType = 'auto'): Promise<SampCfgData> {
+  if (serverType === 'omp') return loadOmpConfig(cwd);
+  if (serverType === 'samp') return loadSampConfig(cwd);
+  // auto: detecta pelo arquivo presente
+  if (fs.existsSync(path.join(cwd || '', 'config.json'))) return loadOmpConfig(cwd);
+  return loadSampConfig(cwd);
+}
+
 /* ─── Log file tailing ──────────────────────────────────────────── */
 
 async function readRange(filePath: string, start: number, end: number): Promise<Buffer> {
@@ -98,6 +126,8 @@ async function readRange(filePath: string, start: number, end: number): Promise<
     await fh.close();
   }
 }
+
+const LOG_POLL_INTERVAL_MS = 100;
 
 export class LogTailer {
   private timer: NodeJS.Timeout | undefined;
@@ -138,7 +168,7 @@ export class LogTailer {
   async start(filePath: string, encoding: string) {
     this.stop();
     this.file = norm(filePath);
-    this.decode = (b: Buffer) => iconv.decode(b, (encoding || 'windows1252') as any);
+    this.decode = (b: Buffer) => iconv.decode(b, encoding || 'windows1252');
 
     try {
       const st = await fsp.stat(this.file);
@@ -150,7 +180,7 @@ export class LogTailer {
 
     const tick = async () => {
       if (!this.running) return;
-      if (this.reading) { this.timer = setTimeout(tick, 100); return; }
+      if (this.reading) { this.timer = setTimeout(tick, LOG_POLL_INTERVAL_MS); return; }
       this.reading = true;
 
       try {
@@ -166,11 +196,11 @@ export class LogTailer {
         }
       } finally {
         this.reading = false;
-        if (this.running) this.timer = setTimeout(tick, 100);
+        if (this.running) this.timer = setTimeout(tick, LOG_POLL_INTERVAL_MS);
       }
     };
 
-    this.timer = setTimeout(tick, 100);
+    this.timer = setTimeout(tick, LOG_POLL_INTERVAL_MS);
   }
 
   stop() {
@@ -250,22 +280,21 @@ export class SampRconClient {
 /* ─── Config resolution ─────────────────────────────────────────── */
 
 export function resolveServerConfig(config: PawnProConfig['server'], workspaceRoot: string) {
-  // Auto-detect server executable if not configured
+  const serverType = config.type ?? 'auto';
+
   let exe = config.path;
   if (!exe) {
     exe = detectServerExecutable(workspaceRoot) || '';
   }
 
-  // Derive cwd from exe location if not configured
   let cwd = config.cwd || workspaceRoot;
   if (exe && !config.cwd) {
     cwd = path.dirname(exe);
   }
 
-  // Derive logPath from cwd if not configured
-  let logPath = config.logPath;
+  let logPath = config.logPath || '';
   if (!logPath && cwd) {
-    logPath = path.join(cwd, 'server_log.txt');
+    logPath = resolveLogPath(cwd, serverType);
   }
 
   return {
@@ -277,4 +306,21 @@ export function resolveServerConfig(config: PawnProConfig['server'], workspaceRo
     logEncoding: (config.logEncoding || 'windows1252').toLowerCase(),
     follow: config.output.follow,
   };
+}
+
+function resolveLogPath(cwd: string, serverType: import('./types.js').ServerType): string {
+  if (serverType === 'omp') return path.join(cwd, ompLogFile(cwd));
+  if (serverType === 'samp') return path.join(cwd, 'server_log.txt');
+  // auto: prefere config.json se existir
+  const ompCfg = path.join(cwd, 'config.json');
+  if (fs.existsSync(ompCfg)) return path.join(cwd, ompLogFile(cwd));
+  return path.join(cwd, 'server_log.txt');
+}
+
+function ompLogFile(cwd: string): string {
+  try {
+    const json = JSON.parse(fs.readFileSync(path.join(cwd, 'config.json'), 'utf8')) as Record<string, unknown>;
+    const logging = json?.['logging'] as Record<string, unknown> | undefined;
+    return String(logging?.['file'] || 'log.txt');
+  } catch { return 'log.txt'; }
 }

@@ -2,9 +2,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import { resolveInclude } from './utils.js';
-import type { DiagnosticData, NativeEntry, PawnProConfig } from './types.js';
+import type { NativeEntry, PawnProConfig } from './types.js';
 
-const INCLUDE_RX_GLOBAL = /#\s*include\s*(<|")\s*([^>"]+)\s*(>|")/g;
 const NATIVE_RX = /^\s*(?:forward\s+)?native\s+(?:[A-Za-z_]\w*:)?\s*([A-Za-z_]\w*)\s*\(([^)]*)\)\s*;/gm;
 
 /* ─── Include path resolution ───────────────────────────────────── */
@@ -21,6 +20,7 @@ export function buildIncludePaths(config: PawnProConfig, workspaceRoot: string):
   const fromSettings = config.includePaths;
   const fromArgs = getIncludePathsFromArgs(config.compiler.args);
   const defaults = [
+    path.join(workspaceRoot, 'qawno', 'include'),  // open.mp
     path.join(workspaceRoot, 'pawno', 'include'),
     path.join(workspaceRoot, 'include'),
   ].filter(existsDir);
@@ -30,97 +30,6 @@ export function buildIncludePaths(config: PawnProConfig, workspaceRoot: string):
     .filter((p, i, arr) => p && arr.indexOf(p) === i && existsDir(p));
 
   return all;
-}
-
-/* ─── Diagnostics ───────────────────────────────────────────────── */
-
-function isOffsetInComment(text: string, offset: number): boolean {
-  // Check if offset is inside a comment (// or /* */)
-  let inBlock = false;
-  let i = 0;
-  while (i < offset && i < text.length) {
-    if (!inBlock) {
-      if (text[i] === '/' && text[i + 1] === '/') {
-        // Line comment - skip to end of line
-        const eol = text.indexOf('\n', i);
-        if (eol === -1 || offset <= eol) return offset > i;
-        i = eol + 1;
-        continue;
-      }
-      if (text[i] === '/' && text[i + 1] === '*') {
-        inBlock = true;
-        i += 2;
-        continue;
-      }
-    } else {
-      if (text[i] === '*' && text[i + 1] === '/') {
-        inBlock = false;
-        i += 2;
-        continue;
-      }
-    }
-    i++;
-  }
-  return inBlock;
-}
-
-export type IncludeMsgBuilder = (
-  token: string,
-  hasExtension: boolean,
-  isRelative: boolean,
-  fromDir: string,
-  includePaths: string[],
-) => string;
-
-function defaultIncludeMsg(
-  token: string,
-  hasExtension: boolean,
-  isRelative: boolean,
-  fromDir: string,
-  includePaths: string[],
-): string {
-  let msg = `Include não encontrada: "${token}"`;
-  if (!hasExtension) msg += ` (tentou: ${token}.inc)`;
-  if (isRelative) {
-    msg += `. Caminho relativo a: ${fromDir}`;
-  } else if (includePaths.length > 0) {
-    msg += `. Buscado em: ${includePaths.slice(0, 2).join(', ')}${includePaths.length > 2 ? '...' : ''}`;
-  } else {
-    msg += `. Nenhum includePaths configurado.`;
-  }
-  return msg;
-}
-
-export function analyzeIncludes(
-  text: string,
-  filePath: string,
-  includePaths: string[],
-  buildMsg: IncludeMsgBuilder = defaultIncludeMsg,
-): DiagnosticData[] {
-  const diagnostics: DiagnosticData[] = [];
-  const fromDir = path.dirname(filePath);
-
-  let m: RegExpExecArray | null;
-  INCLUDE_RX_GLOBAL.lastIndex = 0;
-
-  while ((m = INCLUDE_RX_GLOBAL.exec(text))) {
-    const startOffset = m.index;
-    if (isOffsetInComment(text, startOffset)) continue;
-
-    const token = m[2].trim();
-    const endOffset = m.index + m[0].length;
-    const resolved = resolveInclude(token, fromDir, includePaths);
-
-    if (!resolved) {
-      const isRelative = token.startsWith('.') || token.includes('/') || token.includes('\\');
-      const hasExtension = token.toLowerCase().endsWith('.inc');
-      const message = buildMsg(token, hasExtension, isRelative, fromDir, includePaths);
-
-      diagnostics.push({ startOffset, endOffset, message, severity: 'error', source: 'PawnPro' });
-    }
-  }
-
-  return diagnostics;
 }
 
 /* ─── Include token collection (comment-aware) ──────────────────── */
@@ -250,58 +159,6 @@ export async function listIncFilesRecursive(root: string, maxDepth = 20): Promis
   return out;
 }
 
-/* ─── Gather included files recursively ─────────────────────────── */
-
-export async function gatherIncludedFiles(
-  rootFilePath: string,
-  includePaths: string[],
-  maxDepth = 5,
-  maxFiles = 100,
-): Promise<string[]> {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  const queue: Array<{ filePath: string; depth: number }> = [];
-
-  const rootDir = path.dirname(rootFilePath);
-  let rootText: string;
-  try {
-    rootText = await fsp.readFile(rootFilePath, 'utf8');
-  } catch {
-    return [];
-  }
-
-  for (const tk of collectIncludeTokens(rootText)) {
-    const resolved = resolveInclude(tk, rootDir, includePaths);
-    if (resolved && !seen.has(path.normalize(resolved))) {
-      seen.add(path.normalize(resolved));
-      queue.push({ filePath: resolved, depth: 1 });
-    }
-  }
-
-  while (queue.length && out.length < maxFiles) {
-    const { filePath, depth } = queue.shift()!;
-    out.push(filePath);
-    if (depth >= maxDepth) continue;
-    try {
-      const text = await fsp.readFile(filePath, 'utf8');
-      const baseDir = path.dirname(filePath);
-      for (const tk of collectIncludeTokens(text)) {
-        const resolved = resolveInclude(tk, baseDir, includePaths);
-        if (!resolved) continue;
-        const norm = path.normalize(resolved);
-        if (!seen.has(norm)) {
-          seen.add(norm);
-          queue.push({ filePath: resolved, depth: depth + 1 });
-        }
-      }
-    } catch {
-      // ignore files that can't be read
-    }
-  }
-
-  return out;
-}
-
 /* ─── Parse natives from a file ─────────────────────────────────── */
 
 export async function listNatives(filePath: string): Promise<NativeEntry[]> {
@@ -340,6 +197,3 @@ export async function listNatives(filePath: string): Promise<NativeEntry[]> {
   return out;
 }
 
-/* ─── Exports for hover module ──────────────────────────────────── */
-
-export { stripCommentsPreserveColumns, stripCommentsWhole, getStringSpans, posInAnyString };

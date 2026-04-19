@@ -1,7 +1,31 @@
 {
   "text.description": "Compilation and diagnostics for PAWN files, including #include checking and pawncc integration. Settings managed via .pawnpro/config.json.",
+
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
   "command.whatsNew": "PawnPro: What's New",
-  "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)"
+  "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)",
+  "command.applySyntaxScheme": "PawnPro: Apply syntax scheme",
+  "command.resetSyntaxScheme": "PawnPro: Reset syntax (remove PawnPro scheme)",
+  "command.server.start": "PawnPro: Start Server",
+  "command.server.stop": "PawnPro: Stop Server",
+  "command.server.restart": "PawnPro: Restart Server",
+  "command.server.show": "PawnPro: Show Server Console",
+  "command.server.showLog": "PawnPro: Show Server Log",
+  "command.clearEngineCache": "PawnPro: Clear Cache",
+
+  "config.includePaths": "Pawn compiler include directories. Use `${workspaceFolder}` for project-relative paths. Example: `[\"${workspaceFolder}/pawno/include\"]`.\n\n> Can also be configured in `.pawnpro/config.json` (takes precedence over this option).",
+  "config.compiler.path": "Path to the `pawncc` executable. If empty and `autoDetect` is enabled, the extension will try to detect it automatically.\n\n> Can also be configured in `.pawnpro/config.json`.",
+  "config.compiler.args": "Extra arguments passed to the compiler. Example: `[\"-d3\", \"-;+\"]`.\n\n> Can also be configured in `.pawnpro/config.json`.",
+  "config.analysis.warnUnusedInInc": "When **enabled**, emits unused symbol warnings also in `.inc` files. By default only `.pwn` files receive these warnings.\n\n> Can also be configured in `.pawnpro/config.json`.",
+  "config.analysis.sdk.platform": "SDK platform used in the project. `omp` auto-detects `qawno/include/open.mp.inc` at the workspace root. `samp` has no auto-detection — set the path manually via `analysis.sdk.filePath`. `none` disables SDK support.\n\n> Can also be configured in `.pawnpro/config.json` as `analysis.sdk.platform`.",
+  "config.analysis.sdk.platform.omp": "open.mp — auto-detects qawno/include/open.mp.inc at the workspace root",
+  "config.analysis.sdk.platform.samp": "SA-MP — no auto-detection, set the path in analysis.sdk.filePath",
+  "config.analysis.sdk.platform.none": "Disabled — no SDK file will be loaded",
+  "config.analysis.sdk.filePath": "Absolute path (or with `${workspaceFolder}`) to the centralizing `.inc` file for the SDK. For open.mp, leave empty to use auto-detection. For SA-MP, point to the file that centralizes all SDK includes.\n\n> Can also be configured in `.pawnpro/config.json` as `analysis.sdk.filePath`.",
+  "config.ui.separateContainer": "When **enabled**, moves PawnPro views to a dedicated container in the Activity Bar.",
+  "config.server.type": "Server type. Select `samp` for SA-MP, `omp` for open.mp, or `auto` to detect automatically from the config file present (`server.cfg` or `config.json`).\n\n> Can also be configured in `.pawnpro/config.json` as `server.type`.",
+  "config.server.type.auto": "Auto-detect from file present (config.json → open.mp, server.cfg → SA-MP)",
+  "config.server.type.samp": "SA-MP — uses server.cfg and server_log.txt",
+  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file"
 }

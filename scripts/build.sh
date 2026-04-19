@@ -2,19 +2,27 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Limpa artefatos anteriores
-rm -rf out/ *.vsix
+# Remove VSIXs anteriores
+rm -f *.vsix
 
 # Atualiza dependências e lock file
 echo "[build] Instalando dependências..."
 npm install
 
-# Compila TypeScript
-echo "[build] Compilando TypeScript..."
-npx tsc -p .
+# Baixa binário do motor para a plataforma atual (ou --all para CI)
+echo "[build] Baixando motor pawnpro-engine..."
+node scripts/download-engine.js "$@"
 
-# Empacota VSIX + repack com dependências
-echo "[build] Empacotando VSIX..."
+# Type-check
+echo "[build] Verificando tipos..."
+npx tsc --noEmit -p .
+
+# Bundle + minificação com esbuild
+echo "[build] Empacotando extensão..."
+node scripts/bundle.mjs
+
+# Empacota VSIX + injeta binários do motor
+echo "[build] Gerando VSIX..."
 npx @vscode/vsce package --no-dependencies --no-yarn
 node scripts/repack-vsix.js
 

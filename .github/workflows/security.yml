@@ -2,9 +2,11 @@ name: Security and Build Checks
 
 on:
   pull_request:
-    branches: [ "master", "dev" ]
+    branches: [master]
   push:
-    branches: [ "master", "dev" ]
+    branches: [master]
+
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,9 +14,11 @@ concurrency:
 
 jobs:
   validate:
+    name: Type Check, Bundle & Audit
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,14 +26,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Type check
-        run: npm run compile -- --noEmit
+        run: npm run compile
 
-      - name: Audit dependencies (moderate severity+)
-        run: npm audit --audit-level=moderate
+      - name: Bundle (minified)
+        run: npm run bundle
+
+      - name: Audit production dependencies
+        run: npm audit --audit-level=moderate --omit=dev
