@@ -2,7 +2,7 @@
   "name": "pawnpro",
   "displayName": "PawnPro",
   "description": "%text.description%",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "publisher": "NullSablex",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -58,34 +58,17 @@
       ]
     },
     "views": {
-      "explorer": [
-        {
-          "id": "pawnpro.includesView.explorer",
-          "name": "Includes",
-          "icon": "symbol-method",
-          "when": "!config.pawnpro.ui.separateContainer"
-        },
-        {
-          "id": "pawnpro.serverView.explorer",
-          "name": "Servidor",
-          "icon": "symbol-method",
-          "type": "webview",
-          "when": "!config.pawnpro.ui.separateContainer"
-        }
-      ],
       "pawnpro": [
         {
           "id": "pawnpro.includesView",
           "name": "Includes",
-          "icon": "symbol-method",
-          "when": "config.pawnpro.ui.separateContainer"
+          "icon": "symbol-method"
         },
         {
           "id": "pawnpro.serverView",
           "name": "Servidor",
           "icon": "symbol-method",
-          "type": "webview",
-          "when": "config.pawnpro.ui.separateContainer"
+          "type": "webview"
         }
       ]
     },
@@ -211,6 +194,45 @@
           "default": [],
           "markdownDescription": "%config.compiler.args%"
         },
+        "pawnpro.compiler.autoDetect": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.compiler.autoDetect%"
+        },
+        "pawnpro.output.encoding": {
+          "type": "string",
+          "default": "windows1252",
+          "markdownDescription": "%config.output.encoding%"
+        },
+        "pawnpro.build.showCommand": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.build.showCommand%"
+        },
+        "pawnpro.syntax.scheme": {
+          "type": "string",
+          "enum": ["auto", "classic_white", "modern_white", "classic_dark", "modern_dark", "none"],
+          "enumDescriptions": [
+            "%config.syntax.scheme.auto%",
+            "%config.syntax.scheme.classic_white%",
+            "%config.syntax.scheme.modern_white%",
+            "%config.syntax.scheme.classic_dark%",
+            "%config.syntax.scheme.modern_dark%",
+            "%config.syntax.scheme.none%"
+          ],
+          "default": "none",
+          "markdownDescription": "%config.syntax.scheme%"
+        },
+        "pawnpro.syntax.applyOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.syntax.applyOnStartup%"
+        },
+        "pawnpro.ui.showIncludePaths": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.ui.showIncludePaths%"
+        },
         "pawnpro.analysis.warnUnusedInInc": {
           "type": "boolean",
           "default": false,
@@ -232,10 +254,47 @@
           "default": "",
           "markdownDescription": "%config.analysis.sdk.filePath%"
         },
-        "pawnpro.ui.separateContainer": {
+        "pawnpro.server.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.server.path%"
+        },
+        "pawnpro.server.cwd": {
+          "type": "string",
+          "default": "${workspaceFolder}",
+          "markdownDescription": "%config.server.cwd%"
+        },
+        "pawnpro.server.args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "%config.server.args%"
+        },
+        "pawnpro.server.clearOnStart": {
           "type": "boolean",
-          "default": false,
-          "markdownDescription": "%config.ui.separateContainer%"
+          "default": true,
+          "markdownDescription": "%config.server.clearOnStart%"
+        },
+        "pawnpro.server.logPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.server.logPath%"
+        },
+        "pawnpro.server.logEncoding": {
+          "type": "string",
+          "default": "windows1252",
+          "markdownDescription": "%config.server.logEncoding%"
+        },
+        "pawnpro.server.output.follow": {
+          "type": "string",
+          "enum": ["visible", "always", "off"],
+          "enumDescriptions": [
+            "%config.server.output.follow.visible%",
+            "%config.server.output.follow.always%",
+            "%config.server.output.follow.off%"
+          ],
+          "default": "visible",
+          "markdownDescription": "%config.server.output.follow%"
         },
         "pawnpro.server.type": {
           "type": "string",

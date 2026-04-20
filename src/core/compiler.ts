@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import { detectSupportedFlags, computeMinimalArgs, type Supported } from './flags.js';
+import { buildIncludePaths } from './includes.js';
 import type { CompileResult, CompileArgs, PawnProConfig } from './types.js';
 
 /* ─── Path helpers ──────────────────────────────────────────────── */
@@ -167,7 +168,7 @@ export function buildCompileArgs(opts: {
   workspaceRoot: string;
 }): CompileArgs {
   const { config, filePath, workspaceRoot } = opts;
-  const { compiler, includePaths, output } = config;
+  const { compiler, output } = config;
 
   const exe = detectPawncc(compiler.path || undefined, compiler.autoDetect, workspaceRoot);
   const supported = detectSupportedFlags(exe);
@@ -184,12 +185,11 @@ export function buildCompileArgs(opts: {
 
   const args = [...kept];
 
-  const resolvedIncludes = includePaths.map(p =>
+  const fileDir = path.dirname(filePath);
+  const resolvedIncludes = buildIncludePaths(config, workspaceRoot, fileDir).map(p =>
     process.platform === 'win32' ? path.normalize(p) : p,
   );
   resolvedIncludes.forEach(p => args.push(`-i${p}`));
-
-  const fileDir = path.dirname(filePath);
   const out = path.join(fileDir, path.parse(filePath).name + '.amx');
   args.push(`-o${process.platform === 'win32' ? path.normalize(out) : out}`);
   args.push(filePath);

@@ -23,10 +23,6 @@ export async function activate(context: vscode.ExtensionContext) {
     registerWhatsNew(context);
     registerTemplates(context);
 
-    if (config.getAll().ui.separateContainer) {
-      void vscode.commands.executeCommand('workbench.view.extension.pawnpro');
-    }
-
     context.subscriptions.push(
       vscode.commands.registerCommand('pawnpro.clearEngineCache', async () => {
         await restartLspClient();

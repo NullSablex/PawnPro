@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
-import type { PawnProConfig } from '../core/types.js';
 import { msg } from './nls.js';
 import { sendConfigurationToEngine } from './lspClient.js';
 
@@ -24,15 +23,50 @@ export function getWorkspaceRoot(): string {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
 }
 
-function syncSeparateContainer(cfg: PawnProConfig) {
-  const current = vscode.workspace.getConfiguration()
-    .get<boolean>('pawnpro.ui.separateContainer');
-  if (current !== cfg.ui.separateContainer) {
-    void vscode.workspace.getConfiguration().update(
-      'pawnpro.ui.separateContainer',
-      cfg.ui.separateContainer,
-      vscode.ConfigurationTarget.Global,
-    );
+// Mapa de chaves VS Code → dot-path no config JSON
+const VS_TO_JSON: [string, string][] = [
+  ['pawnpro.includePaths',             'includePaths'],
+  ['pawnpro.compiler.path',            'compiler.path'],
+  ['pawnpro.compiler.args',            'compiler.args'],
+  ['pawnpro.compiler.autoDetect',      'compiler.autoDetect'],
+  ['pawnpro.output.encoding',          'output.encoding'],
+  ['pawnpro.build.showCommand',        'build.showCommand'],
+  ['pawnpro.syntax.scheme',            'syntax.scheme'],
+  ['pawnpro.syntax.applyOnStartup',    'syntax.applyOnStartup'],
+  ['pawnpro.ui.showIncludePaths',      'ui.showIncludePaths'],
+  ['pawnpro.analysis.warnUnusedInInc', 'analysis.warnUnusedInInc'],
+  ['pawnpro.analysis.sdk.platform',    'analysis.sdk.platform'],
+  ['pawnpro.analysis.sdk.filePath',    'analysis.sdk.filePath'],
+  ['pawnpro.server.path',              'server.path'],
+  ['pawnpro.server.cwd',               'server.cwd'],
+  ['pawnpro.server.args',              'server.args'],
+  ['pawnpro.server.clearOnStart',      'server.clearOnStart'],
+  ['pawnpro.server.logPath',           'server.logPath'],
+  ['pawnpro.server.logEncoding',       'server.logEncoding'],
+  ['pawnpro.server.output.follow',     'server.output.follow'],
+  ['pawnpro.server.type',              'server.type'],
+];
+
+// Propaga mudanças da UI do VS Code para ~/.pawnpro/config.json (escopo global)
+// e limpa o setting do VS Code para evitar duplicidade.
+function propagateVsCodeSettingsToConfig(
+  e: vscode.ConfigurationChangeEvent,
+  config: PawnProConfigManager,
+): void {
+  if (!e.affectsConfiguration('pawnpro')) return;
+  const vscfg = vscode.workspace.getConfiguration();
+  for (const [vsKey, jsonPath] of VS_TO_JSON) {
+    if (!e.affectsConfiguration(vsKey)) continue;
+    const val = vscfg.inspect(vsKey);
+    // Só propaga se o usuário explicitamente configurou (global ou workspace)
+    const userValue = val?.globalValue ?? val?.workspaceValue;
+    if (userValue === undefined) continue;
+    config.setKey(jsonPath, userValue, 'global');
+    // Remove do VS Code settings após persistir no config JSON.
+    void vscfg.update(vsKey, undefined, vscode.ConfigurationTarget.Global);
+    if (val?.workspaceValue !== undefined) {
+      void vscfg.update(vsKey, undefined, vscode.ConfigurationTarget.Workspace);
+    }
   }
 }
 
@@ -83,7 +117,6 @@ async function migrateFromVsCodeSettings(
     if (sdkFilePath !== undefined && sdkFilePath !== '') sdk['filePath'] = sdkFilePath;
     if (Object.keys(sdk).length > 0) { analysis['sdk'] = sdk; hasValues = true; }
   }
-  migrate('pawnpro.ui.separateContainer', 'ui', 'separateContainer', false);
   migrateFlat('pawnpro.showIncludePaths', 'showIncludePaths', false);
   migrate('pawnpro.server.path', 'server', 'path', '');
   migrate('pawnpro.server.cwd', 'server', 'cwd', '${workspaceFolder}');
@@ -121,11 +154,33 @@ function readVsCodeSettings(): Record<string, unknown> {
 
   const compilerPath = cfg.get<string>('compiler.path');
   const compilerArgs = cfg.get<string[]>('compiler.args');
-  if (compilerPath !== undefined || compilerArgs !== undefined) {
+  const compilerAutoDetect = cfg.get<boolean>('compiler.autoDetect');
+  if (compilerPath !== undefined || compilerArgs !== undefined || compilerAutoDetect !== undefined) {
     result['compiler'] = {
       ...(compilerPath !== undefined ? { path: compilerPath } : {}),
       ...(compilerArgs !== undefined ? { args: compilerArgs } : {}),
+      ...(compilerAutoDetect !== undefined ? { autoDetect: compilerAutoDetect } : {}),
     };
+  }
+
+  const outputEncoding = cfg.get<string>('output.encoding');
+  if (outputEncoding !== undefined) result['output'] = { encoding: outputEncoding };
+
+  const showCommand = cfg.get<boolean>('build.showCommand');
+  if (showCommand !== undefined) result['build'] = { showCommand };
+
+  const syntaxScheme = cfg.get<string>('syntax.scheme');
+  const syntaxApply = cfg.get<boolean>('syntax.applyOnStartup');
+  if (syntaxScheme !== undefined || syntaxApply !== undefined) {
+    result['syntax'] = {
+      ...(syntaxScheme !== undefined ? { scheme: syntaxScheme } : {}),
+      ...(syntaxApply !== undefined ? { applyOnStartup: syntaxApply } : {}),
+    };
+  }
+
+  const showIncludePaths = cfg.get<boolean>('ui.showIncludePaths');
+  if (showIncludePaths !== undefined) {
+    result['ui'] = { ...(result['ui'] as object ?? {}), showIncludePaths };
   }
 
   const warnUnused = cfg.get<boolean>('analysis.warnUnusedInInc');
@@ -143,8 +198,28 @@ function readVsCodeSettings(): Record<string, unknown> {
     };
   }
 
+  const serverPath = cfg.get<string>('server.path');
+  const serverCwd = cfg.get<string>('server.cwd');
+  const serverArgs = cfg.get<string[]>('server.args');
+  const serverClear = cfg.get<boolean>('server.clearOnStart');
+  const serverLogPath = cfg.get<string>('server.logPath');
+  const serverLogEncoding = cfg.get<string>('server.logEncoding');
+  const serverFollow = cfg.get<string>('server.output.follow');
   const serverType = cfg.get<string>('server.type');
-  if (serverType !== undefined) result['server'] = { ...(result['server'] as object ?? {}), type: serverType };
+  if (serverPath !== undefined || serverCwd !== undefined || serverArgs !== undefined ||
+      serverClear !== undefined || serverLogPath !== undefined || serverLogEncoding !== undefined ||
+      serverFollow !== undefined || serverType !== undefined) {
+    result['server'] = {
+      ...(serverPath !== undefined ? { path: serverPath } : {}),
+      ...(serverCwd !== undefined ? { cwd: serverCwd } : {}),
+      ...(serverArgs !== undefined ? { args: serverArgs } : {}),
+      ...(serverClear !== undefined ? { clearOnStart: serverClear } : {}),
+      ...(serverLogPath !== undefined ? { logPath: serverLogPath } : {}),
+      ...(serverLogEncoding !== undefined ? { logEncoding: serverLogEncoding } : {}),
+      ...(serverFollow !== undefined ? { output: { follow: serverFollow } } : {}),
+      ...(serverType !== undefined ? { type: serverType } : {}),
+    };
+  }
 
   return result;
 }
@@ -162,14 +237,12 @@ export function activateConfigBridge(
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('pawnpro')) {
+        propagateVsCodeSettingsToConfig(e, configManager!);
         configManager?.setExternalDefaults(readVsCodeSettings());
         sendConfigurationToEngine(configManager!, projectRoot);
       }
     }),
   );
-
-  syncSeparateContainer(configManager.getAll());
-  configManager.onChange((cfg) => syncSeparateContainer(cfg));
 
   if (projectRoot) {
     const pattern = new vscode.RelativePattern(projectRoot, '.pawnpro/config.json');

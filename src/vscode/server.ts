@@ -262,7 +262,6 @@ export function registerServerControls(
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('pawnpro.serverView', provider),
-    vscode.window.registerWebviewViewProvider('pawnpro.serverView.explorer', provider),
   );
   void vscode.commands.executeCommand('setContext', 'pawnpro.server.running', false);
 }
