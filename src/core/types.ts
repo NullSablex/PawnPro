@@ -28,7 +28,6 @@ export interface SyntaxConfig {
 }
 
 export interface UiConfig {
-  separateContainer: boolean;
   showIncludePaths: boolean;
 }
 

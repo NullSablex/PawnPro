@@ -16,16 +16,42 @@ function getIncludePathsFromArgs(args: string[]): string[] {
   return args.filter(a => a.startsWith('-i')).map(a => a.slice(2));
 }
 
-export function buildIncludePaths(config: PawnProConfig, workspaceRoot: string): string[] {
+function findIncludeRootsFromDir(startDir: string, stopAt: string): string[] {
+  const found: string[] = [];
+  let dir = startDir;
+  while (true) {
+    for (const sub of ['qawno/include', 'pawno/include', 'include']) {
+      const candidate = path.join(dir, sub);
+      if (existsDir(candidate)) found.push(candidate);
+    }
+    if (found.length > 0) break;
+    if (dir === stopAt) break;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return found;
+}
+
+export function buildIncludePaths(config: PawnProConfig, workspaceRoot: string, fileDir?: string): string[] {
   const fromSettings = config.includePaths;
   const fromArgs = getIncludePathsFromArgs(config.compiler.args);
-  const defaults = [
-    path.join(workspaceRoot, 'qawno', 'include'),  // open.mp
-    path.join(workspaceRoot, 'pawno', 'include'),
-    path.join(workspaceRoot, 'include'),
-  ].filter(existsDir);
 
-  const all = [...fromSettings, ...fromArgs, ...defaults]
+  const searchRoot = workspaceRoot || fileDir || '';
+  const defaults = searchRoot
+    ? [
+        path.join(searchRoot, 'qawno', 'include'),
+        path.join(searchRoot, 'pawno', 'include'),
+        path.join(searchRoot, 'include'),
+      ].filter(existsDir)
+    : [];
+
+  // Se o workspace não tem os includes mas temos o dir do arquivo, sobe até o workspace root
+  const fallback = defaults.length === 0 && fileDir && workspaceRoot
+    ? findIncludeRootsFromDir(fileDir, workspaceRoot)
+    : [];
+
+  const all = [...fromSettings, ...fromArgs, ...defaults, ...fallback]
     .map(p => path.normalize(p))
     .filter((p, i, arr) => p && arr.indexOf(p) === i && existsDir(p));
 

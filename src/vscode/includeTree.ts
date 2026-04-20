@@ -114,12 +114,6 @@ export function registerIncludesContainer(
   });
   context.subscriptions.push(viewContainer);
 
-  const viewExplorer = vscode.window.createTreeView('pawnpro.includesView.explorer', {
-    treeDataProvider: provider,
-    showCollapseAll: true,
-  });
-  context.subscriptions.push(viewExplorer);
-
   // Auto-refresh on .inc file changes
   const watcher = vscode.workspace.createFileSystemWatcher('**/*.inc');
   watcher.onDidCreate(() => provider.refresh());
