@@ -2,36 +2,39 @@ import { spawnSync } from 'child_process';
 
 export type Supported = { single: Set<string>; multi: Set<string>; rawHelp: string };
 
-const mem = new Map<string, Supported>();
+const cache = new Map<string, Supported>();
 
 export function detectSupportedFlags(exe: string): Supported {
-  const hit = mem.get(exe);
-  if (hit) return hit;
+  const cached = cache.get(exe);
+  if (cached) return cached;
 
-  const r = spawnSync(exe, ['-?'], { encoding: 'utf8' });
-  const out = (r.stdout || '') + (r.stderr || '');
+  const result = spawnSync(exe, ['-?'], { encoding: 'utf8' });
+  const output = (result.stdout || '') + (result.stderr || '');
 
   const single = new Set<string>();
-  const multi  = new Set<string>();
-  const rx = /^[ \t]*[\/-](XD|[A-Za-z]|[\^\\;\(]).*/gm; // 'XD' antes de letras simples
+  const multi = new Set<string>();
+
+  // 'XD' must come before single-char alternatives in the alternation
+  const rx = /^[ \t]*[\/-](XD|[A-Za-z]|[\^\\;\(]).*/gm;
   let m: RegExpExecArray | null;
-  while ((m = rx.exec(out))) {
+  while ((m = rx.exec(output))) {
     const tok = m[1];
     if (tok.length === 1) single.add(tok); else multi.add(tok);
   }
-  const sup = { single, multi, rawHelp: out };
-  mem.set(exe, sup);
-  return sup;
+
+  const supported: Supported = { single, multi, rawHelp: output };
+  cache.set(exe, supported);
+  return supported;
 }
 
-// Preset “safe”: funciona na maioria dos pawncc antigos/novos
-export function computeMinimalArgs(s: Supported): string[] {
-  const A: string[] = [];
-  if (s.single.has('d')) A.push('-d1');
-  if (s.single.has('O')) A.push('-O1');
-  if (s.single.has('(')) A.push('-(+');
-  if (s.single.has(';')) A.push('-;+');
-  if (s.single.has('w')) A.push('-w239');
-  // sem -i/-o aqui; a gente injeta no compiler.ts
-  return A;
+// Safe preset that works across most pawncc versions old and new.
+// -i and -o are injected separately in compiler.ts, never here.
+export function computeMinimalArgs(supported: Supported): string[] {
+  const args: string[] = [];
+  if (supported.single.has('d')) args.push('-d1');
+  if (supported.single.has('O')) args.push('-O1');
+  if (supported.single.has('(')) args.push('-(+');
+  if (supported.single.has(';')) args.push('-;+');
+  if (supported.single.has('w')) args.push('-w239');
+  return args;
 }

@@ -1,19 +1,3 @@
-/**
- * download-engine.js
- *
- * Baixa o binário do pawnpro-engine do GitHub Releases para a pasta engines/
- * e verifica a integridade via SHA-256 (checksums.sha256 publicado na release).
- *
- * Uso:
- *   node scripts/download-engine.js                        # plataforma atual
- *   node scripts/download-engine.js --all                  # todas as plataformas (CI)
- *   node scripts/download-engine.js --artifact <nome>      # artefato específico (CI por plataforma)
- *
- * O binário é versionado pelo campo "engineVersion" de package.json.
- * O repo de origem é o campo "engineRepository".
- * A pasta engines/ está em .gitignore — nunca commitar binários.
- */
-
 import crypto from 'crypto';
 import fs from 'fs';
 import https from 'https';
@@ -34,10 +18,8 @@ if (!REPO) {
   process.exit(1);
 }
 
-// Extrai "owner/repo" da URL do repositório
 const repoPath = new URL(REPO).pathname.replace(/^\//, '').replace(/\.git$/, '');
 
-// Plataformas suportadas
 const ALL_TARGETS = [
   { platform: 'linux',  arch: 'x64',   artifact: 'pawnpro-engine-linux-x64'       },
   { platform: 'linux',  arch: 'arm64', artifact: 'pawnpro-engine-linux-arm64'      },
@@ -74,73 +56,67 @@ if (downloadAll) {
 const enginesDir = path.join(import.meta.dirname, '..', 'engines');
 fs.mkdirSync(enginesDir, { recursive: true });
 
-// ─── HTTP helpers ─────────────────────────────────────────────────────────────
+function httpGet(url, onResponse) {
+  const follow = (u) => {
+    https.get(u, { headers: { 'User-Agent': 'pawnpro-build' } }, (res) => {
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        follow(res.headers.location);
+        res.resume();
+        return;
+      }
+      onResponse(res, u);
+    }).on('error', (err) => { throw err; });
+  };
+  follow(url);
+}
 
 async function fetchBuffer(url) {
   return new Promise((resolve, reject) => {
-    const follow = (u) => {
-      https.get(u, { headers: { 'User-Agent': 'pawnpro-build' } }, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          follow(res.headers.location);
-          res.resume();
-          return;
-        }
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode} ao acessar ${u}`));
-          res.resume();
-          return;
-        }
-        const chunks = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-        res.on('error', reject);
-      }).on('error', reject);
-    };
-    follow(url);
+    httpGet(url, (res, u) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode} ao acessar ${u}`));
+        res.resume();
+        return;
+      }
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
   });
 }
 
 async function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
-    const follow = (u) => {
-      https.get(u, { headers: { 'User-Agent': 'pawnpro-build' } }, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          follow(res.headers.location);
-          res.resume();
-          return;
+    httpGet(url, (res, u) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode} ao baixar ${u}`));
+        res.resume();
+        return;
+      }
+      const total = parseInt(res.headers['content-length'] || '0', 10);
+      let received = 0;
+      const tmp = dest + '.tmp';
+      const file = fs.createWriteStream(tmp);
+      res.on('data', (chunk) => {
+        received += chunk.length;
+        if (total > 0) {
+          const pct = Math.round((received / total) * 100);
+          process.stdout.write(`\r  ${pct}% (${(received / 1024).toFixed(0)} KB)`);
         }
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode} ao baixar ${u}`));
-          res.resume();
-          return;
-        }
-        const total = parseInt(res.headers['content-length'] || '0', 10);
-        let received = 0;
-        const tmp = dest + '.tmp';
-        const file = fs.createWriteStream(tmp);
-        res.on('data', (chunk) => {
-          received += chunk.length;
-          if (total > 0) {
-            const pct = Math.round((received / total) * 100);
-            process.stdout.write(`\r  ${pct}% (${(received / 1024).toFixed(0)} KB)`);
-          }
+      });
+      res.pipe(file);
+      file.on('finish', () => {
+        file.close(() => {
+          fs.renameSync(tmp, dest);
+          process.stdout.write('\n');
+          resolve();
         });
-        res.pipe(file);
-        file.on('finish', () => {
-          file.close(() => {
-            fs.renameSync(tmp, dest);
-            process.stdout.write('\n');
-            resolve();
-          });
-        });
-        file.on('error', (e) => { fs.unlink(tmp, () => {}); reject(e); });
-      }).on('error', reject);
-    };
-    follow(url);
+      });
+      file.on('error', (e) => { fs.unlink(tmp, () => {}); reject(e); });
+    });
   });
 }
-
-// ─── Checksum helpers ─────────────────────────────────────────────────────────
 
 function parseChecksums(text) {
   const map = new Map();
@@ -148,7 +124,6 @@ function parseChecksums(text) {
     const parts = line.trim().split(/\s+/);
     if (parts.length >= 2) {
       const hash = parts[0];
-      // sha256sum prefixes filename with '*' no Windows
       const name = parts[parts.length - 1].replace(/^\*/, '');
       map.set(name, hash.toLowerCase());
     }
@@ -157,16 +132,12 @@ function parseChecksums(text) {
 }
 
 function computeSha256(filePath) {
-  const data = fs.readFileSync(filePath);
-  return crypto.createHash('sha256').update(data).digest('hex');
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   const baseUrl = `https://github.com/${repoPath}/releases/download/v${VERSION}`;
 
-  // Filtra apenas os que ainda não existem
   const pending = targets.filter(t => {
     const dest = path.join(enginesDir, t.artifact);
     if (fs.existsSync(dest)) {
@@ -181,7 +152,6 @@ async function main() {
     return;
   }
 
-  // Só busca checksums se houver algo para baixar
   console.log(`[download-engine] Obtendo checksums da release v${VERSION}...`);
   let checksums;
   try {
@@ -206,7 +176,6 @@ async function main() {
       process.exit(1);
     }
 
-    // Verifica integridade — falha sempre, independente de CI
     const expected = checksums.get(target.artifact);
     if (!expected) {
       console.error(`[download-engine] Checksum ausente para ${target.artifact} em checksums.sha256`);

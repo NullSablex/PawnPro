@@ -1,8 +1,15 @@
 # Fontes — nunca incluir no VSIX
 src/**
 
-# Documentação
+# Documentação interna e de repositório
 docs/**
+CLAUDE.md
+SECURITY.md
+SUPPORT.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+changelogs/**
+mkdocs.yml
 
 # Source maps
 out/**/*.map
@@ -14,6 +21,8 @@ tsconfig.json
 scripts/
 .gitignore
 .claude
+package-lock.json
+*.vsix
 
 # CI/CD
 .github/**

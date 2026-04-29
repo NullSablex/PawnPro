@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { msg } from './nls.js';
 
 const VERSION_KEY = 'pawnpro.lastSeenVersion';
 
@@ -25,7 +26,7 @@ function showPanel(context: vscode.ExtensionContext): void {
   const version = getVersion(context);
   const panel = vscode.window.createWebviewPanel(
     'pawnpro.whatsNew',
-    `PawnPro — O que há de novo`,
+    msg.whatsNew.panelTitle(),
     vscode.ViewColumn.One,
     {
       enableScripts: false,
@@ -36,12 +37,6 @@ function showPanel(context: vscode.ExtensionContext): void {
   panel.webview.html = buildHtml(context, panel.webview, version);
 }
 
-/* ─── Read and parse CHANGELOG.md ──────────────────────────────── */
-
-/**
- * Extracts the section for `version` from the changelog.
- * Matches lines starting with `## [version]` (Keep a Changelog format).
- */
 function extractSection(changelogPath: string, version: string): string {
   let raw: string;
   try {
@@ -57,7 +52,6 @@ function extractSection(changelogPath: string, version: string): string {
   for (const line of lines) {
     if (/^##\s*\[/.test(line)) {
       if (inside) break;
-      // Match [version] or [version-suffix] (e.g. [2.1.1-rc.1])
       const bracket = line.match(/^##\s*\[([^\]]*)\]/)?.[1];
       if (bracket === version || bracket?.startsWith(`${version}-`) || bracket?.startsWith(`${version}.`)) inside = true;
       continue;
@@ -67,8 +61,6 @@ function extractSection(changelogPath: string, version: string): string {
 
   return sectionLines.join('\n').trim();
 }
-
-/* ─── Minimal markdown-to-HTML (Keep a Changelog subset) ───────── */
 
 function mdToHtml(md: string): string {
   const lines = md.split(/\r?\n/);
@@ -92,24 +84,20 @@ function mdToHtml(md: string): string {
 
     if (!line) { closeList(); out.push(''); continue; }
 
-    // horizontal rule — skip
     if (/^[-*_]{3,}\s*$/.test(line)) { closeList(); continue; }
 
-    // ### sub-heading → section label
     if (/^###\s+/.test(line)) {
       closeList();
       out.push(`<h3>${inline(line.replace(/^###\s+/, ''))}</h3>`);
       continue;
     }
 
-    // ## heading (shouldn't appear inside extracted section, but guard anyway)
     if (/^##\s+/.test(line)) {
       closeList();
       out.push(`<h2>${inline(line.replace(/^##\s+/, ''))}</h2>`);
       continue;
     }
 
-    // list item (- or *)
     if (/^[-*]\s+/.test(line)) {
       if (!inList) { out.push('<ul>'); inList = true; }
       out.push(`<li>${inline(line.replace(/^[-*]\s+/, ''))}</li>`);
@@ -124,18 +112,16 @@ function mdToHtml(md: string): string {
   return out.join('\n');
 }
 
-/* ─── HTML shell ────────────────────────────────────────────────── */
-
 function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, version: string): string {
-  // vsce may lowercase the filename; try both variants
+  // vsce may lowercase the filename
   const changelogPath = [
     path.join(context.extensionPath, 'CHANGELOG.md'),
     path.join(context.extensionPath, 'changelog.md'),
-  ].find(p => fs.existsSync(p)) ?? path.join(context.extensionPath, 'CHANGELOG.md');
+  ].find(candidate => fs.existsSync(candidate)) ?? path.join(context.extensionPath, 'CHANGELOG.md');
   const sectionMd = extractSection(changelogPath, version);
   const sectionHtml = sectionMd
     ? mdToHtml(sectionMd)
-    : '<p>Nenhum registro de mudanças encontrado para esta versão.</p>';
+    : `<p>${msg.whatsNew.noChangelog()}</p>`;
 
   const logoUri = webview.asWebviewUri(
     vscode.Uri.file(path.join(context.extensionPath, 'images', 'logo.png')),
@@ -240,7 +226,7 @@ ${sectionHtml}
 
 <footer>
   <span>PawnPro v${version}</span>
-  <span>Use <code>PawnPro: O que há de novo</code> para reabrir.</span>
+  <span>${msg.whatsNew.reopenHint()}</span>
 </footer>
 </body>
 </html>`;

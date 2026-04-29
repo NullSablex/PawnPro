@@ -31,7 +31,7 @@
       "patterns": [
         {
           "name": "meta.preprocessor.pawn",
-          "begin": "^[\\t ]*#\\s*(?:(include|tryinclude|define|undef|if|ifdef|ifndef|else|elseif|endif|emit|pragma|endinput|error))\\b",
+          "begin": "^[\\t ]*#\\s*(?:(include|tryinclude|define|undef|if|ifdef|ifndef|else|elseif|endif|emit|pragma|endinput|error|warning|assert|file|line))\\b",
           "beginCaptures": {
             "1": { "name": "keyword.control.pawn" }
           },
@@ -83,7 +83,11 @@
       "patterns": [
         {
           "name": "keyword.control.pawn",
-          "match": "\\b(if|else|do|while|for|break|continue|switch|case|default|return|goto)\\b"
+          "match": "\\b(if|else|do|while|for|break|continue|switch|case|default|return|goto|assert|exit|sleep|state)\\b"
+        },
+        {
+          "name": "keyword.operator.pawn",
+          "match": "\\b(sizeof|tagof|defined)\\b"
         }
       ]
     },
@@ -106,8 +110,9 @@
     "labels": {
       "patterns": [
         {
+          "comment": "goto labels only: must be at start of line, followed by : but NOT preceded by an identifier on the same token (avoids matching tag:var). Negative lookahead avoids tag:ident patterns.",
           "name": "entity.name.label.pawn",
-          "match": "^[\\t ]*([A-Za-z_][\\w]*)\\s*:(?!:)",
+          "match": "^[\\t ]*([A-Za-z_][\\w]*)\\s*:(?![:\\s]*[A-Za-z_\\(])",
           "captures": { "1": { "name": "entity.name.label.pawn" } }
         }
       ]
@@ -127,8 +132,9 @@
     "functions": {
       "patterns": [
         {
+          "comment": "Function calls — excludes control flow keywords handled by #keywords",
           "name": "entity.name.function.pawn",
-          "match": "\\b([A-Za-z_][\\w]*)\\s*(?=\\()"
+          "match": "\\b(?!if|else|do|while|for|switch|return|goto|assert|exit|sleep|state|sizeof|tagof|defined\\b)([A-Za-z_][\\w]*)\\s*(?=\\()"
         }
       ]
     },

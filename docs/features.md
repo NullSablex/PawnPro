@@ -2,7 +2,7 @@
 
 ## Motor IntelliSense (Rust LSP)
 
-A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine)) que roda como servidor LSP separado. Se o binário não estiver presente, a extensão recua automaticamente para o modo TypeScript.
+A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine)) que roda como servidor LSP separado. O motor é iniciado automaticamente pela extensão se o binário estiver presente no diretório `engines/`.
 
 ## Diagnósticos
 
@@ -22,9 +22,11 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 | `PP0012` | Hint | `#include` cujos símbolos não são utilizados |
 | `PP0013` | Hint | `#tryinclude` não resolvido |
 
-> ¹ Marcados com `unnecessary` — o VS Code exibe o símbolo desbotado/riscado além do sublinhado de aviso.
+> ¹ Marcados com `unnecessary` — o editor exibe o símbolo desbotado/riscado além do sublinhado de aviso.
 
 > Stocks em `.inc` **não** geram `PP0006` por padrão. Habilite com `analysis.warnUnusedInInc: true`.
+
+> Diagnósticos em arquivos `.inc` podem ser suprimidos por completo com `analysis.suppressDiagnosticsInInc: true`.
 
 ## IntelliSense
 
@@ -55,21 +57,25 @@ stock OutraFuncao() { ... } // @deprecated
 
 ## Compilação
 
-- `Ctrl+Alt+B` — compila o arquivo `.pwn` aberto com `pawncc`.
+- `Ctrl+Alt+B` — compila o arquivo `.pwn` aberto com `pawncc` (ativo quando o foco está em um arquivo Pawn).
 - Detecção automática do compilador ou caminho manual em `.pawnpro/config.json`.
+- Se `compiler.args` estiver vazio, a extensão detecta as flags suportadas pelo `pawncc` local e aplica um preset mínimo automaticamente em cada compilação.
+- O arquivo é salvo automaticamente antes de compilar.
 
 ## Servidor SA-MP / open.mp
 
-- **Start / Stop / Restart** via terminal integrado do VS Code.
-- **Painel lateral** com campo de entrada de comandos, histórico navegável por seta e favoritos.
-- Envio via **RCON (UDP)** quando a senha está configurada; fallback para stdin do terminal. Bloqueado se a senha for vazia ou `changename`.
-- *Tail* do log do servidor com *follow* configurável (Linux e macOS).
-- Detecção automática de `server.cfg` (SA-MP) ou `config.json` (open.mp).
+- **Start / Stop / Restart** via terminal integrado do editor.
+- **Painel lateral** com campo de entrada de comandos, histórico (até 200 entradas) navegável por seta, favoritos e botões de limpar histórico/favoritos.
+- Envio via **RCON (UDP)** quando a senha está configurada (timeout 1500 ms); fallback para stdin do terminal. Bloqueado se a senha for vazia ou `changename`. Prefixos `rcon` e `rcon login ...` são removidos automaticamente antes do envio.
+- *Tail* do log do servidor com *follow* configurável — **exclusivo para Linux e macOS** (não disponível no Windows).
+- Detecção automática de executável do servidor nos subdiretórios: raiz do workspace, `server/`, `samp/`, `samp-server/`, `samp03/`, `open.mp/`.
+- Detecção automática de `server.cfg` (SA-MP) ou `config.json` (open.mp); log padrão: `server_log.txt` (SA-MP) ou o arquivo definido em `logging.file` no `config.json` (open.mp, padrão `log.txt`).
 
 ## Interface
 
-- **Status bar** — item `PawnPro` com acesso rápido a: reiniciar motor, abrir configuração, controles do servidor e criação de novos scripts.
-- **Aba Includes** — lista todos os `.inc` dos `includePaths` configurados com seus natives expandíveis e navegação direta para a declaração.
-- **Temas de sintaxe** — quatro esquemas disponíveis: Clássico e Moderno, cada um em variante claro e escuro. O esquema `auto` seleciona automaticamente entre Clássico Claro e Clássico Escuro conforme o tema ativo do VS Code. Ao escolher um esquema via comando, a reaplicação automática na inicialização é habilitada automaticamente.
-- **Templates** — cria Gamemode, Filterscript ou Include a partir de templates embutidos; filtra automaticamente pela plataforma configurada (`analysis.sdk.platform`).
-- **Internacionalização** — mensagens em PT-BR e EN via `vscode-nls`.
+- **Status bar** — item `PawnPro` com acesso rápido a: reiniciar motor, abrir configurações, controles do servidor e criação de novos scripts.
+- **Painel de configurações** — interface gráfica para editar todas as chaves de `.pawnpro/config.json` sem editar JSON manualmente, acessível via `pawnpro.openSettings`.
+- **Aba Includes** — lista todos os `.inc` (recursivamente, até 20 níveis) do primeiro diretório válido dentre os `includePaths` resolvidos, com seus natives expandíveis e navegação direta para a declaração.
+- **Temas de sintaxe** — cinco esquemas nomeados: `auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark` (mais `none` para desativar). O esquema `auto` seleciona automaticamente entre Clássico Claro e Clássico Escuro conforme o tema ativo do editor. Ao escolher um esquema via comando, a reaplicação automática na inicialização é habilitada automaticamente. Reaplica automaticamente ao trocar o tema do editor quando `scheme` é `auto`.
+- **Templates** — cria Gamemode (open.mp ou SA-MP), Filterscript (open.mp ou SA-MP) e Include (open.mp); filtra automaticamente pela plataforma configurada (`analysis.sdk.platform`). Não há template de Include para SA-MP.
+- **Internacionalização** — mensagens em PT-BR e EN; idioma do motor LSP configurável via `locale`.

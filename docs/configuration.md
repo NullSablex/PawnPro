@@ -1,6 +1,6 @@
 # Configuração
 
-As configurações do PawnPro são gerenciadas por arquivos JSON — **não** pelas configurações do VS Code.
+As configurações do PawnPro são gerenciadas por arquivos JSON — **não** pelas configurações do editor.
 
 ## Arquivos de configuração
 
@@ -10,7 +10,7 @@ As configurações do PawnPro são gerenciadas por arquivos JSON — **não** pe
 | `.pawnpro/config.json` | Projeto (sobrescreve global) |
 | `.pawnpro/state.json` | Estado local (favoritos, histórico do servidor) |
 
-O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra de status.
+O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra de status. As configurações também podem ser editadas pela interface gráfica acessível via comando `pawnpro.openSettings` ou pelo item **Configurações** no menu da barra de status.
 
 ## Compilação
 
@@ -33,11 +33,11 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
-| `compiler.autoDetect` | `true` | Detecta `pawncc` automaticamente no workspace |
-| `compiler.path` | `""` | Caminho absoluto para o executável `pawncc` |
+| `compiler.autoDetect` | `true` | Detecta `pawncc` automaticamente. Ordem de busca: variável de ambiente `$PAWNCC`, `$PATH`, subdiretórios do workspace (`qawno/`, `pawno/`, `include/`, `tools/`, `bin/`), caminhos comuns do sistema |
+| `compiler.path` | `""` | Caminho absoluto para o executável `pawncc`. Se apontar para um diretório, procura `pawncc` dentro dele |
 | `compiler.args` | `[]` | Argumentos adicionais passados ao compilador |
-| `includePaths` | `["${workspaceFolder}/pawno/include"]` | Diretórios de includes; suporta `${workspaceFolder}` |
-| `output.encoding` | `"windows1252"` | Encoding da saída do compilador |
+| `includePaths` | `["${workspaceFolder}/pawno/include"]` | Diretórios de includes; suporta `${workspaceFolder}`. Em runtime, a extensão também adiciona automaticamente `qawno/include`, `pawno/include` e `include` da raiz do workspace se existirem, além de paths vindos de `-i` em `compiler.args` |
+| `output.encoding` | `"windows1252"` | Encoding da saída do compilador (`windows1252`, `utf8`, `latin1`) |
 | `build.showCommand` | `false` | Exibe o comando completo do compilador no painel de saída |
 
 ## Análise
@@ -46,8 +46,9 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 {
   "analysis": {
     "warnUnusedInInc": false,
+    "suppressDiagnosticsInInc": false,
     "sdk": {
-      "platform": "omp",
+      "platform": "auto",
       "filePath": ""
     }
   }
@@ -57,8 +58,9 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
 | `analysis.warnUnusedInInc` | `false` | Habilita PP0006 para stocks em arquivos `.inc` |
-| `analysis.sdk.platform` | `"omp"` | SDK base: `"omp"`, `"samp"` ou `"none"` |
-| `analysis.sdk.filePath` | `""` | Caminho manual para o arquivo SDK (se não estiver nos `includePaths`) |
+| `analysis.suppressDiagnosticsInInc` | `false` | Suprime todos os diagnósticos dentro de arquivos `.inc` |
+| `analysis.sdk.platform` | `"auto"` | SDK base: `"auto"`, `"omp"`, `"samp"` ou `"none"`. `"auto"` procura `open.mp.inc` primeiro em `<workspace>/qawno/include/`, depois nos `includePaths`; se não encontrar, assume SA-MP. O painel de configurações gráfico expõe apenas `omp`, `samp` e `none` — `"auto"` só é configurável via JSON |
+| `analysis.sdk.filePath` | `""` | Caminho manual para o arquivo SDK centralizador (necessário principalmente para SA-MP, onde não há convenção de nome automática) |
 
 ## Servidor
 
@@ -82,15 +84,15 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
 | `server.type` | `"auto"` | Tipo de servidor: `"samp"`, `"omp"` ou `"auto"` |
-| `server.path` | `""` | Caminho para o executável do servidor |
-| `server.cwd` | `"${workspaceFolder}"` | Diretório de trabalho ao iniciar o servidor |
-| `server.args` | `[]` | Argumentos adicionais |
-| `server.logPath` | `""` | Caminho do log (detectado automaticamente se vazio) |
-| `server.logEncoding` | `"windows1252"` | Encoding do arquivo de log |
-| `server.clearOnStart` | `true` | Limpa o painel de saída ao reiniciar |
-| `server.output.follow` | `"visible"` | Rola automaticamente o log: `"visible"`, `"always"` ou `"off"` |
+| `server.path` | `""` | Caminho para o executável do servidor. Vazio ativa detecção automática nos subdiretórios do workspace: raiz, `server/`, `samp/`, `samp-server/`, `samp03/`, `open.mp/` |
+| `server.cwd` | `"${workspaceFolder}"` | Diretório de trabalho ao iniciar o servidor. Se vazio e `server.path` está preenchido, usa o diretório do executável |
+| `server.args` | `[]` | Argumentos adicionais passados ao executável |
+| `server.logPath` | `""` | Caminho do arquivo de log a ser monitorado. Vazio: SA-MP usa `server_log.txt`; open.mp usa o valor de `logging.file` em `config.json` (padrão `log.txt`). O monitoramento de log funciona **somente em Linux e macOS** |
+| `server.logEncoding` | `"windows1252"` | Encoding do arquivo de log (`windows1252`, `utf8`, `latin1`) |
+| `server.clearOnStart` | `true` | Limpa o painel de saída ao (re)iniciar o servidor |
+| `server.output.follow` | `"visible"` | Rola automaticamente o painel de log: `"visible"` (quando visível), `"always"` ou `"off"` |
 
-## Interface
+## Interface e idioma
 
 ```json
 {
@@ -99,17 +101,15 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
     "applyOnStartup": false
   },
   "ui": {
-    "showIncludePaths": false,
-    "separateContainer": false
-  }
+    "showIncludePaths": false
+  },
+  "locale": ""
 }
 ```
 
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
 | `syntax.scheme` | `"none"` | Tema de sintaxe ativo: `"none"`, `"auto"`, `"classic_white"`, `"classic_dark"`, `"modern_white"`, `"modern_dark"` |
-| `syntax.applyOnStartup` | `false` | Reaplicar o esquema ao iniciar o VS Code (gerenciado automaticamente pelos comandos `applySyntaxScheme` e `resetSyntaxScheme`) |
-| `ui.showIncludePaths` | `false` | Exibe os `includePaths` resolvidos na aba Includes |
-| `ui.separateContainer` | `false` | Mantém os painéis PawnPro em container separado |
-
-> `ui.separateContainer` é a única opção mantida nas configurações nativas do VS Code (necessário para cláusulas `when` dos painéis).
+| `syntax.applyOnStartup` | `false` | Reaplicar o esquema ao iniciar (gerenciado automaticamente pelos comandos `applySyntaxScheme` e `resetSyntaxScheme`) |
+| `ui.showIncludePaths` | `false` | Exibe o caminho relativo de cada arquivo `.inc` na aba Includes da barra lateral |
+| `locale` | `""` | Idioma das mensagens de diagnóstico do motor LSP: `""` (automático, herda o idioma do editor), `"pt-BR"` ou `"en"` |

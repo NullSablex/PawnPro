@@ -7,7 +7,7 @@
   [![Open VSX](https://img.shields.io/open-vsx/v/NullSablex/pawnpro?style=flat-square&label=Open%20VSX)](https://open-vsx.org/extension/NullSablex/pawnpro)
   [![Open VSX Rating](https://img.shields.io/open-vsx/rating/NullSablex/pawnpro?style=flat-square&label=Open%20VSX%20Rating)](https://open-vsx.org/extension/NullSablex/pawnpro)
   [![CI](https://img.shields.io/github/actions/workflow/status/NullSablex/PawnPro/publish.yml?style=flat-square&label=CI)](https://github.com/NullSablex/PawnPro/actions)
-  [![CodeQL](https://img.shields.io/github/actions/workflow/status/NullSablex/PawnPro/codeql.yml?style=flat-square&label=CodeQL&logo=github)](https://github.com/NullSablex/PawnPro/actions/workflows/codeql.yml)
+  [![CodeQL](https://img.shields.io/github/actions/workflow/status/NullSablex/PawnPro/codeql.yml?style=flat-square&logo=github&label=CodeQL)](https://github.com/NullSablex/PawnPro/actions/workflows/codeql.yml)
   [![License](https://img.shields.io/badge/licença-Source--Available-blue?style=flat-square)](LICENSE.md)
 
   ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11&logoColor=white)
@@ -15,36 +15,40 @@
   ![macOS x64](https://img.shields.io/badge/macOS-x64%20·%20arm64-000000?style=flat-square&logo=apple&logoColor=white)
 </div>
 
-Extensão moderna para desenvolver **Pawn** no Visual Studio Code — com motor IntelliSense em Rust, diagnósticos precisos, compilação rápida, CodeLens com referências, snippets, painel de includes e controles de servidor SA-MP / open.mp.
+Extensão para desenvolver **Pawn** no Visual Studio Code — motor IntelliSense nativo em Rust, 13 diagnósticos `PP####`, compilação com `Ctrl+Alt+B`, CodeLens com referências, snippets e controles de servidor SA-MP / open.mp.
 
 ## Recursos
 
-- **IntelliSense completo** — auto-complete, hover, signature help, CodeLens e coloração semântica para Pawn, incluindo todos os includes transitivos.
-- **Diagnósticos** — 13 códigos `PP####` cobrindo erros de estrutura, símbolos não declarados, código morto e depreciação (ver [docs/features.md](docs/features.md)).
-- **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc`.
-- **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON direto do editor.
-- **Templates** — cria Gamemode, Filterscript ou Include a partir de templates do projeto via status bar.
-- **Temas de sintaxe** — esquemas clássico e moderno (claro/escuro) com aplicação automática.
-- **Motor Rust LSP** — análise nativa via [pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine); recua para TypeScript se o binário não estiver presente.
+- **IntelliSense completo** — auto-complete, hover, signature help, CodeLens e coloração semântica para Pawn, cobrindo todos os includes transitivos.
+- **Diagnósticos** — 13 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação e mais (ver [docs/features.md](docs/features.md)).
+- **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc` via `$PAWNCC`, `$PATH` e subdiretórios do workspace.
+- **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON pelo terminal integrado; painel lateral com histórico (até 200 entradas) e favoritos.
+- **Templates** — Gamemode e Filterscript (open.mp e SA-MP) e Include (open.mp), filtrados pela plataforma configurada.
+- **Painel de configurações** — interface gráfica acessível por `PawnPro: Configurações`; todas as opções editáveis sem tocar em JSON.
+- **Temas de sintaxe** — cinco esquemas (`auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark`) com reaplicação automática ao trocar o tema do editor.
+- **Motor Rust LSP** — análise nativa via [pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine); iniciado automaticamente se o binário estiver presente em `engines/`.
+- **Suporte a `.pwn`, `.inc`, `.p` e `.pawn`** — todos os arquivos Pawn recebem IntelliSense e diagnósticos.
 
 ## Configuração
 
-As configurações são gerenciadas por arquivos JSON independentes do VS Code:
+As configurações são gerenciadas por arquivos JSON independentes do editor:
 
 | Arquivo | Escopo |
 |---------|--------|
-| `~/.pawnpro/config.json` | Global |
-| `.pawnpro/config.json` | Projeto |
+| `~/.pawnpro/config.json` | Global (todos os projetos) |
+| `.pawnpro/config.json` | Projeto (sobrescreve global) |
+| `.pawnpro/state.json` | Estado local (favoritos, histórico do servidor) |
 
-Acesse rapidamente o arquivo de projeto pelo item **PawnPro** na barra de status.
+Acesse o painel de configurações pelo item **PawnPro** na barra de status → **Configurações**, ou pelo comando `PawnPro: Configurações` na paleta de comandos.
 
-Para a referência completa de chaves de configuração, consulte [docs/configuration.md](docs/configuration.md).  
-Para a lista de comandos disponíveis, consulte [docs/commands.md](docs/commands.md).
+Para a referência completa de chaves, consulte [docs/configuration.md](docs/configuration.md).  
+Para a lista de comandos, consulte [docs/commands.md](docs/commands.md).
 
 ## Notas
 
-- Caminhos com espaços devem ser escritos entre aspas.
-- Firewalls/antivírus podem bloquear o tráfego RCON (UDP) — libere a porta local se necessário.
+- O monitoramento de log do servidor funciona apenas em **Linux e macOS**.
+- Firewalls/antivírus podem bloquear tráfego RCON (UDP) — libere a porta local se necessário.
+- `${workspaceFolder}` é substituído automaticamente em caminhos de configuração.
 
 ## Licença
 

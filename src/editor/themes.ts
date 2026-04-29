@@ -72,21 +72,20 @@ async function applySchemeByName(
       return;
     }
 
-    // Get current token color rules
     const vscfg = vscode.workspace.getConfiguration();
-    const current = vscfg.get<any>('editor.tokenColorCustomizations') ?? {};
-    const existingRules: TokenColorRule[] = Array.isArray(current.textMateRules)
-      ? current.textMateRules
+    const raw = vscfg.get<Record<string, unknown>>('editor.tokenColorCustomizations') ?? {};
+    const existingRules: TokenColorRule[] = Array.isArray(raw['textMateRules'])
+      ? (raw['textMateRules'] as TokenColorRule[])
       : [];
 
     const nextRules = mergeTokenColors(existingRules, scheme);
 
     if (!samePawnRules(existingRules, nextRules)) {
-      const clone: any = { ...current };
+      const clone: Record<string, unknown> = { ...raw };
       if (nextRules.length > 0) {
-        clone.textMateRules = nextRules;
+        clone['textMateRules'] = nextRules;
       } else {
-        if ('textMateRules' in clone) delete clone.textMateRules;
+        delete clone['textMateRules'];
         if (Object.keys(clone).length === 0) {
           await vscfg.update('editor.tokenColorCustomizations', {}, vscode.ConfigurationTarget.Global);
           lastAppliedKey = key;
@@ -97,7 +96,6 @@ async function applySchemeByName(
       await vscfg.update('editor.tokenColorCustomizations', clone, vscode.ConfigurationTarget.Global);
     }
 
-    // Merge semantic token colors — preserve user's existing rules, only add/replace PawnPro keys
     if (scheme.semanticRules) {
       const currentSemantic = vscfg.get<Record<string, unknown>>('editor.semanticTokenColorCustomizations') ?? {};
       const existingRules = (currentSemantic['rules'] as Record<string, unknown> | undefined) ?? {};
@@ -128,13 +126,11 @@ export function registerSyntaxSchemeCommands(
       if (!picked) return;
       const choice = AVAILABLE_SCHEMES.find(e => e.label === picked)!.value;
 
-      // Persist choice first (single write, triggers onChange → applySchemeByName)
-      config.set('syntax', { scheme: choice, applyOnStartup: true }, 'project');
+        config.set('syntax', { scheme: choice, applyOnStartup: true }, 'project');
       vscode.window.showInformationMessage(msg.themes.schemeApplied(picked));
     }),
 
     vscode.commands.registerCommand('pawnpro.resetSyntaxScheme', async () => {
-      // Single config write, then clear visuals
       config.set('syntax', { scheme: 'none', applyOnStartup: false }, 'project');
       await clearTokenColors();
       lastAppliedKey = 'none';
@@ -143,14 +139,12 @@ export function registerSyntaxSchemeCommands(
     }),
   );
 
-  // Re-apply on config change (read-only, no config writes)
   config.onChange(async (cfg) => {
     if (cfg.syntax.applyOnStartup) {
       await applySchemeByName(extensionDir, cfg.syntax.scheme);
     }
   });
 
-  // Re-apply auto scheme on theme change
   let timer: NodeJS.Timeout | undefined;
   context.subscriptions.push(
     vscode.window.onDidChangeActiveColorTheme(() => {
@@ -175,32 +169,28 @@ export async function applySchemeOnActivate(
 }
 
 export async function cleanupThemeCustomizations() {
-  if (schemeWasApplied) {
-    try {
-      // Remove only Pawn rules from global token colors
-      const vscfg = vscode.workspace.getConfiguration();
-      const current = vscfg.get<any>('editor.tokenColorCustomizations') ?? {};
-      const existingRules: TokenColorRule[] = Array.isArray(current.textMateRules)
-        ? current.textMateRules
-        : [];
+  if (!schemeWasApplied) return;
+  try {
+    const vscfg = vscode.workspace.getConfiguration();
+    const raw = vscfg.get<Record<string, unknown>>('editor.tokenColorCustomizations') ?? {};
+    const existingRules: TokenColorRule[] = Array.isArray(raw['textMateRules'])
+      ? (raw['textMateRules'] as TokenColorRule[])
+      : [];
 
-      const cleaned = mergeTokenColors(existingRules, null);
-      if (cleaned.length !== existingRules.length) {
-        const clone: any = { ...current };
-        if (cleaned.length > 0) {
-          clone.textMateRules = cleaned;
-        } else {
-          delete clone.textMateRules;
-        }
-        if (Object.keys(clone).length === 0) {
-          await vscfg.update('editor.tokenColorCustomizations', undefined, vscode.ConfigurationTarget.Global);
-        } else {
-          await vscfg.update('editor.tokenColorCustomizations', clone, vscode.ConfigurationTarget.Global);
-        }
+    const cleaned = mergeTokenColors(existingRules, null);
+    if (cleaned.length !== existingRules.length) {
+      const clone: Record<string, unknown> = { ...raw };
+      if (cleaned.length > 0) {
+        clone['textMateRules'] = cleaned;
+      } else {
+        delete clone['textMateRules'];
       }
-      await clearSemanticTokenColors(vscfg);
-    } catch {
-      // deactivate has limited time, ignore errors
+      await vscfg.update(
+        'editor.tokenColorCustomizations',
+        Object.keys(clone).length === 0 ? undefined : clone,
+        vscode.ConfigurationTarget.Global,
+      );
     }
-  }
+    await clearSemanticTokenColors(vscfg);
+  } catch {}
 }

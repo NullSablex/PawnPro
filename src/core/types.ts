@@ -1,5 +1,3 @@
-/* ─── Configuration ─────────────────────────────────────────────── */
-
 export interface CompilerConfig {
   path: string;
   args: string[];
@@ -48,16 +46,16 @@ export interface ServerConfig {
   output: ServerOutputConfig;
 }
 
-export type SdkPlatform = 'omp' | 'samp' | 'none';
+export type SdkPlatform = 'auto' | 'omp' | 'samp' | 'none';
 
 export interface AnalysisSdkConfig {
   platform: SdkPlatform;
-  /** Caminho absoluto ou com ${workspaceFolder} para o .inc centralizador do SDK. */
   filePath: string;
 }
 
 export interface AnalysisConfig {
   warnUnusedInInc: boolean;
+  suppressDiagnosticsInInc: boolean;
   sdk: AnalysisSdkConfig;
 }
 
@@ -70,9 +68,8 @@ export interface PawnProConfig {
   ui: UiConfig;
   server: ServerConfig;
   analysis: AnalysisConfig;
+  locale: string;
 }
-
-/* ─── State ─────────────────────────────────────────────────────── */
 
 export interface ServerState {
   favorites: string[];
@@ -83,45 +80,6 @@ export interface PawnProState {
   server: ServerState;
 }
 
-/* ─── Hover ─────────────────────────────────────────────────────── */
-
-export type HoverSection =
-  | { kind: 'text'; content: string }
-  | { kind: 'code'; content: string; language: string }
-  | { kind: 'link'; label: string; command: string; args: unknown[] }
-  | { kind: 'fileLink'; label: string; filePath: string; line: number };
-
-export interface HoverData {
-  sections: HoverSection[];
-}
-
-export interface HoverParams {
-  text: string;
-  filePath: string;
-  line: number;
-  character: number;
-  lineText: string;
-  workspaceRoot: string;
-  includePaths: string[];
-  extensionDir?: string;
-}
-
-/* ─── Diagnostics ───────────────────────────────────────────────── */
-
-export interface DiagnosticData {
-  startOffset: number;
-  endOffset: number;
-  message: string;
-  severity: 'error' | 'warning' | 'info';
-  source: string;
-}
-
-/* ─── Include Tree ──────────────────────────────────────────────── */
-
-export interface IncludeFileEntry {
-  filePath: string;
-  baseName: string;
-}
 
 export interface NativeEntry {
   name: string;
@@ -129,8 +87,6 @@ export interface NativeEntry {
   filePath: string;
   line: number;
 }
-
-/* ─── Compiler ──────────────────────────────────────────────────── */
 
 export interface CompileResult {
   exitCode: number | null;
@@ -145,8 +101,6 @@ export interface CompileArgs {
   removedFlags: string[];
 }
 
-/* ─── Server ────────────────────────────────────────────────────── */
-
 export type ServerRunState = 'stopped' | 'starting' | 'running';
 
 export interface SampCfgData {
@@ -155,8 +109,6 @@ export interface SampCfgData {
   host: string;
   cfgPath: string;
 }
-
-/* ─── Themes ────────────────────────────────────────────────────── */
 
 export type ThemeKind = 'dark' | 'light' | 'highContrast';
 
@@ -169,8 +121,6 @@ export interface TokenColorScheme {
   textMateRules: TokenColorRule[];
   semanticRules?: Record<string, Record<string, unknown>>;
 }
-
-/* ─── Output interface (for LogTailer and similar) ──────────────── */
 
 export interface OutputSink {
   clear(): void;

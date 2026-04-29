@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { isPawnFile } from '../core/utils.js';
 import { detectPawncc, buildCompileArgs, runCompile } from '../core/compiler.js';
 import { computeMinimalArgs, detectSupportedFlags } from '../core/flags.js';
 import { PawnProConfigManager } from '../core/config.js';
@@ -15,14 +14,12 @@ function getBuildChannel(context: vscode.ExtensionContext): vscode.OutputChannel
   return buildChannel;
 }
 
-// Track files currently being compiled to prevent double compilation
 const compilingFiles = new Set<string>();
 
 export function registerCompileCommand(
   context: vscode.ExtensionContext,
   config: PawnProConfigManager,
 ) {
-  // Command: detect compiler
   context.subscriptions.push(
     vscode.commands.registerCommand('pawnpro.detectCompiler', async () => {
       try {
@@ -31,16 +28,15 @@ export function registerCompileCommand(
         const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
         config.setKey('compiler.path', exe, 'project');
         vscode.window.showInformationMessage(msg.compiler.detected(exe));
-      } catch (e: any) {
-        vscode.window.showErrorMessage(e?.message || String(e));
+      } catch (err: unknown) {
+        vscode.window.showErrorMessage(err instanceof Error ? err.message : String(err));
       }
     }),
   );
 
-  // Command: compile current file
   const cmd = vscode.commands.registerCommand('pawnpro.compileCurrent', async () => {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || !isPawnFile(editor.document.fileName)) {
+    if (!editor || editor.document.languageId !== 'pawn') {
       vscode.window.showWarningMessage(msg.compiler.notPawnFile());
       return;
     }
@@ -48,7 +44,6 @@ export function registerCompileCommand(
     const filePath = editor.document.fileName;
     const baseName = filePath.split(/[\\/]/).pop() || filePath;
 
-    // Prevent double compilation of the same file
     if (compilingFiles.has(filePath)) {
       vscode.window.showWarningMessage(msg.compiler.alreadyCompiling(baseName));
       return;
@@ -66,7 +61,6 @@ export function registerCompileCommand(
       const cfg = config.getAll();
       const ws = getWorkspaceRoot();
 
-      // Use withProgress for visible feedback
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -80,12 +74,10 @@ export function registerCompileCommand(
             workspaceRoot: ws,
           });
 
-          // Log removed flags
           for (const flag of compileArgs.removedFlags) {
             channel.appendLine(`[PawnPro] Removendo flag não suportada para este pawncc: ${flag}`);
           }
 
-          // If compiler.args was empty, we used a preset - save it
           if (cfg.compiler.args.length === 0) {
             const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
             const supported = detectSupportedFlags(exe);
@@ -94,14 +86,12 @@ export function registerCompileCommand(
             channel.appendLine(`[PawnPro] Nenhum argumento configurado. Aplicando preset mínimo: ${preset.join(' ')}`);
           }
 
-          // Log command if configured
           if (cfg.build.showCommand) {
             const show = (s: string) => (/\s/.test(s) ? `"${s}"` : s);
             channel.appendLine(`[PawnPro] cwd=${compileArgs.cwd}`);
             channel.appendLine(`[PawnPro] ${show(compileArgs.exe)} ${compileArgs.args.map(show).join(' ')}`);
           }
 
-          // Run compilation
           const result = await runCompile(
             compileArgs.exe,
             compileArgs.args,
@@ -118,8 +108,8 @@ export function registerCompileCommand(
           }
         },
       );
-    } catch (e: any) {
-      vscode.window.showErrorMessage(`${msg.compiler.compilerNotFound('')}: ${e?.message || e}`);
+    } catch (err: unknown) {
+      vscode.window.showErrorMessage(`${msg.compiler.compilerNotFound('')}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       compilingFiles.delete(filePath);
     }

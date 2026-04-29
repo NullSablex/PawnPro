@@ -96,6 +96,16 @@
     ],
     "description": "Função static (escopo de arquivo)"
   },
+  "Static Stock Function": {
+    "prefix": "staticstock",
+    "body": [
+      "static stock ${1:NomeFuncao}(${2:params})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função static stock (interna e não exportada)"
+  },
   "Forward Declaration": {
     "prefix": "forward",
     "body": [
@@ -143,6 +153,24 @@
     ],
     "description": "Declara string"
   },
+  "Enum": {
+    "prefix": "enum",
+    "body": [
+      "enum ${1:E_NOME}",
+      "{",
+      "\t${1:E_NOME}_${2:CAMPO},",
+      "\t$0",
+      "};"
+    ],
+    "description": "Declaração de enum"
+  },
+  "Const": {
+    "prefix": "const",
+    "body": [
+      "const ${1:NOME} = ${2:valor};"
+    ],
+    "description": "Constante com const"
+  },
   "Define Constant": {
     "prefix": "#define",
     "body": [
@@ -153,9 +181,21 @@
   "Define Macro": {
     "prefix": "#definef",
     "body": [
-      "#define ${1:MACRO}(%1) (${2:expressão})"
+      "#define ${1:MACRO}(%0) (${2:expressão})"
     ],
-    "description": "Macro #define com parâmetro"
+    "description": "Macro #define com parâmetro (%0, %1, ...)"
+  },
+  "Include Guard": {
+    "prefix": "#guard",
+    "body": [
+      "#if defined ${1:_NOME_INCLUDED}",
+      "\t#endinput",
+      "#endif",
+      "#define ${1:_NOME_INCLUDED}",
+      "",
+      "$0"
+    ],
+    "description": "Guard de include (#if defined / #endinput)"
   },
   "Include Library": {
     "prefix": "#include",
@@ -171,6 +211,31 @@
     ],
     "description": "Include de arquivo local"
   },
+  "Tryinclude": {
+    "prefix": "#tryinclude",
+    "body": [
+      "#tryinclude <${1:biblioteca}>"
+    ],
+    "description": "Include opcional — não gera erro se o arquivo não existir"
+  },
+  "Ifdef": {
+    "prefix": "#ifdef",
+    "body": [
+      "#ifdef ${1:MACRO}",
+      "\t$0",
+      "#endif"
+    ],
+    "description": "Compilação condicional #ifdef"
+  },
+  "Ifndef": {
+    "prefix": "#ifndef",
+    "body": [
+      "#ifndef ${1:MACRO}",
+      "\t$0",
+      "#endif"
+    ],
+    "description": "Compilação condicional #ifndef"
+  },
   "Conditional Compilation": {
     "prefix": "#if",
     "body": [
@@ -179,6 +244,20 @@
       "#endif"
     ],
     "description": "Compilação condicional #if defined"
+  },
+  "Pragma Tabsize": {
+    "prefix": "#pragma tabsize",
+    "body": [
+      "#pragma tabsize ${1:4}"
+    ],
+    "description": "Define o tamanho do tab para verificação de indentação"
+  },
+  "Pragma Deprecated": {
+    "prefix": "#pragma deprecated",
+    "body": [
+      "#pragma deprecated ${1:mensagem}"
+    ],
+    "description": "Marca o símbolo seguinte como depreciado"
   },
   "OnGameModeInit": {
     "prefix": "OnGameModeInit",

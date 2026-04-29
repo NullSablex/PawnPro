@@ -2,23 +2,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getConfig } from './configBridge.js';
+import { msg } from './nls.js';
 
 type TemplateKind = 'gamemode' | 'filterscript' | 'include';
 
 type TemplateOption = {
-  label: string;
-  description: string;
+  label: () => string;
+  description: () => string;
   file: string;
   platform: 'omp' | 'samp';
   kind: TemplateKind;
 };
 
 const TEMPLATES: TemplateOption[] = [
-  { label: 'Gamemode — open.mp',     description: '#include <open.mp>', file: 'gamemode.omp.pwn',      platform: 'omp',  kind: 'gamemode'     },
-  { label: 'Gamemode — SA-MP',       description: '#include <a_samp>',  file: 'gamemode.samp.pwn',     platform: 'samp', kind: 'gamemode'     },
-  { label: 'Filterscript — open.mp', description: '#include <open.mp>', file: 'filterscript.omp.pwn',  platform: 'omp',  kind: 'filterscript' },
-  { label: 'Filterscript — SA-MP',   description: '#include <a_samp>',  file: 'filterscript.samp.pwn', platform: 'samp', kind: 'filterscript' },
-  { label: 'Include — open.mp',      description: '.inc para open.mp',  file: 'include.omp.inc',       platform: 'omp',  kind: 'include'      },
+  { label: msg.templates.labelGmOmp,  description: msg.templates.descGmOmp,  file: 'gamemode.omp.pwn',      platform: 'omp',  kind: 'gamemode'     },
+  { label: msg.templates.labelGmSamp, description: msg.templates.descGmSamp, file: 'gamemode.samp.pwn',     platform: 'samp', kind: 'gamemode'     },
+  { label: msg.templates.labelFsOmp,  description: msg.templates.descFsOmp,  file: 'filterscript.omp.pwn',  platform: 'omp',  kind: 'filterscript' },
+  { label: msg.templates.labelFsSamp, description: msg.templates.descFsSamp, file: 'filterscript.samp.pwn', platform: 'samp', kind: 'filterscript' },
+  { label: msg.templates.labelIncOmp, description: msg.templates.descIncOmp, file: 'include.omp.inc',       platform: 'omp',  kind: 'include'      },
 ];
 
 function readTemplate(context: vscode.ExtensionContext, name: string): string {
@@ -48,15 +49,15 @@ export function registerTemplates(context: vscode.ExtensionContext): void {
           chosen = filtered[0];
         } else if (filtered.length > 1) {
           const pick = await vscode.window.showQuickPick(
-            filtered.map(t => ({ label: t.label, description: t.description, _opt: t })),
-            { placeHolder: 'Selecione a variante' },
+            filtered.map(t => ({ label: t.label(), description: t.description(), _opt: t })),
+            { placeHolder: msg.templates.selectVariant() },
           );
           chosen = pick?._opt;
         }
       } else {
         const pick = await vscode.window.showQuickPick(
-          options.map(t => ({ label: t.label, description: t.description, _opt: t })),
-          { placeHolder: 'Selecione o tipo de script' },
+          options.map(t => ({ label: t.label(), description: t.description(), _opt: t })),
+          { placeHolder: msg.templates.selectType() },
         );
         chosen = pick?._opt;
       }

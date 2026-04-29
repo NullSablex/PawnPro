@@ -23,8 +23,6 @@ export function activateStatusBar(
   );
 }
 
-// ─── Menu ────────────────────────────────────────────────────────────────────
-
 type MenuItem = vscode.QuickPickItem & { action: () => Promise<void> | void };
 
 function cmd(label: string, command: string, args?: unknown): MenuItem {
@@ -46,9 +44,9 @@ async function showStatusBarMenu(config: PawnProConfigManager): Promise<void> {
       },
     },
     {
-      label: `$(file-code) ${msg.statusBar.openConfig()}`,
-      detail: msg.statusBar.openConfigDetail(),
-      action: () => openProjectConfig(),
+      label: `$(settings-gear) ${msg.settings.openSettings()}`,
+      detail: msg.settings.openSettingsDetail(),
+      action: () => { void vscode.commands.executeCommand('pawnpro.openSettings'); },
     },
 
     sep(msg.statusBar.sectionServer()),
@@ -75,24 +73,6 @@ async function showStatusBarMenu(config: PawnProConfigManager): Promise<void> {
   if (picked) await picked.action();
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function openProjectConfig(): void {
-  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!root) {
-    vscode.window.showWarningMessage(msg.statusBar.configNotFound());
-    return;
-  }
-
-  const configPath = path.join(root, '.pawnpro', 'config.json');
-  if (!fs.existsSync(configPath)) {
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, '{}\n', 'utf8');
-  }
-
-  void vscode.window.showTextDocument(vscode.Uri.file(configPath));
-}
-
 function openServerCfg(config: PawnProConfigManager): void {
   const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!root) {
@@ -103,7 +83,6 @@ function openServerCfg(config: PawnProConfigManager): void {
   const cfg = config.getAll();
   const cwd = cfg.server.cwd.replace('${workspaceFolder}', root);
 
-  // OMP usa config.json, SA-MP usa server.cfg
   const ompCfg  = path.join(cwd, 'config.json');
   const sampCfg = path.join(cwd, 'server.cfg');
 

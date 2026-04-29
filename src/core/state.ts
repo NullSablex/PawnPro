@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PawnProState } from './types.js';
+import type { PawnProState, ServerState } from './types.js';
 
 const DEFAULTS: PawnProState = {
   server: { favorites: [], history: [] },
@@ -9,8 +9,10 @@ const DEFAULTS: PawnProState = {
 function readJsonFile(filePath: string): Record<string, unknown> | null {
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : null;
+    const parsed = JSON.parse(raw) as unknown;
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }
@@ -19,14 +21,22 @@ function readJsonFile(filePath: string): Record<string, unknown> | null {
 function writeJsonFile(filePath: string, data: unknown): void {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-
   const tmp = filePath + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
   fs.renameSync(tmp, filePath);
 }
 
+function parseServerState(raw: Record<string, unknown>): ServerState {
+  const server = raw['server'];
+  const s = typeof server === 'object' && server !== null ? (server as Record<string, unknown>) : {};
+  return {
+    favorites: Array.isArray(s['favorites']) ? (s['favorites'] as string[]) : [],
+    history: Array.isArray(s['history']) ? (s['history'] as string[]) : [],
+  };
+}
+
 export class PawnProStateManager {
-  private filePath: string;
+  private readonly filePath: string;
   private data: PawnProState = structuredClone(DEFAULTS);
 
   constructor(projectRoot: string) {
@@ -38,20 +48,7 @@ export class PawnProStateManager {
 
   load(): void {
     const raw = readJsonFile(this.filePath);
-    if (!raw) {
-      this.data = structuredClone(DEFAULTS);
-      return;
-    }
-    this.data = {
-      server: {
-        favorites: Array.isArray((raw.server as any)?.favorites)
-          ? (raw.server as any).favorites
-          : [],
-        history: Array.isArray((raw.server as any)?.history)
-          ? (raw.server as any).history
-          : [],
-      },
-    };
+    this.data = raw ? { server: parseServerState(raw) } : structuredClone(DEFAULTS);
   }
 
   save(): void {

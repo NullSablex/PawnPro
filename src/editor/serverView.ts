@@ -75,26 +75,27 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     view.webview.html = this.getHtml(view.webview);
     this.postState(view);
 
-    view.webview.onDidReceiveMessage((msg: any) => {
-      if (!msg || typeof msg !== 'object') return;
-      switch (msg.type) {
+    view.webview.onDidReceiveMessage((raw: unknown) => {
+      if (!raw || typeof raw !== 'object') return;
+      const msg = raw as Record<string, unknown>;
+      switch (msg['type']) {
         case 'requestState':
           this.postState(view);
           break;
         case 'send': {
-          const line = typeof msg.text === 'string' ? msg.text.trim() : '';
+          const line = typeof msg['text'] === 'string' ? msg['text'].trim() : '';
           if (!line) break;
           this.onSend(line);
           this.record(line);
           break;
         }
         case 'addFavorite': {
-          const cmd = typeof msg.command === 'string' ? msg.command.trim() : '';
+          const cmd = typeof msg['command'] === 'string' ? msg['command'].trim() : '';
           if (cmd) this.addFavorite(cmd);
           break;
         }
         case 'removeFavorite': {
-          const cmd = typeof msg.command === 'string' ? msg.command.trim() : '';
+          const cmd = typeof msg['command'] === 'string' ? msg['command'].trim() : '';
           if (cmd) this.removeFavorite(cmd);
           break;
         }

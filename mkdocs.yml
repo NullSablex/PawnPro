@@ -1,0 +1,60 @@
+site_name: PawnPro
+site_description: Extensão para a linguagem Pawn (SA-MP / open.mp)
+site_url: https://nullsablex.github.io/PawnPro/
+repo_url: https://github.com/NullSablex/PawnPro
+repo_name: NullSablex/PawnPro
+edit_uri: edit/master/docs/
+
+docs_dir: docs
+
+nav:
+  - Introdução: index.md
+  - Recursos: features.md
+  - Configuração: configuration.md
+  - Comandos: commands.md
+  - Snippets: snippets.md
+
+theme:
+  name: material
+  language: pt
+  logo: icon.svg
+  favicon: icon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: light blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Mudar para modo escuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: light blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Mudar para modo claro
+  features:
+    - navigation.instant
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.action.edit
+    - content.code.copy
+
+plugins:
+  - search:
+      lang: pt
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - tables
+  - attr_list
+  - md_in_html

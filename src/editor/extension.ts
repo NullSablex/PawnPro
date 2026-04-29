@@ -10,6 +10,7 @@ import { registerTemplates } from './templates.js';
 import { startLspClient, stopLspClient, restartLspClient, resolveSdkFilePath } from './lspClient.js';
 import { buildIncludePaths } from '../core/includes.js';
 import { activateStatusBar } from './statusBar.js';
+import { registerSettingsView } from './settingsView.js';
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
@@ -91,13 +92,21 @@ export async function activate(context: vscode.ExtensionContext) {
         buildIncludePaths(cfg, ws),
         ws,
       );
-      if (!resolved) {
+      // Avisa apenas quando o usuário escolheu explicitamente omp ou samp+filePath
+      // e o arquivo não foi encontrado. 'auto' nunca avisa — ausência de open.mp.inc
+      // simplesmente significa SA-MP, o que é esperado.
+      const shouldWarn = !resolved && (
+        sdkPlatform === 'omp' ||
+        (sdkPlatform === 'samp' && !!cfg.analysis.sdk.filePath)
+      );
+      if (shouldWarn) {
         void vscode.window.showWarningMessage(
           msg.extension.sdkFileNotFound(sdkPlatform),
         );
       }
     }
 
+    registerSettingsView(context, config);
     activateStatusBar(context, config);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

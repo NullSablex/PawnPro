@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { LogTailer, SampRconClient, loadServerConfig, resolveServerConfig } from '../core/server.js';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
@@ -10,13 +9,6 @@ import type { SampCfgData, ServerRunState, OutputSink } from '../core/types.js';
 
 const IS_WINDOWS = process.platform === 'win32';
 
-function norm(p: string): string {
-  const unq = p.trim().replace(/^["']|["']$/g, '');
-  return path.normalize(unq);
-}
-
-/* ─── Output channel as OutputSink ──────────────────────────────── */
-
 function createOutputSink(channel: vscode.OutputChannel): OutputSink {
   return {
     clear: () => channel.clear(),
@@ -25,8 +17,6 @@ function createOutputSink(channel: vscode.OutputChannel): OutputSink {
     show: (preserveFocus) => channel.show(preserveFocus),
   };
 }
-
-/* ─── Server controller ─────────────────────────────────────────── */
 
 const TERMINAL_NAME = 'PawnPro Server';
 
@@ -94,8 +84,8 @@ class ServerController {
         if (out && out.trim()) this.tailer.appendLine(out.trim());
         this.tailer.markVisible();
         return;
-      } catch (e: any) {
-        vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(e?.message || String(e))}`);
+      } catch (err: unknown) {
+        vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(err instanceof Error ? err.message : String(err))}`);
         return;
       }
     } else {
@@ -143,7 +133,7 @@ class ServerController {
       const t = vscode.window.createTerminal({
         name: TERMINAL_NAME,
         cwd: resolved.cwd,
-        shellPath: norm(resolved.exe),
+        shellPath: resolved.exe,
         shellArgs: resolved.args,
       });
       this.term = t;
@@ -166,10 +156,10 @@ class ServerController {
       setTimeout(() => {
         if (this.term === t) this.setState('running');
       }, 150);
-    } catch (e: any) {
+    } catch (err: unknown) {
       this.term = null;
       this.setState('stopped');
-      vscode.window.showErrorMessage(`PawnPro: ${msg.server.failedStart(e?.message || String(e))}`);
+      vscode.window.showErrorMessage(`PawnPro: ${msg.server.failedStart(err instanceof Error ? err.message : String(err))}`);
     } finally {
       this.restarting = false;
     }
@@ -233,8 +223,6 @@ class ServerController {
     this.tailer.markVisible();
   }
 }
-
-/* ─── Registration ──────────────────────────────────────────────── */
 
 export function registerServerControls(
   context: vscode.ExtensionContext,

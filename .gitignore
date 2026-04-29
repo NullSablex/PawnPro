@@ -3,3 +3,4 @@ out/
 *.vsix
 engines/
 .claude
+site/
