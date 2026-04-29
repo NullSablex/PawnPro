@@ -39,7 +39,7 @@ export function registerTemplates(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('pawnpro.newScript', async (kind?: TemplateKind) => {
       const platform = getPlatform();
-      const options = TEMPLATES.filter(t => platform === 'none' || t.platform === platform);
+      const options = TEMPLATES.filter(t => platform === 'none' || platform === 'auto' || t.platform === platform);
 
       let chosen: TemplateOption | undefined;
 

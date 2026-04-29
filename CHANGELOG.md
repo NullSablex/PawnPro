@@ -12,6 +12,14 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
+## [3.2.1] - 29/04/2026
+
+### Corrigido
+- **Templates vazios com `platform: "auto"`** — o picker de novo script mostrava lista vazia em instalações padrão; `auto` agora é tratado como neutro e exibe todos os templates
+- **Watcher LSP incompleto** — `workspace/didChangeWatchedFiles` só observava `*.pwn` e `*.inc`; expandido para `*.{pwn,inc,p,pawn}` para cobrir todas as extensões registradas na linguagem
+
+---
+
 ## [3.2.0] - 29/04/2026
 
 ### Adicionado
