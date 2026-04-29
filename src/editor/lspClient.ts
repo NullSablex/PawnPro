@@ -22,7 +22,7 @@ export function resolveSdkFilePath(
     return fs.existsSync(configuredPath) ? configuredPath : null;
   }
 
-  if (platform === 'omp') {
+  if (platform === 'omp' || platform === 'auto') {
     const wsDefault = path.join(workspaceRoot, 'qawno', 'include', 'open.mp.inc');
     if (fs.existsSync(wsDefault)) return wsDefault;
     for (const dir of includePaths) {
@@ -35,6 +35,9 @@ export function resolveSdkFilePath(
 }
 
 let client: LanguageClient | null = null;
+let savedContext: vscode.ExtensionContext | null = null;
+let savedConfig: PawnProConfigManager | null = null;
+let savedWorkspaceRoot: string | undefined;
 
 type EngineSettings = { resolvedPaths: string[]; sdkFilePath: string };
 
@@ -50,6 +53,10 @@ function buildEngineSettings(
     workspaceRoot ?? '',
   ) ?? '';
   return { resolvedPaths, sdkFilePath };
+}
+
+function resolveLocale(cfg: ReturnType<PawnProConfigManager['getAll']>): string {
+  return cfg.locale || vscode.env.language;
 }
 
 function findBinary(context: vscode.ExtensionContext): string | null {
@@ -85,13 +92,12 @@ export async function startLspClient(
 
   console.log(`[PawnPro] engine found: ${binaryPath}`);
 
-  // VSIX zip strips executable permissions
+  savedContext = context;
+  savedConfig = config;
+  savedWorkspaceRoot = workspaceRoot;
+
   if (process.platform !== 'win32') {
-    try {
-      fs.chmodSync(binaryPath, 0o755);
-    } catch {
-      // permission may already be correct
-    }
+    try { fs.chmodSync(binaryPath, 0o755); } catch {}
   }
 
   const cfg = config.getAll();
@@ -111,7 +117,9 @@ export async function startLspClient(
       workspaceFolder: workspaceRoot ?? '',
       includePaths: resolvedPaths,
       warnUnusedInInc: cfg.analysis.warnUnusedInInc,
+      suppressDiagnosticsInInc: cfg.analysis.suppressDiagnosticsInInc,
       sdkFilePath,
+      locale: resolveLocale(cfg),
     },
     progressOnInitialization: false,
   };
@@ -137,9 +145,10 @@ export async function stopLspClient(): Promise<void> {
 }
 
 export async function restartLspClient(): Promise<void> {
-  if (client) {
-    await client.restart();
-  }
+  if (!client || !savedContext || !savedConfig) return;
+  await client.stop();
+  client = null;
+  await startLspClient(savedContext, savedConfig, savedWorkspaceRoot);
 }
 
 export function sendConfigurationToEngine(
@@ -153,7 +162,9 @@ export function sendConfigurationToEngine(
     settings: {
       includePaths: resolvedPaths,
       warnUnusedInInc: cfg.analysis.warnUnusedInInc,
+      suppressDiagnosticsInInc: cfg.analysis.suppressDiagnosticsInInc,
       sdkFilePath,
+      locale: resolveLocale(cfg),
     },
   });
 }

@@ -18,8 +18,10 @@ const DEFAULTS: PawnProConfig = {
   },
   analysis: {
     warnUnusedInInc: false,
-    sdk: { platform: 'omp', filePath: '' },
+    suppressDiagnosticsInInc: false,
+    sdk: { platform: 'auto', filePath: '' },
   },
+  locale: '',
 };
 
 type Listener = (cfg: PawnProConfig) => void;
@@ -93,7 +95,6 @@ export class PawnProConfigManager {
     global: {},
     project: {},
   };
-  private externalDefaults: Record<string, unknown> = {};
   private listeners: Listener[] = [];
 
   constructor(private projectRoot: string) {
@@ -102,21 +103,9 @@ export class PawnProConfigManager {
     this.reload();
   }
 
-  /**
-   * Define defaults externos (ex: settings do VS Code) com prioridade menor que os
-   * arquivos de config. Ordem: DEFAULTS < externalDefaults < global < project.
-   */
-  setExternalDefaults(overrides: Record<string, unknown>): void {
-    this.externalDefaults = overrides;
-    this.applyMerge();
-  }
-
   private applyMerge(): void {
     const merged = deepMerge(
-      deepMerge(
-        deepMerge(structuredClone(DEFAULTS) as unknown as Record<string, unknown>, this.externalDefaults),
-        this.raw.global,
-      ),
+      deepMerge(structuredClone(DEFAULTS) as unknown as Record<string, unknown>, this.raw.global),
       this.raw.project,
     ) as unknown as PawnProConfig;
 
@@ -197,22 +186,6 @@ export class PawnProConfigManager {
         if (idx >= 0) this.listeners.splice(idx, 1);
       },
     };
-  }
-
-  hasProjectConfig(): boolean {
-    try {
-      return fs.existsSync(this.projectPath);
-    } catch {
-      return false;
-    }
-  }
-
-  hasGlobalConfig(): boolean {
-    try {
-      return fs.existsSync(this.globalPath);
-    } catch {
-      return false;
-    }
   }
 
   static get defaults(): Readonly<PawnProConfig> {

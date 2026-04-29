@@ -5,11 +5,8 @@ import * as iconv from 'iconv-lite';
 import * as dgram from 'dgram';
 import type { SampCfgData, OutputSink, PawnProConfig } from './types.js';
 
-/* ─── Path helpers ──────────────────────────────────────────────── */
-
-function norm(p: string): string {
-  const unq = p.trim().replace(/^["']|["']$/g, '');
-  return path.normalize(unq);
+function stripQuotes(p: string): string {
+  return path.normalize(p.trim().replace(/^["']|["']$/g, ''));
 }
 
 function existsExecutable(p: string): boolean {
@@ -20,8 +17,6 @@ function existsExecutable(p: string): boolean {
     return true;
   } catch { return false; }
 }
-
-/* ─── Auto-detect server executable (SA-MP + open.mp) ──────────── */
 
 const SERVER_NAMES = process.platform === 'win32'
   ? ['omp-server.exe', 'samp-server.exe', 'samp03svr.exe']
@@ -37,13 +32,7 @@ function serverCandidates(workspaceRoot: string): string[] {
     path.join(workspaceRoot, 'samp03'),
     path.join(workspaceRoot, 'open.mp'),
   ];
-  const out: string[] = [];
-  for (const d of dirs) {
-    for (const n of SERVER_NAMES) {
-      out.push(path.join(d, n));
-    }
-  }
-  return out;
+  return dirs.flatMap(d => SERVER_NAMES.map(n => path.join(d, n)));
 }
 
 export function detectServerExecutable(workspaceRoot: string): string | null {
@@ -52,8 +41,6 @@ export function detectServerExecutable(workspaceRoot: string): string | null {
   }
   return null;
 }
-
-/* ─── Read server.cfg (SA-MP) ───────────────────────────────────── */
 
 export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
   const cfgPath = path.join(cwd || '', 'server.cfg');
@@ -86,8 +73,6 @@ export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
   return { rconPassword: rcon_password, port: prt, host, cfgPath };
 }
 
-/* ─── Read config.json (open.mp) ────────────────────────────────── */
-
 export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
   const cfgPath = path.join(cwd || '', 'config.json');
   let json: Record<string, unknown> = {};
@@ -103,17 +88,12 @@ export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
   return { rconPassword, port: Math.max(1, Number(rawPort) || 7777), host, cfgPath };
 }
 
-/* ─── Unified loader ────────────────────────────────────────────── */
-
 export async function loadServerConfig(cwd: string, serverType: import('./types.js').ServerType = 'auto'): Promise<SampCfgData> {
   if (serverType === 'omp') return loadOmpConfig(cwd);
   if (serverType === 'samp') return loadSampConfig(cwd);
-  // auto: detecta pelo arquivo presente
   if (fs.existsSync(path.join(cwd || '', 'config.json'))) return loadOmpConfig(cwd);
   return loadSampConfig(cwd);
 }
-
-/* ─── Log file tailing ──────────────────────────────────────────── */
 
 async function readRange(filePath: string, start: number, end: number): Promise<Buffer> {
   const fh = await fsp.open(filePath, 'r');
@@ -167,7 +147,7 @@ export class LogTailer {
 
   async start(filePath: string, encoding: string) {
     this.stop();
-    this.file = norm(filePath);
+    this.file = stripQuotes(filePath);
     this.decode = (b: Buffer) => iconv.decode(b, encoding || 'windows1252');
 
     try {
@@ -210,8 +190,6 @@ export class LogTailer {
     this.assumeVisible = false;
   }
 }
-
-/* ─── RCON UDP Client ───────────────────────────────────────────── */
 
 export class SampRconClient {
   constructor(private host: string, private port: number, private password: string) {}
@@ -277,8 +255,6 @@ export class SampRconClient {
   }
 }
 
-/* ─── Config resolution ─────────────────────────────────────────── */
-
 export function resolveServerConfig(config: PawnProConfig['server'], workspaceRoot: string) {
   const serverType = config.type ?? 'auto';
 
@@ -311,7 +287,6 @@ export function resolveServerConfig(config: PawnProConfig['server'], workspaceRo
 function resolveLogPath(cwd: string, serverType: import('./types.js').ServerType): string {
   if (serverType === 'omp') return path.join(cwd, ompLogFile(cwd));
   if (serverType === 'samp') return path.join(cwd, 'server_log.txt');
-  // auto: prefere config.json se existir
   const ompCfg = path.join(cwd, 'config.json');
   if (fs.existsSync(ompCfg)) return path.join(cwd, ompLogFile(cwd));
   return path.join(cwd, 'server_log.txt');

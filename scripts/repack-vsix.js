@@ -5,7 +5,7 @@
  * - Injeta os binários do motor Rust (engines/) na pasta extension/engines/
  *
  * Nota: as dependências JS (iconv-lite, vscode-nls, etc.) já estão embutidas
- * no bundle gerado pelo esbuild (out/vscode/extension.js), portanto não
+ * no bundle gerado pelo esbuild (out/editor/extension.js), portanto não
  * precisam ser adicionadas manualmente ao VSIX.
  */
 

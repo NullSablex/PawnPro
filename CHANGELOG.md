@@ -4,9 +4,41 @@ Todas as mudanças notáveis neste projeto serão documentadas aqui.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+Podem existir falhas ou itens não declarados, causados por falha humana ou por IA, caso encontre por favor relate para ajudar a manter a consistência dos dados.
+
 ## Versões anteriores
 
 - [Versões 2.x e anteriores](changelogs/CHANGELOG_v2.md)
+
+---
+
+## [3.2.0] - 29/04/2026
+
+### Adicionado
+- **`analysis.suppressDiagnosticsInInc`** — nova chave de configuração; suprime todos os diagnósticos dentro de arquivos `.inc` quando `true`
+- **`locale`** — nova chave de configuração; define o idioma das mensagens de diagnóstico do motor LSP (`""` = automático, `"pt-BR"`, `"en"`)
+- **`analysis.sdk.platform: "auto"`** — novo valor para detecção automática: busca `open.mp.inc` em `qawno/include/` e nos `includePaths`; assume SA-MP se não encontrar
+- **Painel de configurações gráfico (`pawnpro.openSettings`)** — interface WebView substitui o bloco `contributes.configuration` nativo; edição visual de todas as chaves sem tocar em JSON
+- **Suporte a `.p` e `.pawn`** — extensões adicionadas ao contributes da linguagem Pawn; IntelliSense e diagnósticos passam a cobrir esses arquivos
+- **`src/editor/`** — nova pasta da camada de adaptação (renomeada de `src/vscode/`); isolamento completo entre lógica pura (`core/`) e APIs do editor
+
+### Alterado
+- **`analysis.sdk.platform`** — default alterado de `"omp"` para `"auto"`
+- **`main` do pacote** — agora aponta para `./out/editor/extension.js` (reflete a renomeação da pasta)
+- **`SdkPlatform`** — tipo expandido: `'auto' | 'omp' | 'samp' | 'none'`
+- **`PawnProConfigManager`** — merge simplificado: camada `externalDefaults` (settings do VS Code) removida; merge direto de DEFAULTS → global → projeto
+- **`AnalysisConfig`** — recebe `suppressDiagnosticsInInc` e `locale`
+- **Tipos auxiliares removidos de `src/core/types.ts`** — `HoverData`, `HoverSection`, `HoverParams`, `DiagnosticData` (responsabilidade transferida integralmente ao motor Rust)
+
+### Removido
+- **`contributes.configuration`** — bloco inteiro removido do `package.json`; as chaves `pawnpro.*` nativas do VS Code não existem mais; todas as configurações vivem em `.pawnpro/config.json` / `~/.pawnpro/config.json`
+- **`PawnProConfigManager.setExternalDefaults`** — método removido (não há mais sync com `vscode.workspace.getConfiguration`)
+- **`PawnProConfigManager.hasProjectConfig` / `hasGlobalConfig`** — métodos auxiliares removidos
+- **`src/vscode/`** — pasta inteiramente deletada; conteúdo migrado e refatorado em `src/editor/`
+- **`src/core/utils.ts`** — removido; funções redistribuídas para os módulos que as usam
+
+### Detalhe importante
+- Podem haver alguns dados que não foram mencionados ou que foram esquecidos de serem adicionados a este arquivo, não intencionalmente mas sim pelo fator humano.
 
 ---
 

@@ -1,10 +1,9 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { listIncFilesRecursive, listNatives, buildIncludePaths } from '../core/includes.js';
 import { PawnProConfigManager } from '../core/config.js';
 import { getWorkspaceRoot } from './configBridge.js';
-
-/* ─── Tree items ────────────────────────────────────────────────── */
 
 abstract class BaseItem extends vscode.TreeItem {
   abstract readonly kind: 'include' | 'native';
@@ -58,8 +57,6 @@ function isIncludeItem(node: Item): node is IncludeItem {
   return node.kind === 'include';
 }
 
-/* ─── Tree data provider ────────────────────────────────────────── */
-
 class IncludesTreeProvider implements vscode.TreeDataProvider<Item> {
   private _onDidChangeTreeData = new vscode.EventEmitter<Item | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -72,7 +69,7 @@ class IncludesTreeProvider implements vscode.TreeDataProvider<Item> {
 
   async getChildren(el?: Item): Promise<Item[]> {
     if (!el) {
-      const root = await this.pickIncludeRoot();
+      const root = this.pickIncludeRoot();
       if (!root) return [];
       const incs = await listIncFilesRecursive(root);
       const uniq = [...new Set(incs)].sort((a, b) => a.localeCompare(b));
@@ -86,21 +83,18 @@ class IncludesTreeProvider implements vscode.TreeDataProvider<Item> {
     return [];
   }
 
-  private async pickIncludeRoot(): Promise<string | undefined> {
+  private pickIncludeRoot(): string | undefined {
     const cfg = this.config.getAll();
     const ws = getWorkspaceRoot();
     const paths = buildIncludePaths(cfg, ws);
     for (const dir of paths) {
       try {
-        const { statSync } = await import('fs');
-        if (statSync(dir).isDirectory()) return dir;
+        if (fs.statSync(dir).isDirectory()) return dir;
       } catch { /* ignore */ }
     }
     return undefined;
   }
 }
-
-/* ─── Registration ──────────────────────────────────────────────── */
 
 export function registerIncludesContainer(
   context: vscode.ExtensionContext,
@@ -114,17 +108,14 @@ export function registerIncludesContainer(
   });
   context.subscriptions.push(viewContainer);
 
-  // Auto-refresh on .inc file changes
   const watcher = vscode.workspace.createFileSystemWatcher('**/*.inc');
   watcher.onDidCreate(() => provider.refresh());
   watcher.onDidChange(() => provider.refresh());
   watcher.onDidDelete(() => provider.refresh());
   context.subscriptions.push(watcher);
 
-  // Refresh on config changes
   config.onChange(() => provider.refresh());
 
-  // Refresh when workspace folders change
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => provider.refresh()),
   );

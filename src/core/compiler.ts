@@ -6,15 +6,13 @@ import { detectSupportedFlags, computeMinimalArgs, type Supported } from './flag
 import { buildIncludePaths } from './includes.js';
 import type { CompileResult, CompileArgs, PawnProConfig } from './types.js';
 
-/* ─── Path helpers ──────────────────────────────────────────────── */
-
 function normalizeInputPath(p?: string): string | undefined {
   if (!p) return undefined;
-  const unq = p.trim().replace(/^["']|["']$/g, '');
-  if (!unq) return undefined;
-  return unq.startsWith('~')
-    ? path.join(process.env.HOME || process.env.USERPROFILE || '', unq.slice(1))
-    : unq;
+  const unquoted = p.trim().replace(/^["']|["']$/g, '');
+  if (!unquoted) return undefined;
+  return unquoted.startsWith('~')
+    ? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '', unquoted.slice(1))
+    : unquoted;
 }
 
 function existsExecutable(p: string): boolean {
@@ -23,34 +21,36 @@ function existsExecutable(p: string): boolean {
     if (fs.statSync(p).isDirectory()) return false;
     if (process.platform !== 'win32') fs.accessSync(p, fs.constants.X_OK);
     return true;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 function scanPathFor(names: string[]): string | undefined {
-  const envPath = process.env.PATH || '';
+  const envPath = process.env.PATH ?? '';
   const sep = process.platform === 'win32' ? ';' : ':';
   const exts = process.platform === 'win32'
-    ? (process.env.PATHEXT || '.EXE;.BAT;.CMD').split(';')
+    ? (process.env.PATHEXT ?? '.EXE;.BAT;.CMD').split(';')
     : [''];
   const dirs = envPath.split(sep).filter(Boolean);
 
-  for (const d of dirs) {
-    for (const n of names) {
+  for (const dir of dirs) {
+    for (const name of names) {
       if (process.platform === 'win32') {
-        for (const e of exts) {
-          const p = path.join(d, n.toLowerCase().endsWith(e.toLowerCase()) ? n : n + e);
-          if (existsExecutable(p)) return p;
+        for (const ext of exts) {
+          const candidate = path.join(dir, name.toLowerCase().endsWith(ext.toLowerCase()) ? name : name + ext);
+          if (existsExecutable(candidate)) return candidate;
         }
       } else {
-        const p = path.join(d, n);
-        if (existsExecutable(p)) return p;
+        const candidate = path.join(dir, name);
+        if (existsExecutable(candidate)) return candidate;
       }
     }
   }
   return undefined;
 }
 
-function inPathTry(): string | undefined {
+function findInPath(): string | undefined {
   const names = process.platform === 'win32'
     ? ['pawncc.exe', 'pawncc64.exe', 'pawncc', 'pawncc.bat']
     : ['pawncc'];
@@ -63,15 +63,13 @@ function workspaceCandidates(workspaceRoot?: string): string[] {
     ? ['pawncc.exe', 'pawncc64.exe', 'pawncc.bat']
     : ['pawncc'];
   const dirs = [
-    path.join(workspaceRoot, 'qawno'),    // open.mp
+    path.join(workspaceRoot, 'qawno'),
     path.join(workspaceRoot, 'pawno'),
     path.join(workspaceRoot, 'include'),
     path.join(workspaceRoot, 'tools'),
     path.join(workspaceRoot, 'bin'),
   ];
-  const out: string[] = [];
-  for (const d of dirs) for (const n of names) out.push(path.join(d, n));
-  return out;
+  return dirs.flatMap(d => names.map(n => path.join(d, n)));
 }
 
 function commonCandidates(): string[] {
@@ -92,8 +90,6 @@ function commonCandidates(): string[] {
   ];
 }
 
-/* ─── Detection ─────────────────────────────────────────────────── */
-
 export function detectPawncc(
   explicitPathRaw: string | undefined,
   autoDetect: boolean,
@@ -103,19 +99,16 @@ export function detectPawncc(
   if (envPath && existsExecutable(envPath)) return envPath;
 
   const normalized = normalizeInputPath(explicitPathRaw);
-  if (normalized && normalized.trim()) {
-    let p = normalized;
-    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
-      const name = process.platform === 'win32' ? 'pawncc.exe' : 'pawncc';
-      p = path.join(p, name);
+  if (normalized?.trim()) {
+    let candidate = normalized;
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      candidate = path.join(candidate, process.platform === 'win32' ? 'pawncc.exe' : 'pawncc');
     }
-    if (existsExecutable(p)) return p;
-    if (!autoDetect) {
-      throw new Error(`pawncc not found at: ${normalized}`);
-    }
+    if (existsExecutable(candidate)) return candidate;
+    if (!autoDetect) throw new Error(`pawncc not found at: ${normalized}`);
   }
 
-  const fromPath = inPathTry();
+  const fromPath = findInPath();
   if (fromPath) return fromPath;
 
   for (const c of workspaceCandidates(workspaceRoot)) {
@@ -129,15 +122,13 @@ export function detectPawncc(
   throw new Error('Could not detect pawncc executable. Configure compiler.path in .pawnpro/config.json.');
 }
 
-/* ─── Argument building ─────────────────────────────────────────── */
-
-function captureFlagKey(a: string): string | null {
-  if (/^-\(/.test(a)) return '(';
-  if (/^-;/.test(a)) return ';';
-  if (/^-\\/.test(a)) return '\\';
-  if (/^-\^/.test(a)) return '^';
-  if (/^-XD\b/i.test(a)) return 'XD';
-  const m = a.match(/^-(\w)/);
+function captureFlagKey(arg: string): string | null {
+  if (/^-\(/.test(arg)) return '(';
+  if (/^-;/.test(arg)) return ';';
+  if (/^-\\/.test(arg)) return '\\';
+  if (/^-\^/.test(arg)) return '^';
+  if (/^-XD\b/i.test(arg)) return 'XD';
+  const m = arg.match(/^-(\w)/);
   return m ? m[1] : null;
 }
 
@@ -145,10 +136,11 @@ export function sanitizeUserArgs(
   baseArgs: string[],
   supported: Supported,
 ): { kept: string[]; removed: string[] } {
-  let args = baseArgs.map(a => (a.startsWith('/') ? '-' + a.slice(1) : a));
-  args = args.filter(a => !(a.startsWith('-i') || a.startsWith('-o')));
-  args = args.map(a => (a === '-(' ? '-(+' : a));
-  args = args.map(a => (a === '-;' ? '-;+' : a));
+  let args = baseArgs
+    .map(a => a.startsWith('/') ? '-' + a.slice(1) : a)
+    .filter(a => !a.startsWith('-i') && !a.startsWith('-o'))
+    .map(a => a === '-(' ? '-(+' : a)
+    .map(a => a === '-;' ? '-;+' : a);
 
   const kept: string[] = [];
   const removed: string[] = [];
@@ -156,8 +148,7 @@ export function sanitizeUserArgs(
     const key = captureFlagKey(a);
     if (!key) { kept.push(a); continue; }
     const ok = key.length === 1 ? supported.single.has(key) : supported.multi.has(key);
-    if (ok) kept.push(a);
-    else removed.push(a);
+    (ok ? kept : removed).push(a);
   }
   return { kept, removed };
 }
@@ -168,36 +159,28 @@ export function buildCompileArgs(opts: {
   workspaceRoot: string;
 }): CompileArgs {
   const { config, filePath, workspaceRoot } = opts;
-  const { compiler, output } = config;
+  const { compiler } = config;
 
   const exe = detectPawncc(compiler.path || undefined, compiler.autoDetect, workspaceRoot);
   const supported = detectSupportedFlags(exe);
 
-  let rawArgs = compiler.args.slice();
-  let removedFlags: string[] = [];
-
-  if (rawArgs.length === 0) {
-    rawArgs = computeMinimalArgs(supported);
-  }
-
+  const rawArgs = compiler.args.length > 0 ? compiler.args.slice() : computeMinimalArgs(supported);
   const { kept, removed } = sanitizeUserArgs(rawArgs, supported);
-  removedFlags = removed;
-
-  const args = [...kept];
 
   const fileDir = path.dirname(filePath);
-  const resolvedIncludes = buildIncludePaths(config, workspaceRoot, fileDir).map(p =>
+  const includePaths = buildIncludePaths(config, workspaceRoot, fileDir).map(p =>
     process.platform === 'win32' ? path.normalize(p) : p,
   );
-  resolvedIncludes.forEach(p => args.push(`-i${p}`));
-  const out = path.join(fileDir, path.parse(filePath).name + '.amx');
-  args.push(`-o${process.platform === 'win32' ? path.normalize(out) : out}`);
-  args.push(filePath);
 
-  return { exe, args, cwd: fileDir, removedFlags };
+  const args = [
+    ...kept,
+    ...includePaths.map(p => `-i${p}`),
+    `-o${process.platform === 'win32' ? path.normalize(path.join(fileDir, path.parse(filePath).name + '.amx')) : path.join(fileDir, path.parse(filePath).name + '.amx')}`,
+    filePath,
+  ];
+
+  return { exe, args, cwd: fileDir, removedFlags: removed };
 }
-
-/* ─── Compile execution ─────────────────────────────────────────── */
 
 export function runCompile(
   exe: string,
@@ -211,14 +194,12 @@ export function runCompile(
 
     proc.stdout.on('data', (d: Buffer) => chunks.push(d));
     proc.stderr.on('data', (d: Buffer) => chunks.push(d));
-
     proc.on('error', reject);
     proc.on('close', (code, signal) => {
-      const output = iconv.decode(Buffer.concat(chunks), encoding || 'windows1252');
       resolve({
         exitCode: code,
         signal: signal ?? null,
-        output,
+        output: iconv.decode(Buffer.concat(chunks), encoding || 'windows1252'),
       });
     });
   });
