@@ -111,7 +111,7 @@ export async function startLspClient(
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: 'file', language: 'pawn' }],
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{pwn,inc}'),
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{pwn,inc,p,pawn}'),
     },
     initializationOptions: {
       workspaceFolder: workspaceRoot ?? '',
