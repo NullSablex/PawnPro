@@ -206,22 +206,30 @@ export class PawnProConfigManager {
     const current = readJsonFile(filePath) ?? {};
 
     const parts = dotPath.split('.');
+    if (parts.length === 0 || parts.some((p) => p.length === 0)) {
+      throw new Error('Invalid config key');
+    }
+
+    const isPollutionKey = (k: string): boolean =>
+      k === '__proto__' || k === 'constructor' || k === 'prototype';
 
     let cursor: Record<string, unknown> = current;
     for (let i = 0; i < parts.length - 1; i++) {
       const key = parts[i];
       // Validação no ponto de uso: a chave é checada imediatamente antes de
       // indexar o objeto, bloqueando __proto__/constructor/prototype.
-      if (!isSafeKey(key)) {
+      if (!isSafeKey(key) || isPollutionKey(key)) {
         throw new Error('Invalid config key: prototype pollution attempt');
       }
-      if (!isPlainObject(cursor[key])) {
+
+      const hasOwn = Object.prototype.hasOwnProperty.call(cursor, key);
+      if (!hasOwn || !isPlainObject(cursor[key])) {
         cursor[key] = {};
       }
       cursor = cursor[key] as Record<string, unknown>;
     }
     const leaf = parts[parts.length - 1];
-    if (!isSafeKey(leaf)) {
+    if (!isSafeKey(leaf) || isPollutionKey(leaf)) {
       throw new Error('Invalid config key: prototype pollution attempt');
     }
     cursor[leaf] = value;
