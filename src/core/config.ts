@@ -237,17 +237,24 @@ export class PawnProConfigManager {
     if (!current) return;
 
     const parts = dotPath.split('.');
-    if (parts.some(p => !isSafeKey(p))) {
-      throw new Error('Invalid config key: prototype pollution attempt');
-    }
 
     let cursor: Record<string, unknown> = current;
     for (let i = 0; i < parts.length - 1; i++) {
-      const next = cursor[parts[i]];
+      const key = parts[i];
+      // Validação no ponto de uso: bloqueia __proto__/constructor/prototype
+      // imediatamente antes de indexar.
+      if (!isSafeKey(key)) {
+        throw new Error('Invalid config key: prototype pollution attempt');
+      }
+      const next = cursor[key];
       if (!isPlainObject(next)) return; // caminho não existe — nada a remover
       cursor = next;
     }
-    delete cursor[parts[parts.length - 1]];
+    const leaf = parts[parts.length - 1];
+    if (!isSafeKey(leaf)) {
+      throw new Error('Invalid config key: prototype pollution attempt');
+    }
+    delete cursor[leaf];
 
     writeJsonFile(filePath, current);
     this.reload();
