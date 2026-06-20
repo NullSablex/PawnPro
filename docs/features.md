@@ -21,6 +21,11 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 | `PP0011` | Hint | `#define` declarado mas não utilizado |
 | `PP0012` | Hint | `#include` cujos símbolos não são utilizados |
 | `PP0013` | Hint | `#tryinclude` não resolvido |
+| `PP0014` | Hint | `native` declarada mas nunca chamada |
+| `PP0015` | Hint | `forward` declarado mas nunca chamado |
+| `PP0016` | Hint | Função sem keyword declarada mas nunca chamada |
+| `PP0017` | Aviso | Indentação inconsistente dentro de um bloco (equivale ao `warning 217` do compilador) |
+| `PP0018` | Hint | Nome de identificador pobre (assistente de nomes; desligado por padrão) |
 
 > ¹ Marcados com `unnecessary` — o editor exibe o símbolo desbotado/riscado além do sublinhado de aviso.
 
@@ -35,7 +40,30 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 - **Signature Help** — parâmetro ativo destacado ao digitar `(` e `,`.
 - **CodeLens** — contagem de referências acima de cada função; clique para listar todas no painel.
 - **Semantic Tokens** — coloração semântica para funções, incluindo chamadas multiline.
+- **Semantic Tokens** — coloração semântica para funções, incluindo chamadas multiline.
+- **Renomeação (`F2`)** — renomeia o símbolo sob o cursor em todas as ocorrências do projeto aberto.
 - **Snippets** — estruturas prontas para controle de fluxo, funções, variáveis, includes, callbacks SA-MP/open.mp e utilitários como `CMD`, `SetTimer` e `fmsg`. Lista completa em [docs/snippets.md](snippets.md).
+
+## Formatação de código
+
+Formatação guiada pela estrutura do código (não por heurística de texto), validada contra o compilador `pawncc`.
+
+- **Documento inteiro** — formatação padrão do editor.
+- **Apenas a seleção** — atalho `Ctrl+K Ctrl+F`.
+- **Presets** — `allman` (padrão), `knr`, `compact` e `custom` (libera ajustes finos: posição da chave, espaço em operadores, bloco vazio na mesma linha). Configurável pela chave `format` ou pela seção **Formatação** da página de configurações, com cartões de *preview*.
+
+## Assistente de nomes (`PP0018`)
+
+Verificação de qualidade de nomes, **offline e determinística** (sem IA, sem rede). Desligada por padrão; ativável na seção **Nomenclatura** da página de configurações.
+
+- Sinaliza nomes **curtos** (com tolerância a índices de loop), **genéricos** (`tmp`, `foo`, … — lista editável) e **fora do estilo** de caixa configurado.
+- **Estilo por categoria, multi-seleção** — funções, globais, locais, constantes, macros e parâmetros aceitam um ou mais estilos (`camelCase`/`snake_case`/`PascalCase`/`UPPER_CASE`/`Capitalized_Snake`); o nome é aceito se casar com qualquer um deles. A referência de cada convenção (o que casa e o que não casa) está em [Nomenclaturas aceitas](configuration.md#nomenclaturas-aceitas).
+- **Quick-fix** — code action que oferece converter o nome para o estilo configurado.
+- **Listas em arquivos** — nomes proibidos e índices de loop ficam em arquivos `.ban`/`.allow` editáveis (com realce próprio). Ver o [guia de listas](naming-lists.md).
+
+## Idiomas
+
+Interface e mensagens em **Português (BR)** e **Inglês**, com esqueletos para **Espanhol, Russo e Romeno** (a traduzir). Detalhes em [Idiomas (i18n)](i18n.md).
 
 ## Depreciação com `@DEPRECATED`
 
@@ -78,4 +106,5 @@ stock OutraFuncao() { ... } // @deprecated
 - **Aba Includes** — lista todos os `.inc` (recursivamente, até 20 níveis) do primeiro diretório válido dentre os `includePaths` resolvidos, com seus natives expandíveis e navegação direta para a declaração.
 - **Temas de sintaxe** — cinco esquemas nomeados: `auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark` (mais `none` para desativar). O esquema `auto` seleciona automaticamente entre Clássico Claro e Clássico Escuro conforme o tema ativo do editor. Ao escolher um esquema via comando, a reaplicação automática na inicialização é habilitada automaticamente. Reaplica automaticamente ao trocar o tema do editor quando `scheme` é `auto`.
 - **Templates** — cria Gamemode (open.mp ou SA-MP), Filterscript (open.mp ou SA-MP) e Include (open.mp); filtra automaticamente pela plataforma configurada (`analysis.sdk.platform`). Não há template de Include para SA-MP.
+- **Biblioteca de Recursos** — WebView para buscar plugins, filterscripts e includes, com modos de visualização em lista e grade, acessível via `pawnpro.openStore`. **Prévia:** atualmente exibe um catálogo de exemplo; a instalação ainda não está disponível. As fontes previstas são o catálogo próprio do PawnPro e `packages.open.mp`.
 - **Internacionalização** — mensagens em PT-BR e EN; idioma do motor LSP configurável via `locale`.

@@ -3,13 +3,20 @@ import * as path from 'path';
 import * as os from 'os';
 import type { PawnProConfig } from './types.js';
 
+/**
+ * Teto de tamanho do config.json. Config legítima fica em KB; é uma barreira de
+ * segurança contra arquivos absurdos (memória/parse), não restrição de uso.
+ * Acima disto, o arquivo é ignorado. Fixo (não exposto na configuração).
+ */
+const MAX_CONFIG_BYTES = 32 * 1024 * 1024;
+
 const DEFAULTS: PawnProConfig = {
   compiler: { path: '', args: [], autoDetect: true },
   includePaths: ['${workspaceFolder}/pawno/include'],
   output: { encoding: 'windows1252' },
   build: { showCommand: false },
   syntax: { scheme: 'none', applyOnStartup: false },
-  ui: { showIncludePaths: false },
+  ui: { showIncludePaths: false, animateTitle: false },
   server: {
     type: 'auto', path: '', cwd: '${workspaceFolder}', args: [],
     clearOnStart: true, logPath: '',
@@ -20,6 +27,29 @@ const DEFAULTS: PawnProConfig = {
     warnUnusedInInc: false,
     suppressDiagnosticsInInc: false,
     sdk: { platform: 'auto', filePath: '' },
+    naming: {
+      enabled: false,
+      minLength: 2,
+      allowShortInLoops: ['i', 'j', 'k'],
+      blocklist: ['tmp', 'temp', 'aux', 'foo', 'bar', 'data', 'var'],
+      blocklistFile: '${workspaceFolder}/.pawnpro/naming-blocklist.ban',
+      loopIndicesFile: '${workspaceFolder}/.pawnpro/naming-loop-indices.allow',
+      maxListFileBytes: 32 * 1024 * 1024,
+      style: {
+        functions: [],
+        globals: [],
+        locals: [],
+        constants: [],
+        macros: [],
+        parameters: [],
+      },
+    },
+  },
+  format: {
+    preset: 'allman',
+    braceStyle: 'nextLine',
+    spaceAroundOperators: true,
+    emptyBlockSameLine: true,
   },
   locale: '',
 };
@@ -53,6 +83,8 @@ function deepMerge<T extends Record<string, unknown>>(base: T, override: Record<
 
 function readJsonFile(filePath: string): Record<string, unknown> | null {
   try {
+    // Barra arquivos absurdamente grandes antes de ler/parsear.
+    if (fs.statSync(filePath).size > MAX_CONFIG_BYTES) return null;
     const raw = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(raw);
     return isPlainObject(parsed) ? parsed : null;
@@ -116,6 +148,20 @@ export class PawnProConfigManager {
   get globalConfigPath(): string { return this.globalPath; }
   get projectConfigPath(): string { return this.projectPath; }
 
+  /**
+   * Lista de uma chave de naming tal como escrita no JSON do projeto (não o
+   * merged com defaults). Usado pela migração para saber o que o dev de fato
+   * colocou inline. Vazio se ausente ou não for um array de strings.
+   */
+  rawProjectNamingList(key: 'blocklist' | 'allowShortInLoops'): string[] {
+    const analysis = this.raw.project['analysis'];
+    if (!isPlainObject(analysis)) return [];
+    const naming = analysis['naming'];
+    if (!isPlainObject(naming)) return [];
+    const list = naming[key];
+    return Array.isArray(list) ? list.filter((v): v is string => typeof v === 'string') : [];
+  }
+
   reload(): void {
     this.raw.global = readJsonFile(this.globalPath) ?? {};
     this.raw.project = readJsonFile(this.projectPath) ?? {};
@@ -173,6 +219,29 @@ export class PawnProConfigManager {
       cursor = cursor[key] as Record<string, unknown>;
     }
     cursor[parts[parts.length - 1]] = value;
+
+    writeJsonFile(filePath, current);
+    this.reload();
+  }
+
+  /** Remove uma chave do JSON do escopo (no-op se ausente). */
+  deleteKey(dotPath: string, scope: 'global' | 'project'): void {
+    const filePath = scope === 'global' ? this.globalPath : this.projectPath;
+    const current = readJsonFile(filePath);
+    if (!current) return;
+
+    const parts = dotPath.split('.');
+    if (parts.some(p => !isSafeKey(p))) {
+      throw new Error('Invalid config key: prototype pollution attempt');
+    }
+
+    let cursor: Record<string, unknown> = current;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const next = cursor[parts[i]];
+      if (!isPlainObject(next)) return; // caminho não existe — nada a remover
+      cursor = next;
+    }
+    delete cursor[parts[parts.length - 1]];
 
     writeJsonFile(filePath, current);
     this.reload();

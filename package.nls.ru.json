@@ -1,6 +1,6 @@
 {
+  "_comment": "TODO(i18n): Russian translation. Values below are English placeholders copied from package.nls.en.json. Translate each value; keep placeholders like {0} intact. This _comment key is unused by vscode-nls.",
   "text.description": "Compilation and diagnostics for PAWN files, including #include checking and pawncc integration. Settings managed via .pawnpro/config.json.",
-
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
   "command.whatsNew": "PawnPro: What's New",
@@ -16,7 +16,6 @@
   "command.recoverConfig": "PawnPro: Recover large config (migrate lists)",
   "command.openSettings": "PawnPro: Settings",
   "command.openStore": "PawnPro: Resource Library",
-
   "config.includePaths": "Pawn compiler include directories. Use `${workspaceFolder}` for project-relative paths. Example: `[\"${workspaceFolder}/pawno/include\"]`.\n\n> Can also be configured in `.pawnpro/config.json` (takes precedence over this option).",
   "config.compiler.path": "Path to the `pawncc` executable. If empty and `autoDetect` is enabled, the extension will try to detect it automatically.\n\n> Can also be configured in `.pawnpro/config.json`.",
   "config.compiler.args": "Extra arguments passed to the compiler. Example: `[\"-d3\", \"-;+\"]`.\n\n> Can also be configured in `.pawnpro/config.json`.",

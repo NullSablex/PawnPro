@@ -6,7 +6,7 @@ import {
   LanguageClientOptions,
   ServerOptions,
   TransportKind,
-} from 'vscode-languageclient/node.js';
+} from 'vscode-languageclient/node';
 import type { PawnProConfigManager } from '../core/config.js';
 import { buildIncludePaths } from '../core/includes.js';
 
@@ -57,6 +57,35 @@ function buildEngineSettings(
 
 function resolveLocale(cfg: ReturnType<PawnProConfigManager['getAll']>): string {
   return cfg.locale || vscode.env.language;
+}
+
+/**
+ * Opções de formatação enviadas à engine. O preset é sempre enviado; os ajustes
+ * finos só acompanham quando o preset é `custom` — presets prontos definem seus
+ * próprios valores na engine.
+ */
+function buildFormatOptions(
+  cfg: ReturnType<PawnProConfigManager['getAll']>,
+): Record<string, unknown> {
+  const fmt = cfg.format;
+  const opts: Record<string, unknown> = { formatPreset: fmt.preset };
+  if (fmt.preset === 'custom') {
+    opts.formatBraceStyle = fmt.braceStyle;
+    opts.formatSpaceAroundOperators = fmt.spaceAroundOperators;
+    opts.formatEmptyBlockSameLine = fmt.emptyBlockSameLine;
+  }
+  return opts;
+}
+
+/**
+ * Configuração do assistente de nomes enviada à engine como objeto aninhado
+ * `naming`. A engine desserializa direto na sua `NamingConfig` (chaves camelCase),
+ * então o formato deve espelhar `core/types.ts:NamingConfig`.
+ */
+function buildNamingOptions(
+  cfg: ReturnType<PawnProConfigManager['getAll']>,
+): Record<string, unknown> {
+  return { naming: cfg.analysis.naming };
 }
 
 function findBinary(context: vscode.ExtensionContext): string | null {
@@ -120,6 +149,8 @@ export async function startLspClient(
       suppressDiagnosticsInInc: cfg.analysis.suppressDiagnosticsInInc,
       sdkFilePath,
       locale: resolveLocale(cfg),
+      ...buildFormatOptions(cfg),
+      ...buildNamingOptions(cfg),
     },
     progressOnInitialization: false,
   };
@@ -165,6 +196,8 @@ export function sendConfigurationToEngine(
       suppressDiagnosticsInInc: cfg.analysis.suppressDiagnosticsInInc,
       sdkFilePath,
       locale: resolveLocale(cfg),
+      ...buildFormatOptions(cfg),
+      ...buildNamingOptions(cfg),
     },
   });
 }

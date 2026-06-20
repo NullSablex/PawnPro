@@ -1,0 +1,40 @@
+name: Scorecard
+
+# Avalia boas práticas de segurança do repositório (branch protection, deps
+# pinadas, fluxo de tokens, etc.) e publica o resultado no painel da OpenSSF.
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '30 5 * * 1'
+  push:
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload to code-scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

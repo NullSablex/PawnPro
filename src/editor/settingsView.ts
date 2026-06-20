@@ -1,8 +1,32 @@
 import * as vscode from 'vscode';
 import { PawnProConfigManager } from '../core/config.js';
+import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
+import {
+  backupNamingLists,
+  ensureNamingFiles,
+  hasInlineNamingLists,
+  inlineNamingBytes,
+  migrateNamingLists,
+} from './configBridge.js';
 import { msg } from './nls.js';
 
 let panel: vscode.WebviewPanel | undefined;
+
+/** Abre (criando se preciso) o arquivo de lista de nomes pedido pela página. */
+async function openNamingListFile(
+  config: PawnProConfigManager,
+  which: 'blocklist' | 'loopIndices',
+): Promise<void> {
+  ensureNamingFiles(config);
+  const naming = config.getAll().analysis.naming;
+  const filePath = which === 'blocklist' ? naming.blocklistFile : naming.loopIndicesFile;
+  if (!filePath) {
+    void vscode.window.showWarningMessage(msg.naming.noFilePath());
+    return;
+  }
+  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
+  await vscode.window.showTextDocument(doc);
+}
 
 export function registerSettingsView(
   context: vscode.ExtensionContext,
@@ -19,10 +43,20 @@ export function registerSettingsView(
         'pawnpro.settings',
         msg.settings.title(),
         vscode.ViewColumn.One,
-        { enableScripts: true, retainContextWhenHidden: true },
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
+          // Permite à webview carregar o logo de images/ via asWebviewUri.
+          localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'images')],
+        },
       );
+      // Ícone da aba (em vez do genérico de arquivo).
+      panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
 
-      panel.webview.html = getHtml();
+      const logoUri = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg'),
+      );
+      panel.webview.html = getHtml(logoUri.toString());
       sendState(panel, config);
 
       const unsub = config.onChange(() => sendState(panel!, config));
@@ -52,7 +86,60 @@ function handleMessage(m: Record<string, unknown>, config: PawnProConfigManager)
     case 'requestState':
       if (panel) sendState(panel, config);
       break;
+    case 'openNamingFile': {
+      const which = m['which'];
+      if (which === 'blocklist' || which === 'loopIndices') {
+        void openNamingListFile(config, which);
+      }
+      break;
+    }
+    case 'migrateNaming':
+      void runNamingMigration(config);
+      break;
   }
+}
+
+/**
+ * Conduz a migração das listas inline para arquivos: confirma se o conteúdo
+ * excede o limite, faz backup do config.json, migra e informa o dev (incluindo
+ * onde ficou o backup, para conferir e limpar depois).
+ */
+async function runNamingMigration(config: PawnProConfigManager): Promise<void> {
+  if (!hasInlineNamingLists(config)) return;
+
+  const bytes = inlineNamingBytes(config);
+  const limit = config.getAll().analysis.naming.maxListFileBytes;
+  const sizeMb = (bytes / 1048576).toFixed(2);
+
+  // Acima do limite, não migra sem aval explícito (evita estouro de leitura).
+  if (bytes > limit) {
+    const go = await vscode.window.showWarningMessage(
+      msg.naming.migrateConfirm(sizeMb),
+      { modal: true },
+      msg.naming.migrateProceed(),
+    );
+    if (go !== msg.naming.migrateProceed()) return;
+  }
+
+  const backup = backupNamingLists(config);
+  let result;
+  try {
+    result = migrateNamingLists(config);
+  } catch {
+    void vscode.window.showErrorMessage(msg.naming.migrateFailed());
+    return;
+  }
+
+  // Descreve exatamente o que migrou (só as listas que tinham itens).
+  const parts: string[] = [];
+  if (result.blocklist > 0) parts.push(msg.naming.migratedBlocklist(result.blocklist));
+  if (result.loopIndices > 0) parts.push(msg.naming.migratedLoopIndices(result.loopIndices));
+  const summary = parts.join('; ');
+
+  void vscode.window.showInformationMessage(
+    backup ? msg.naming.migrateDoneBackup(summary, backup) : msg.naming.migrateDone(summary),
+  );
+  if (panel) sendState(panel, config);
 }
 
 function buildI18n() {
@@ -63,6 +150,7 @@ function buildI18n() {
     navIncludes:           s.navIncludes(),
     navBuild:              s.navBuild(),
     navAnalysis:           s.navAnalysis(),
+    navFormat:             s.navFormat(),
     navSyntax:             s.navSyntax(),
     navInterface:          s.navInterface(),
     navServer:             s.navServer(),
@@ -90,6 +178,42 @@ function buildI18n() {
     analysisSdkPath:             s.analysisSdkPath(),
     analysisSdkPathDesc:         s.analysisSdkPathDesc(),
     sdkNone:                     s.sdkNone(),
+    formatPreset:                s.formatPreset(),
+    formatPresetDesc:            s.formatPresetDesc(),
+    formatPresetAllman:          s.formatPresetAllman(),
+    formatPresetKnr:             s.formatPresetKnr(),
+    formatPresetCompact:         s.formatPresetCompact(),
+    formatPresetCustom:          s.formatPresetCustom(),
+    formatBraceStyle:            s.formatBraceStyle(),
+    formatBraceStyleDesc:        s.formatBraceStyleDesc(),
+    formatBraceNextLine:         s.formatBraceNextLine(),
+    formatBraceSameLine:         s.formatBraceSameLine(),
+    formatSpaceOps:              s.formatSpaceOps(),
+    formatSpaceOpsDesc:          s.formatSpaceOpsDesc(),
+    formatEmptyBlock:            s.formatEmptyBlock(),
+    formatEmptyBlockDesc:        s.formatEmptyBlockDesc(),
+    navNaming:                   s.navNaming(),
+    namingEnabled:               s.namingEnabled(),
+    namingEnabledDesc:           s.namingEnabledDesc(),
+    namingMinLength:             s.namingMinLength(),
+    namingMinLengthDesc:         s.namingMinLengthDesc(),
+    namingMaxFile:               s.namingMaxFile(),
+    namingMaxFileDesc:           s.namingMaxFileDesc(),
+    namingBlocklist:             s.namingBlocklist(),
+    namingBlocklistDesc:         s.namingBlocklistDesc(),
+    namingAllowShort:            s.namingAllowShort(),
+    namingAllowShortDesc:        s.namingAllowShortDesc(),
+    namingOpenFile:              s.namingOpenFile(),
+    namingMigrate:               s.namingMigrate(),
+    namingMigrateNote:           s.namingMigrateNote(),
+    namingStyleGroup:            s.namingStyleGroup(),
+    namingStyleGroupDesc:        s.namingStyleGroupDesc(),
+    'namingStyle.functions':     s.namingStyleFunctions(),
+    'namingStyle.globals':       s.namingStyleGlobals(),
+    'namingStyle.locals':        s.namingStyleLocals(),
+    'namingStyle.constants':     s.namingStyleConstants(),
+    'namingStyle.macros':        s.namingStyleMacros(),
+    'namingStyle.parameters':    s.namingStyleParameters(),
     syntaxScheme:                s.syntaxScheme(),
     syntaxSchemeDesc:            s.syntaxSchemeDesc(),
     syntaxApplyOnStartup:        s.syntaxApplyOnStartup(),
@@ -102,6 +226,8 @@ function buildI18n() {
     schemeNone:                  s.schemeNone(),
     uiShowIncludePaths:          s.uiShowIncludePaths(),
     uiShowIncludePathsDesc:      s.uiShowIncludePathsDesc(),
+    uiAnimateTitle:              s.uiAnimateTitle(),
+    uiAnimateTitleDesc:          s.uiAnimateTitleDesc(),
     uiLocale:                    s.uiLocale(),
     uiLocaleDesc:                s.uiLocaleDesc(),
     localeAuto:                  s.localeAuto(),
@@ -136,10 +262,45 @@ function buildI18n() {
 
 function sendState(p: vscode.WebviewPanel, config: PawnProConfigManager): void {
   const cfg = config.getAll();
-  p.webview.postMessage({ type: 'state', payload: cfg, i18n: buildI18n() });
+  p.webview.postMessage({
+    type: 'state',
+    payload: cfg,
+    i18n: buildI18n(),
+    hasInlineNaming: hasInlineNamingLists(config),
+  });
 }
 
-function getHtml(): string {
+/**
+ * Linha de configuração de estilo para uma categoria de identificador. O `<code>`
+ * de preview é preenchido em runtime pelo cliente conforme o estilo escolhido.
+ */
+function namingStyleRow(category: string): string {
+  const styles = ['camelCase', 'snake_case', 'PascalCase', 'UPPER_CASE', 'Capitalized_Snake'];
+  // Rótulo curto para caber no checkbox; o valor enviado à engine é o canônico.
+  const labels: Record<string, string> = { Capitalized_Snake: 'Cap_Snake' };
+  const checks = styles
+    .map(
+      st => /* html */`
+        <label class="style-badge">
+          <input type="checkbox" id="naming-style-${category}-${st}"
+            onchange="toggleNamingStyle('${category}', '${st}', this.checked)">
+          <span>${labels[st] ?? st}</span>
+        </label>`,
+    )
+    .join('');
+  return /* html */`
+  <div class="row naming-opt naming-style-row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="namingStyle.${category}"></div>
+      <div class="row-desc">
+        <code class="naming-preview" id="naming-preview-${category}"></code>
+      </div>
+    </div>
+    <div class="row-control style-checks">${checks}</div>
+  </div>`;
+}
+
+function getHtml(logoUri: string): string {
   return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -169,6 +330,9 @@ function getHtml(): string {
   }
 
   nav .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 0.95em;
     font-weight: 700;
     color: var(--vscode-foreground);
@@ -177,6 +341,11 @@ function getHtml(): string {
     margin-bottom: 8px;
     letter-spacing: 0.02em;
   }
+  nav .logo img {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
 
   nav a {
     display: block;
@@ -184,6 +353,7 @@ function getHtml(): string {
     font-size: 0.93em;
     color: var(--vscode-foreground);
     text-decoration: none;
+    cursor: pointer;
     border-left: 2px solid transparent;
     opacity: 0.7;
     transition: opacity 0.1s, border-color 0.1s;
@@ -194,11 +364,13 @@ function getHtml(): string {
   main {
     flex: 1;
     overflow-y: auto;
-    padding: 28px 36px 56px;
+    padding: 28px 36px 24px;
     scroll-behavior: smooth;
   }
 
-  .section { margin-bottom: 40px; }
+  .section { margin-bottom: 40px; scroll-margin-top: 28px; }
+  /* Última seção: sem a margem inferior extra, evitando vão exagerado no fim. */
+  .section:last-of-type { margin-bottom: 0; }
 
   h2 {
     font-size: 1.1em;
@@ -239,6 +411,109 @@ function getHtml(): string {
     align-items: center;
     min-width: 200px;
     justify-content: flex-end;
+  }
+
+  /* Seleção de preset de formatação como cartões com preview visual. */
+  .preset-header { padding: 14px 0 4px; }
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    padding: 10px 0 24px;
+  }
+  .preset-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: var(--vscode-foreground);
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .preset-card:hover { background: var(--vscode-list-hoverBackground, #ffffff10); }
+  .preset-card.selected {
+    border-color: var(--vscode-focusBorder, #007acc);
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007acc);
+  }
+  .preset-preview {
+    margin: 0;
+    padding: 8px 10px;
+    min-height: 72px;
+    background: var(--vscode-editor-background);
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.8em;
+    line-height: 1.4;
+    color: var(--vscode-editor-foreground, var(--vscode-foreground));
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .naming-preview {
+    display: block;
+    white-space: pre;
+    font-family: var(--vscode-editor-font-family, monospace);
+    color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
+    opacity: 0.85;
+  }
+  .style-checks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+    grid-auto-flow: column;
+    grid-template-rows: repeat(3, auto);
+    gap: 6px 8px;
+    min-width: 240px;
+  }
+  .style-badge { cursor: pointer; }
+  .style-badge input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .style-badge span {
+    display: block;
+    text-align: center;
+    font-size: 0.85em;
+    padding: 4px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--vscode-input-border, #555);
+    opacity: 0.65;
+    user-select: none;
+    transition: background 0.12s, opacity 0.12s, border-color 0.12s;
+  }
+  .style-badge:hover span { opacity: 0.9; }
+  .style-badge input:checked + span {
+    opacity: 1;
+    border-color: var(--vscode-focusBorder, #007acc);
+    background: var(--vscode-focusBorder, #007acc);
+    color: var(--vscode-button-foreground, #fff);
+  }
+  .style-badge input:focus-visible + span {
+    box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007acc);
+  }
+  .naming-styles { padding: 10px 0; }
+  .naming-styles > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 2px 0;
+  }
+  .naming-styles > summary::-webkit-details-marker { display: none; }
+  .naming-styles-title { font-weight: 600; }
+  .naming-styles-title::before {
+    content: '▸';
+    margin-right: 6px;
+    opacity: 0.6;
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  .naming-styles[open] .naming-styles-title::before { transform: rotate(90deg); }
+  .naming-styles-desc { display: block; opacity: 0.7; font-size: 0.85em; padding-left: 18px; }
+  .naming-styles[open] > .naming-style-row:last-child { border-bottom: none; }
+  .preset-name {
+    font-size: 0.9em;
+    font-weight: 600;
+    text-align: center;
   }
 
   input[type="text"], input[type="number"], select {
@@ -316,7 +591,19 @@ function getHtml(): string {
     color: var(--vscode-foreground);
     border-color: transparent;
   }
-  .btn-add {
+  .migrate-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    background: var(--vscode-inputValidation-warningBackground, rgba(255,200,0,0.1));
+    border: 1px solid var(--vscode-inputValidation-warningBorder, #cc9900);
+    font-size: 0.9em;
+  }
+  .migrate-banner span { flex: 1; }
+  .btn-add, .btn-file {
     background: var(--vscode-button-background, #007acc);
     color: var(--vscode-button-foreground, #fff);
     border: none;
@@ -341,19 +628,23 @@ function getHtml(): string {
     background: var(--vscode-textBlockQuote-background, #ffffff08);
     border-radius: 0 3px 3px 0;
   }
+
+${brandAnimationCss()}
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="logo">PawnPro</div>
-  <a href="#compilador" class="nav-link active" data-i18n="navCompiler"></a>
-  <a href="#includes"   class="nav-link" data-i18n="navIncludes"></a>
-  <a href="#build"      class="nav-link" data-i18n="navBuild"></a>
-  <a href="#analise"    class="nav-link" data-i18n="navAnalysis"></a>
-  <a href="#sintaxe"    class="nav-link" data-i18n="navSyntax"></a>
-  <a href="#interface"  class="nav-link" data-i18n="navInterface"></a>
-  <a href="#servidor"   class="nav-link" data-i18n="navServer"></a>
+  <div class="logo"><img src="${logoUri}" alt="" /><span class="brand" id="brand">PawnPro</span></div>
+  <a data-target="compilador" class="nav-link active" data-i18n="navCompiler"></a>
+  <a data-target="includes"   class="nav-link" data-i18n="navIncludes"></a>
+  <a data-target="build"      class="nav-link" data-i18n="navBuild"></a>
+  <a data-target="analise"    class="nav-link" data-i18n="navAnalysis"></a>
+  <a data-target="formatacao" class="nav-link" data-i18n="navFormat"></a>
+  <a data-target="nomenclatura" class="nav-link" data-i18n="navNaming"></a>
+  <a data-target="sintaxe"    class="nav-link" data-i18n="navSyntax"></a>
+  <a data-target="interface"  class="nav-link" data-i18n="navInterface"></a>
+  <a data-target="servidor"   class="nav-link" data-i18n="navServer"></a>
 </nav>
 
 <main>
@@ -364,25 +655,25 @@ function getHtml(): string {
   <h2 data-i18n="navCompiler"></h2>
   <div class="row">
     <div class="row-info">
+      <div class="row-label" data-i18n="compilerAuto"></div>
+      <div class="row-desc" data-i18n="compilerAutoDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="compiler-autoDetect" onchange="onAutoDetectChange(this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+  <div class="row compiler-path-row">
+    <div class="row-info">
       <div class="row-label" data-i18n="compilerPath"></div>
       <div class="row-desc" data-i18n="compilerPathDesc"></div>
     </div>
     <div class="row-control" style="min-width:280px">
       <input type="text" id="compiler-path" placeholder="ex: C:/pawno/pawncc.exe"
         onchange="set('compiler.path', this.value.trim())">
-    </div>
-  </div>
-  <div class="row">
-    <div class="row-info">
-      <div class="row-label" data-i18n="compilerAuto"></div>
-      <div class="row-desc" data-i18n="compilerAutoDesc"></div>
-    </div>
-    <div class="row-control">
-      <label class="toggle">
-        <input type="checkbox" id="compiler-autoDetect" onchange="set('compiler.autoDetect', this.checked)">
-        <span class="toggle-track"></span>
-        <span class="toggle-thumb"></span>
-      </label>
     </div>
   </div>
   <div class="row wide">
@@ -492,6 +783,151 @@ function getHtml(): string {
   </div>
 </div>
 
+<div class="section" id="formatacao">
+  <h2 data-i18n="navFormat"></h2>
+  <div class="preset-header">
+    <div class="row-label" data-i18n="formatPreset"></div>
+    <div class="row-desc" data-i18n="formatPresetDesc"></div>
+  </div>
+  <div class="preset-grid" id="format-preset-grid">
+    <button type="button" class="preset-card" data-preset="allman"
+      onclick="selectPreset('allman')">
+      <pre class="preset-preview">if (x)
+{
+    foo();
+}</pre>
+      <span class="preset-name" data-i18n="formatPresetAllman"></span>
+    </button>
+    <button type="button" class="preset-card" data-preset="knr"
+      onclick="selectPreset('knr')">
+      <pre class="preset-preview">if (x) {
+    foo();
+}</pre>
+      <span class="preset-name" data-i18n="formatPresetKnr"></span>
+    </button>
+    <button type="button" class="preset-card" data-preset="compact"
+      onclick="selectPreset('compact')">
+      <pre class="preset-preview">if (x) foo();
+for (i) bar();
+baz();</pre>
+      <span class="preset-name" data-i18n="formatPresetCompact"></span>
+    </button>
+    <button type="button" class="preset-card" data-preset="custom"
+      onclick="selectPreset('custom')">
+      <pre class="preset-preview">/* ajuste
+   manual
+   abaixo */</pre>
+      <span class="preset-name" data-i18n="formatPresetCustom"></span>
+    </button>
+  </div>
+  <div class="row format-custom">
+    <div class="row-info">
+      <div class="row-label" data-i18n="formatBraceStyle"></div>
+      <div class="row-desc" data-i18n="formatBraceStyleDesc"></div>
+    </div>
+    <div class="row-control" style="min-width:180px">
+      <select id="format-braceStyle" onchange="set('format.braceStyle', this.value)">
+        <option value="nextLine" data-i18n="formatBraceNextLine"></option>
+        <option value="sameLine" data-i18n="formatBraceSameLine"></option>
+      </select>
+    </div>
+  </div>
+  <div class="row format-custom">
+    <div class="row-info">
+      <div class="row-label" data-i18n="formatSpaceOps"></div>
+      <div class="row-desc" data-i18n="formatSpaceOpsDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="format-spaceAroundOperators" onchange="set('format.spaceAroundOperators', this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+  <div class="row format-custom">
+    <div class="row-info">
+      <div class="row-label" data-i18n="formatEmptyBlock"></div>
+      <div class="row-desc" data-i18n="formatEmptyBlockDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="format-emptyBlockSameLine" onchange="set('format.emptyBlockSameLine', this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="nomenclatura">
+  <h2 data-i18n="navNaming"></h2>
+  <div class="migrate-banner" id="naming-migrate-banner" style="display:none">
+    <span data-i18n="namingMigrateNote"></span>
+    <button type="button" class="btn-file" onclick="migrateNaming()" data-i18n="namingMigrate"></button>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="namingEnabled"></div>
+      <div class="row-desc" data-i18n="namingEnabledDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="naming-enabled" onchange="set('analysis.naming.enabled', this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+  <div class="row naming-opt">
+    <div class="row-info">
+      <div class="row-label" data-i18n="namingMinLength"></div>
+      <div class="row-desc" data-i18n="namingMinLengthDesc"></div>
+    </div>
+    <div class="row-control" style="min-width:90px">
+      <input type="number" id="naming-minLength" min="1" max="64"
+        onchange="set('analysis.naming.minLength', Math.max(1, parseInt(this.value, 10) || 1))">
+    </div>
+  </div>
+  <div class="row naming-opt">
+    <div class="row-info">
+      <div class="row-label" data-i18n="namingMaxFile"></div>
+      <div class="row-desc" data-i18n="namingMaxFileDesc"></div>
+    </div>
+    <div class="row-control" style="min-width:90px">
+      <input type="number" id="naming-maxListMb" min="1" max="256"
+        onchange="set('analysis.naming.maxListFileBytes', Math.max(1, parseInt(this.value, 10) || 1) * 1048576)">
+    </div>
+  </div>
+  <div class="row naming-opt">
+    <div class="row-info">
+      <div class="row-label" data-i18n="namingBlocklist"></div>
+      <div class="row-desc" data-i18n="namingBlocklistDesc"></div>
+    </div>
+    <div class="row-control">
+      <button type="button" class="btn-file" onclick="openNamingFile('blocklist')" data-i18n="namingOpenFile"></button>
+    </div>
+  </div>
+  <div class="row naming-opt">
+    <div class="row-info">
+      <div class="row-label" data-i18n="namingAllowShort"></div>
+      <div class="row-desc" data-i18n="namingAllowShortDesc"></div>
+    </div>
+    <div class="row-control">
+      <button type="button" class="btn-file" onclick="openNamingFile('loopIndices')" data-i18n="namingOpenFile"></button>
+    </div>
+  </div>
+  <details class="naming-styles naming-opt">
+    <summary>
+      <span class="naming-styles-title" data-i18n="namingStyleGroup"></span>
+      <span class="naming-styles-desc" data-i18n="namingStyleGroupDesc"></span>
+    </summary>
+    ${['functions', 'globals', 'locals', 'constants', 'macros', 'parameters']
+      .map(cat => namingStyleRow(cat))
+      .join('\n')}
+  </details>
+</div>
+
 <div class="section" id="sintaxe">
   <h2 data-i18n="navSyntax"></h2>
   <div class="row">
@@ -535,6 +971,19 @@ function getHtml(): string {
     <div class="row-control">
       <label class="toggle">
         <input type="checkbox" id="ui-showIncludePaths" onchange="set('ui.showIncludePaths', this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="uiAnimateTitle"></div>
+      <div class="row-desc" data-i18n="uiAnimateTitleDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="ui-animateTitle" onchange="set('ui.animateTitle', this.checked)">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -649,24 +1098,47 @@ function getHtml(): string {
     </div>
   </div>
 </div>
+<div id="scroll-spacer" aria-hidden="true"></div>
 
 </main>
 
 <script>
 const vscode = acquireVsCodeApi();
 let _i18n = {};
+const STYLE_OPTIONS = ['camelCase', 'snake_case', 'PascalCase', 'UPPER_CASE', 'Capitalized_Snake'];
 
 function set(key, value) {
   vscode.postMessage({ type: 'set', key, value });
 }
+
+// Detecção automática ligada: o caminho manual é irrelevante (válido é usado,
+// inválido/vazio cai na detecção), então o campo é ocultado.
+function onAutoDetectChange(on) {
+  set('compiler.autoDetect', on);
+  toggleCompilerPath(on);
+}
+function toggleCompilerPath(autoOn) {
+  const row = document.querySelector('.compiler-path-row');
+  if (row) row.style.display = autoOn ? 'none' : '';
+}
+
+${brandAnimationJs()}
 
 window.addEventListener('message', e => {
   const msg = e.data;
   if (msg.type === 'state') {
     if (msg.i18n) applyI18n(msg.i18n);
     applyState(msg.payload);
+    const banner = document.getElementById('naming-migrate-banner');
+    if (banner) banner.style.display = msg.hasInlineNaming ? '' : 'none';
+    // Recalcula o espaçador após o conteúdo assentar.
+    requestAnimationFrame(sizeScrollSpacer);
   }
 });
+
+function migrateNaming() {
+  vscode.postMessage({ type: 'migrateNaming' });
+}
 
 vscode.postMessage({ type: 'requestState' });
 
@@ -687,8 +1159,12 @@ function applyI18n(i18n) {
 }
 
 function applyState(cfg) {
+  applyBrandAnimation(cfg.ui?.animateTitle ?? false);
+  setCheck('ui-animateTitle', cfg.ui?.animateTitle ?? false);
   setInput('compiler-path',     cfg.compiler?.path ?? '');
-  setCheck('compiler-autoDetect', cfg.compiler?.autoDetect ?? true);
+  const autoDetect = cfg.compiler?.autoDetect ?? true;
+  setCheck('compiler-autoDetect', autoDetect);
+  toggleCompilerPath(autoDetect);
   setArray('compiler-args-editor', 'compiler.args', cfg.compiler?.args ?? []);
   setArray('includePaths-editor',  'includePaths',   cfg.includePaths ?? []);
   setCheck('build-showCommand',  cfg.build?.showCommand ?? false);
@@ -697,6 +1173,23 @@ function applyState(cfg) {
   setCheck('analysis-suppressDiagnosticsInInc', cfg.analysis?.suppressDiagnosticsInInc ?? false);
   setSelect('analysis-sdk-platform', cfg.analysis?.sdk?.platform ?? 'omp');
   setInput('analysis-sdk-filePath',  cfg.analysis?.sdk?.filePath ?? '');
+  const fmtPreset = cfg.format?.preset ?? 'allman';
+  markPresetCard(fmtPreset);
+  setSelect('format-braceStyle',            cfg.format?.braceStyle ?? 'nextLine');
+  setCheck('format-spaceAroundOperators',   cfg.format?.spaceAroundOperators ?? true);
+  setCheck('format-emptyBlockSameLine',     cfg.format?.emptyBlockSameLine ?? true);
+  toggleFormatCustom(fmtPreset);
+  const naming = cfg.analysis?.naming ?? {};
+  setCheck('naming-enabled', naming.enabled ?? false);
+  setInput('naming-minLength', naming.minLength ?? 2);
+  setInput('naming-maxListMb', Math.round((naming.maxListFileBytes ?? 33554432) / 1048576));
+  for (const cat of ['functions', 'globals', 'locals', 'constants', 'macros', 'parameters']) {
+    const accepted = Array.isArray(naming.style?.[cat]) ? naming.style[cat] : [];
+    for (const st of STYLE_OPTIONS) {
+      setCheck('naming-style-' + cat + '-' + st, accepted.includes(st));
+    }
+    updateNamingPreview(cat, accepted);
+  }
   setSelect('syntax-scheme',        cfg.syntax?.scheme ?? 'none');
   setCheck('syntax-applyOnStartup', cfg.syntax?.applyOnStartup ?? false);
   setCheck('ui-showIncludePaths',   cfg.ui?.showIncludePaths ?? false);
@@ -723,6 +1216,107 @@ function setSelect(id, value) {
   const el = document.getElementById(id);
   if (!el) return;
   for (const opt of el.options) opt.selected = opt.value === value;
+}
+// Seleção de preset via cartão: persiste, marca o cartão e mostra/oculta os
+// ajustes finos (que só valem no 'custom').
+function selectPreset(preset) {
+  set('format.preset', preset);
+  markPresetCard(preset);
+  toggleFormatCustom(preset);
+}
+
+// Realça o cartão do preset ativo.
+function markPresetCard(preset) {
+  for (const card of document.querySelectorAll('.preset-card')) {
+    card.classList.toggle('selected', card.getAttribute('data-preset') === preset);
+  }
+}
+
+// Ajustes finos de formatação só fazem sentido no preset 'custom'; nos presets
+// prontos eles são definidos pela engine, então ficam ocultos.
+function toggleFormatCustom(preset) {
+  const show = preset === 'custom';
+  for (const el of document.querySelectorAll('.format-custom')) {
+    el.style.display = show ? '' : 'none';
+  }
+}
+
+// Palavras-base por categoria — identificadores temáticos do mundo SA-MP/RP em
+// vez de um genérico "player_score" repetido em toda categoria. Cada item é uma
+// lista de palavras minúsculas que styleSample combina conforme a convenção.
+const NAMING_WORDS = {
+  functions:  ['carregar', 'lixeiras'],
+  globals:    ['total', 'jogadores'],
+  locals:     ['caixa', 'eletronico'],
+  constants:  ['vida', 'maxima'],
+  macros:     ['nome', 'servidor'],
+  parameters: ['prot', 'z'],
+};
+
+// Combina as palavras-base de uma categoria na convenção de caixa escolhida,
+// para ilustrar concretamente cada estilo no preview.
+function styleSample(category, style) {
+  const words = NAMING_WORDS[category] ?? ['player', 'score'];
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
+  switch (style) {
+    case 'camelCase':  return words.map((w, i) => i === 0 ? w : cap(w)).join('');
+    case 'snake_case': return words.join('_');
+    case 'PascalCase': return words.map(cap).join('');
+    case 'UPPER_CASE': return words.join('_').toUpperCase();
+    case 'Capitalized_Snake': return words.map(cap).join('_');
+    default:           return null; // estilo desconhecido — ignorado no preview
+  }
+}
+
+// Cada categoria mostra um trecho de código Pawn REAL daquela categoria, com o
+// identificador no estilo escolhido — assim fica claro o que a regra pega.
+// O marcador chaveado é substituído pelo identificador de exemplo.
+const NAMING_TEMPLATE = {
+  functions:  'stock {}() { }',
+  globals:    'new {};',
+  locals:     'new {} = 0;',
+  constants:  'const {} = 100;',
+  macros:     '#define {} ...',
+  parameters: 'foo({})',
+};
+
+// Lê os estilos marcados de uma categoria a partir dos checkboxes.
+function readAcceptedStyles(category) {
+  return STYLE_OPTIONS.filter(st => {
+    const el = document.getElementById('naming-style-' + category + '-' + st);
+    return el && el.checked;
+  });
+}
+
+// Marca/desmarca um estilo aceito e persiste a lista resultante da categoria.
+function toggleNamingStyle(category, style, checked) {
+  const accepted = readAcceptedStyles(category);
+  set('analysis.naming.style.' + category, accepted);
+  updateNamingPreview(category, accepted);
+}
+
+// Pede ao host para abrir o arquivo de lista (.ban / .allow), criando-o se
+// ainda não existir.
+function openNamingFile(which) {
+  vscode.postMessage({ type: 'openNamingFile', which });
+}
+
+// Mostra um exemplo de código por estilo aceito (um por linha). Vazio = oculta.
+function updateNamingPreview(category, accepted) {
+  const el = document.getElementById('naming-preview-' + category);
+  if (!el) return;
+  const tpl = NAMING_TEMPLATE[category] ?? '{}';
+  const lines = (accepted ?? [])
+    .map(st => styleSample(category, st))
+    .filter(Boolean)
+    .map(ident => tpl.replace('{}', ident));
+  if (lines.length === 0) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  el.style.display = '';
+  el.textContent = lines.join('\\n');
 }
 
 const arrayState = {};
@@ -786,12 +1380,23 @@ const sections = document.querySelectorAll('.section');
 const navLinks = document.querySelectorAll('.nav-link');
 const mainEl = document.querySelector('main');
 
+// Espaçador final dimensionado para a última seção poder subir ao topo (e ser
+// destacada na nav) sem deixar um vão exagerado. = altura visível − altura da
+// última seção − folga; nunca negativo.
+function sizeScrollSpacer() {
+  const spacer = document.getElementById('scroll-spacer');
+  const last = sections[sections.length - 1];
+  if (!spacer || !last) return;
+  const need = mainEl.clientHeight - last.offsetHeight - 28;
+  spacer.style.height = Math.max(0, need) + 'px';
+}
+window.addEventListener('resize', sizeScrollSpacer);
+
 navLinks.forEach(a => {
-  a.addEventListener('click', e => {
-    e.preventDefault();
-    const id = a.getAttribute('href').slice(1);
+  a.addEventListener('click', () => {
+    const id = a.getAttribute('data-target');
     const target = document.getElementById(id);
-    if (target) mainEl.scrollTo({ top: target.offsetTop - 16, behavior: 'smooth' });
+    if (target) mainEl.scrollTo({ top: target.offsetTop - 28, behavior: 'smooth' });
   });
 });
 
@@ -801,7 +1406,7 @@ mainEl.addEventListener('scroll', () => {
     if (s.offsetTop - mainEl.scrollTop <= 60) current = s.id;
   });
   navLinks.forEach(a => {
-    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    a.classList.toggle('active', a.getAttribute('data-target') === current);
   });
 });
 </script>

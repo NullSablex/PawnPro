@@ -9,6 +9,13 @@ Os comandos do PawnPro podem ser executados pela paleta de comandos (`Ctrl+Shift
 | `pawnpro.compileCurrent` | `Ctrl+Alt+B` | Compila o arquivo `.pwn` aberto (ativo quando o foco está em um arquivo Pawn) |
 | `pawnpro.detectCompiler` | — | Detecta o `pawncc` automaticamente no workspace |
 
+## Edição
+
+| Comando | Atalho | Descrição |
+|---------|--------|-----------|
+| `editor.action.formatSelection` | `Ctrl+K Ctrl+F` | Formata apenas a seleção (em arquivos Pawn). A formatação do documento inteiro usa o atalho padrão do editor |
+| `editor.action.rename` | `F2` | Renomeia o símbolo sob o cursor em todas as ocorrências |
+
 ## Servidor
 
 | Comando | Descrição |
@@ -31,12 +38,14 @@ Os comandos do PawnPro podem ser executados pela paleta de comandos (`Ctrl+Shift
 | Comando | Descrição |
 |---------|-----------|
 | `pawnpro.clearEngineCache` | Reinicia o motor LSP e limpa o cache |
+| `pawnpro.recoverConfig` | Recupera um `.pawnpro/config.json` grande demais: move as listas de nomes para os arquivos `.ban`/`.allow` (com backup) e reduz o JSON a um tamanho legível |
 
 ## Scripts e templates
 
 | Comando | Descrição |
 |---------|-----------|
 | `pawnpro.newScript` | Cria um novo script Pawn a partir dos templates embutidos da extensão |
+| `pawnpro.openStore` | Abre a **Biblioteca de Recursos** — busca de plugins, filterscripts e includes (prévia com catálogo de exemplo; instalação ainda não disponível) |
 
 ## Configurações
 

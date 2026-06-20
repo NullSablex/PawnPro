@@ -1,6 +1,6 @@
 site_name: PawnPro
 site_description: Extensão para a linguagem Pawn (SA-MP / open.mp)
-site_url: https://nullsablex.github.io/PawnPro/
+site_url: https://pawnpro.nullsablex.com/
 repo_url: https://github.com/NullSablex/PawnPro
 repo_name: NullSablex/PawnPro
 edit_uri: edit/master/docs/
@@ -9,10 +9,15 @@ docs_dir: docs
 
 nav:
   - Introdução: index.md
-  - Recursos: features.md
-  - Configuração: configuration.md
-  - Comandos: commands.md
-  - Snippets: snippets.md
+  - Guia do usuário:
+      - Recursos: features.md
+      - Configuração: configuration.md
+      - Comandos: commands.md
+      - Snippets: snippets.md
+      - Idiomas (i18n): i18n.md
+  - Para desenvolvedores:
+      - Assistente de nomes: naming-assistant.md
+      - Listas de nomes (.ban/.allow): naming-lists.md
 
 theme:
   name: material

@@ -13,7 +13,9 @@
   "command.server.show": "PawnPro: Exibir Console do Servidor",
   "command.server.showLog": "PawnPro: Exibir Log do Servidor",
   "command.clearEngineCache": "PawnPro: Limpar Cache",
+  "command.recoverConfig": "PawnPro: Recuperar configuração grande (migrar listas)",
   "command.openSettings": "PawnPro: Configurações",
+  "command.openStore": "PawnPro: Biblioteca de Recursos",
 
   "config.includePaths": "Diretórios de includes do compilador Pawn. Use `${workspaceFolder}` para caminhos relativos ao projeto. Exemplo: `[\"${workspaceFolder}/pawno/include\"]`.\n\n> Também pode ser configurado em `.pawnpro/config.json` (tem prioridade sobre esta opção).",
   "config.compiler.path": "Caminho para o executável `pawncc`. Se vazio e `autoDetect` estiver ativo, a extensão tentará detectar automaticamente.\n\n> Também pode ser configurado em `.pawnpro/config.json`.",

@@ -2,7 +2,7 @@
   "name": "pawnpro",
   "displayName": "PawnPro",
   "description": "%text.description%",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "publisher": "NullSablex",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -40,13 +40,14 @@
     "url": "https://github.com/NullSablex/PawnPro"
   },
   "icon": "images/logo.png",
-  "engineVersion": "1.0.0",
+  "engineVersion": "1.2.0",
   "engineRepository": "https://github.com/NullSablex/PawnPro-Engine",
   "author": {
     "name": "NullSablex",
     "url": "https://github.com/NullSablex"
   },
   "main": "./out/editor/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -77,6 +78,11 @@
         "command": "pawnpro.compileCurrent",
         "key": "ctrl+alt+b",
         "when": "editorLangId == pawn && editorTextFocus"
+      },
+      {
+        "command": "editor.action.formatSelection",
+        "key": "ctrl+k ctrl+f",
+        "when": "editorLangId == pawn && editorTextFocus && editorHasSelection && !editorReadonly"
       }
     ],
     "snippets": [
@@ -90,13 +96,20 @@
         "language": "pawn",
         "scopeName": "source.pawn",
         "path": "./syntaxes/pawn.tmLanguage.json"
+      },
+      {
+        "language": "pawnpro-namelist",
+        "scopeName": "source.pawnpro-namelist",
+        "path": "./syntaxes/namelist.tmLanguage.json"
       }
     ],
     "semanticTokenScopes": [
       {
         "language": "pawn",
         "scopes": {
-          "function": ["support.function.pawn"]
+          "function": [
+            "support.function.pawn"
+          ]
         }
       }
     ],
@@ -114,6 +127,17 @@
           ".pawn"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "pawnpro-namelist",
+        "aliases": [
+          "PawnPro Name List"
+        ],
+        "extensions": [
+          ".ban",
+          ".allow"
+        ],
+        "configuration": "./namelist-language-configuration.json"
       }
     ],
     "commands": [
@@ -163,6 +187,10 @@
         "title": "%command.clearEngineCache%"
       },
       {
+        "command": "pawnpro.recoverConfig",
+        "title": "%command.recoverConfig%"
+      },
+      {
         "command": "pawnpro.whatsNew",
         "title": "%command.whatsNew%"
       },
@@ -173,6 +201,10 @@
       {
         "command": "pawnpro.openSettings",
         "title": "%command.openSettings%"
+      },
+      {
+        "command": "pawnpro.openStore",
+        "title": "%command.openStore%"
       }
     ],
     "configurationDefaults": {
@@ -268,26 +300,23 @@
     "package:pre": "npm run bundle && npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.9.2",
     "@types/vscode": "1.106.0",
-    "@vscode/vsce": "^3.9.1",
+    "@vscode/l10n-dev": "^0.0.35",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.1",
     "jszip": "^3.10.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
     "iconv-lite": "^0.7.2",
-    "vscode-languageclient": "^9.0.1",
-    "vscode-nls": "^5.2.0"
+    "vscode-languageclient": "^10.0.0"
   },
   "overrides": {
-    "@vscode/vsce": {
-      "minimatch": "3.1.5"
-    },
     "minimatch": "10.2.3",
-    "qs": "6.14.2",
+    "qs": "6.15.2",
     "ajv": "8.18.0",
-    "markdown-it": "14.1.1",
+    "markdown-it": "14.2.0",
     "underscore": "1.13.8"
   }
 }

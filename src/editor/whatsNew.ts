@@ -65,7 +65,8 @@ function extractSection(changelogPath: string, version: string): string {
 function mdToHtml(md: string): string {
   const lines = md.split(/\r?\n/);
   const out: string[] = [];
-  let inList = false;
+  // Pilha de níveis de lista abertos, pela indentação (espaços) que os abriu.
+  const listStack: number[] = [];
 
   const inline = (s: string) =>
     s
@@ -73,42 +74,68 @@ function mdToHtml(md: string): string {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // [texto](url) → link (após o escape de < >, então a URL está segura)
+      .replace(
+        /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
+        '<a href="$2">$1</a>',
+      );
 
-  const closeList = () => {
-    if (inList) { out.push('</ul>'); inList = false; }
+  let cardOpen = false;
+
+  const closeLists = (toIndent = -1) => {
+    while (listStack.length > 0 && listStack[listStack.length - 1] > toIndent) {
+      out.push('</ul>');
+      listStack.pop();
+    }
+  };
+  // Cada seção (### / ####) é um card; fecha o anterior antes de abrir o próximo.
+  const closeCard = () => {
+    closeLists();
+    if (cardOpen) { out.push('</div>'); cardOpen = false; }
+  };
+  const openCard = (title: string) => {
+    closeCard();
+    out.push(`<div class="card-section"><div class="card-title">${title}</div>`);
+    cardOpen = true;
   };
 
   for (const raw of lines) {
     const line = raw.trimEnd();
 
-    if (!line) { closeList(); out.push(''); continue; }
+    if (!line.trim()) { closeLists(); continue; }
 
-    if (/^[-*_]{3,}\s*$/.test(line)) { closeList(); continue; }
+    if (/^[-*_]{3,}\s*$/.test(line.trim())) { closeCard(); continue; }
 
-    if (/^###\s+/.test(line)) {
-      closeList();
-      out.push(`<h3>${inline(line.replace(/^###\s+/, ''))}</h3>`);
-      continue;
-    }
-
-    if (/^##\s+/.test(line)) {
-      closeList();
+    // Versão (##): título solto fora de card; fecha o card anterior.
+    if (/^##\s+(?!#)/.test(line)) {
+      closeCard();
       out.push(`<h2>${inline(line.replace(/^##\s+/, ''))}</h2>`);
       continue;
     }
 
-    if (/^[-*]\s+/.test(line)) {
-      if (!inList) { out.push('<ul>'); inList = true; }
-      out.push(`<li>${inline(line.replace(/^[-*]\s+/, ''))}</li>`);
+    // Seção (#### antes de ###): abre um novo card.
+    if (/^####\s+/.test(line)) { openCard(inline(line.replace(/^####\s+/, ''))); continue; }
+    if (/^###\s+/.test(line))  { openCard(inline(line.replace(/^###\s+/, '')));  continue; }
+
+    // Item de lista, possivelmente indentado (sub-listas aninhadas).
+    const m = /^(\s*)[-*]\s+(.*)$/.exec(line);
+    if (m) {
+      const indent = m[1].length;
+      closeLists(indent);
+      if (listStack.length === 0 || indent > listStack[listStack.length - 1]) {
+        out.push('<ul>');
+        listStack.push(indent);
+      }
+      out.push(`<li>${inline(m[2])}</li>`);
       continue;
     }
 
-    closeList();
+    closeLists();
     out.push(`<p>${inline(line)}</p>`);
   }
 
-  closeList();
+  closeCard();
   return out.join('\n');
 }
 
@@ -170,30 +197,40 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
     color: var(--vscode-textPreformat-foreground, #9cdcfe);
     margin: 1.75rem 0 .6rem;
   }
-  h3 {
-    font-size: .7rem;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: var(--vscode-textPreformat-foreground, #9cdcfe);
-    margin: 1.75rem 0 .6rem;
+  /* Cada seção (Adicionado, Corrigido, ...) é UM card com seus itens dentro. */
+  .card-section {
+    background: var(--vscode-sideBar-background, rgba(255,255,255,.04));
+    border-radius: 8px;
+    border-left: 3px solid var(--vscode-activityBarBadge-background, #007acc);
+    padding: .9rem 1.1rem 1rem;
+    margin: .9rem 0;
   }
-  ul {
-    list-style: none;
-    padding: 0;
+  .card-title {
+    font-size: .92rem;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: .5rem;
+  }
+  /* Itens do card: lista com bullets; sub-itens recuados, dentro do item-pai. */
+  .card-section ul {
+    list-style: disc;
+    margin: 0;
+    padding-left: 1.2rem;
     display: flex;
     flex-direction: column;
-    gap: .5rem;
+    gap: .35rem;
   }
-  li {
-    padding: .7rem 1rem;
-    background: var(--vscode-sideBar-background, rgba(255,255,255,.04));
-    border-radius: 6px;
-    border-left: 3px solid var(--vscode-activityBarBadge-background, #007acc);
-    font-size: .92rem;
+  .card-section li {
+    font-size: .9rem;
     overflow-wrap: break-word;
     word-break: break-word;
-    min-width: 0;
   }
+  .card-section ul ul {
+    margin: .3rem 0 .15rem;
+    gap: .2rem;
+    list-style: circle;
+  }
+  .card-section ul ul li { font-size: .86rem; opacity: .9; }
   p { color: var(--vscode-descriptionForeground); font-size: .88rem; margin-top: .5rem; }
   strong { color: var(--vscode-foreground); }
   code {

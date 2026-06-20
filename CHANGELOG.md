@@ -12,6 +12,60 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
+## [3.3.0] - 18/06/2026
+
+### Adicionado
+- **Formatação de código Pawn** — atalho `Ctrl+K Ctrl+F` (seleção) e formatação de documento completo, ambos servidos pelo provider de formatação da engine via LSP
+- **Estilos de formatação configuráveis** — nova chave `format` em `.pawnpro/config.json` com os campos:
+  - `preset` — `allman` (padrão), `knr`, `compact` ou `custom`
+  - `braceStyle`, `spaceAroundOperators`, `emptyBlockSameLine` — ajustes finos aplicados no preset `custom`
+- **Seção "Formatação" na página de configurações** — seleção de estilo por **cartões visuais**: cada cartão mostra um *preview* do código no estilo + o nome, funcionando como botão de seleção; os ajustes finos só aparecem no preset `custom`
+- **Ícone na página de configurações** — o ícone da extensão passa a ser exibido ao lado do nome "PawnPro" no cabeçalho da navegação
+- **Assistente de nomes (`PP0018`)** — nova seção **"Nomenclatura"** na página de configurações: ativar/desativar, comprimento mínimo, e **estilo por categoria com multi-seleção** (funções, globais, locais, constantes, macros, parâmetros), cada um com *preview* de código real (exemplos temáticos por categoria). Desligado por padrão. A engine reage em tempo real (sem reiniciar)
+  - Estilos aceitos: `camelCase`, `snake_case`, `PascalCase`, `UPPER_CASE` e `Capitalized_Snake` (cada palavra capitalizada, com `_` opcional entre elas, ex.: `Carregar_Lixeiras` — engloba também os nomes `PascalCase` como `Palavrao`). A referência de cada convenção está documentada em "Nomenclaturas aceitas"
+  - Os seletores de estilo ficam recolhidos numa seção expansível para reduzir o ruído visual; cada estilo é apresentado como *badge* em layout de duas colunas
+- **Listas de nomes em arquivos** — nomes proibidos e índices de loop ficam em arquivos `.ban`/`.allow` editáveis (botão "Abrir arquivo" na página), com realce de sintaxe próprio. Limite de processamento configurável (padrão 32 MB)
+- **Migração assistida** — botão que migra listas do formato antigo (inline no `config.json`) para os arquivos, com backup dos itens e confirmação por tamanho; comando **"PawnPro: Recuperar configuração grande"** para o caso de um `config.json` grande demais para ser lido
+- **Mais idiomas** — esqueletos de tradução para **Espanhol, Russo e Romeno** (UI e mensagens), além de PT-BR e EN
+- **Linguagem para as listas de nomes** — arquivos `.ban`/`.allow` são reconhecidos como uma linguagem própria (`pawnpro-namelist`), com gramática de realce (comentários `#` e termos) e configuração de comentário de linha
+- **Biblioteca de Recursos (prévia)** — comando **"PawnPro: Biblioteca de Recursos"** abre uma vitrine para plugins/filterscripts/includes, com busca e alternância entre **lista e grade**. Nesta versão é uma prévia com catálogo de exemplo (sem instalação real); fontes previstas: catálogo próprio + `packages.open.mp`
+- **Animação do título (opcional)** — nova opção `ui.animateTitle` (seção Interface) que anima as letras do título no topo das páginas (Configurações e Biblioteca), em sequência **teclado → bloco → cair**, em loop com pausa entre os ciclos. Desligada por padrão; respeita `prefers-reduced-motion`
+
+### Corrigido
+- **Página "O que há de novo"** — o renderizador de Markdown do changelog tinha três falhas: sub-itens indentados apareciam como texto cru com `-` (em vez de sublista), cabeçalhos `####` renderizavam com um `#` sobrando, e links `[texto](url)` não viravam links clicáveis. Além disso, cada seção (Adicionado, Corrigido, …) agora é **um único card** com seus itens em lista (e sub-itens recuados dentro), no lugar de um card por item
+- **Ícone das abas das páginas** — as abas das páginas de Configurações e da Biblioteca de Recursos exibiam o ícone genérico de arquivo; passam a usar o ícone do PawnPro
+- **Navegação da página de configurações** — ao clicar numa seção, o título não fica mais "colado" no topo (folga consistente via `scroll-margin`), e o vão no fim da página foi ajustado por um espaçador dinâmico (permite a última seção subir ao topo sem espaço vazio exagerado). Os itens do menu lateral deixaram de expor a âncora (`#secao`) ao passar o mouse — a navegação usa um alvo interno em vez de link de âncora
+
+### Alterado
+- **Campo "Caminho do compilador"** — fica oculto quando a **Detecção automática** está ligada (o caminho manual é irrelevante nesse modo: um caminho válido é usado, e um inválido/vazio cai na detecção). Só aparece para preenchimento manual quando a detecção está desligada
+- **Engine atualizada para 1.2.0** (`engineVersion`) — assistente de nomes (`PP0018`), renomeação de símbolos, novos idiomas e o motor de formatação por estrutura. Ver o changelog da [pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine)
+- **Localização migrada para `vscode.l10n`** — as mensagens de runtime saíram do `vscode-nls` para a API nativa do editor; os bundles ficam em `l10n/`, fora da raiz
+- **URL do site da documentação** — atualizada para `https://pawnpro.nullsablex.com/`
+
+### Dependências
+- **`vscode-languageclient` 9 → 10** — atualização do cliente LSP; o subpath de import passou de `vscode-languageclient/node.js` para `vscode-languageclient/node`
+- **`esbuild` 0.28.0 → 0.28.1** (Dependabot, #25)
+- **`@vscode/vsce` 3.9.1 → 3.9.2** e **`@types/node` 25.6 → 25.9.3** — atualizações de patch das ferramentas de build
+- **`tmp` 0.2.5 → 0.2.7** e **`fast-uri` 3.0.6 → 3.1.2** (Dependabot, #23, #24)
+- **Removido override obsoleto de `minimatch` 3.1.5** no `@vscode/vsce` — o vsce 3.9.2 exige `minimatch ^10`, e o override antigo quebrava o empacotamento
+- **`vscode-nls` removido** das dependências — substituído pela API nativa `vscode.l10n`; **`@vscode/l10n-dev`** adicionado em devDependencies (extração dos bundles)
+
+### Segurança
+- **`qs` 6.14.2 → 6.15.2** (override) — corrige DoS remotamente acionável em `qs.stringify` ([GHSA-q8mj-m7cp-5q26](https://github.com/advisories/GHSA-q8mj-m7cp-5q26)); a versão fixada anterior ainda estava dentro da faixa vulnerável
+- **`brace-expansion` → 5.0.6** (transitiva, via `minimatch` 10.2.3) — corrige DoS em que um intervalo numérico grande burla a proteção `max` ([GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2))
+- **`markdown-it` 14.1.1 → 14.2.0** (override) — corrige DoS de complexidade quadrática na regra de *smartquotes* ([GHSA-6v5v-wf23-fmfq](https://github.com/advisories/GHSA-6v5v-wf23-fmfq)); a versão fixada anterior ainda estava na faixa vulnerável
+- **`undici`** atualizado para a versão corrigida (transitiva das ferramentas de build) — resolve avisos incluindo dois de severidade alta (*bypass* de validação de certificado TLS e injeção de cabeçalho HTTP via `Set-Cookie`)
+- Todas as dependências vulneráveis acima são de **build/empacotamento** — não entram no VSIX nem no runtime da extensão. Com o `package.json`/`package-lock.json` atualizados, os alertas do Dependabot ficam resolvidos e o `npm audit` reporta **0 vulnerabilidades**
+- **OpenSSF Scorecard** — workflow `scorecard.yml` avaliando boas práticas de segurança do repositório
+- **Teto de tamanho do `config.json`** — 32 MB, ignorado acima disto, evitando travar a extensão com um arquivo absurdo
+
+### Outros
+- Adicionado arquivo `CODEOWNERS`
+- Badges de **Security** e **OpenSSF Scorecard** no README
+- **Documentação atualizada** — `features.md`, `configuration.md` e `commands.md` cobrem os novos recursos (formatação, assistente de nomes, renomeação, idiomas, listas `.ban`/`.allow`); navegação do site reorganizada em **Guia do usuário** e **Para desenvolvedores**, com guias de design do assistente de nomes
+
+---
+
 ## [3.2.1] - 29/04/2026
 
 ### Corrigido

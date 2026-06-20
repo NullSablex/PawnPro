@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { activateConfigBridge, getWorkspaceRoot } from './configBridge.js';
+import { activateConfigBridge, getWorkspaceRoot, recoverLargeConfig } from './configBridge.js';
 import { registerCompileCommand } from './compiler.js';
 import { registerSyntaxSchemeCommands, applySchemeOnActivate, cleanupThemeCustomizations } from './themes.js';
 import { registerIncludesContainer } from './includeTree.js';
@@ -11,6 +11,7 @@ import { startLspClient, stopLspClient, restartLspClient, resolveSdkFilePath } f
 import { buildIncludePaths } from '../core/includes.js';
 import { activateStatusBar } from './statusBar.js';
 import { registerSettingsView } from './settingsView.js';
+import { registerStoreView } from './storeView.js';
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
@@ -28,6 +29,21 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('pawnpro.clearEngineCache', async () => {
         await restartLspClient();
         vscode.window.showInformationMessage(msg.extension.cacheCleaned());
+      }),
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('pawnpro.recoverConfig', () => {
+        const result = recoverLargeConfig();
+        if (!result) {
+          vscode.window.showInformationMessage(msg.naming.recoverNothing());
+          return;
+        }
+        vscode.window.showInformationMessage(
+          result.backup
+            ? msg.naming.recoverDoneBackup(result.removed, result.backup)
+            : msg.naming.recoverDone(result.removed),
+        );
       }),
     );
 
@@ -107,6 +123,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     registerSettingsView(context, config);
+    registerStoreView(context, config);
     activateStatusBar(context, config);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
