@@ -63,7 +63,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 - Adicionado arquivo `CODEOWNERS`
 - Badges de **Security** e **OpenSSF Scorecard** no README
 - **Deploy da documentação por GitHub Actions** — o workflow `docs.yml` deixou de publicar pela branch `gh-pages` (`mkdocs gh-deploy`) e passou a usar o pipeline oficial de Pages (`actions/upload-pages-artifact` + `actions/deploy-pages`), sem `contents: write`. Continua disparando **apenas** quando `docs/**` ou `mkdocs.yml` mudam; build com `--strict` (falha em links quebrados)
-- **Actions pinadas por SHA** — `scorecard.yml` referencia `checkout`, `scorecard-action` e `codeql-action` por commit fixo, atendendo à boa prática de dependências pinadas
+- **Dependências de CI pinadas** — todas as GitHub Actions de todos os workflows são referenciadas por commit SHA (com a versão em comentário); o build instala dependências com `npm ci` (lockfile) e o deploy de docs fixa `mkdocs-material` numa versão exata. Atende à boa prática de dependências pinadas do OpenSSF Scorecard
 - **Documentação atualizada** — `features.md`, `configuration.md` e `commands.md` cobrem os novos recursos (formatação, assistente de nomes, renomeação, idiomas, listas `.ban`/`.allow`); navegação do site reorganizada em **Guia do usuário** e **Para desenvolvedores**, com guias de design do assistente de nomes
 
 ---

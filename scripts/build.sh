@@ -5,9 +5,9 @@ cd "$(dirname "$0")/.."
 # Remove VSIXs anteriores
 rm -f *.vsix
 
-# Atualiza dependências e lock file
+# Instala dependências de forma reproduzível a partir do lock file
 echo "[build] Instalando dependências..."
-npm install
+npm ci
 
 # Baixa binário do motor para a plataforma atual (ou --all para CI)
 echo "[build] Baixando motor pawnpro-engine..."
