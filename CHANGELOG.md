@@ -12,7 +12,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
-## [3.3.0] - 18/06/2026
+## [3.3.0] - 21/06/2026
 
 ### Adicionado
 - **Formatação de código Pawn** — atalho `Ctrl+K Ctrl+F` (seleção) e formatação de documento completo, ambos servidos pelo provider de formatação da engine via LSP
@@ -65,6 +65,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 - **Deploy da documentação por GitHub Actions** — o workflow `docs.yml` deixou de publicar pela branch `gh-pages` (`mkdocs gh-deploy`) e passou a usar o pipeline oficial de Pages (`actions/upload-pages-artifact` + `actions/deploy-pages`), sem `contents: write`. Continua disparando **apenas** quando `docs/**` ou `mkdocs.yml` mudam; build com `--strict` (falha em links quebrados)
 - **Dependências de CI pinadas** — todas as GitHub Actions de todos os workflows são referenciadas por commit SHA (com a versão em comentário); o build instala dependências com `npm ci` (lockfile) e o deploy de docs usa `pip install --require-hashes` sobre um `docs/requirements.txt` com hash de cada dependência. Atende à boa prática de dependências pinadas do OpenSSF Scorecard
 - **Documentação atualizada** — `features.md`, `configuration.md` e `commands.md` cobrem os novos recursos (formatação, assistente de nomes, renomeação, idiomas, listas `.ban`/`.allow`); navegação do site reorganizada em **Guia do usuário** e **Para desenvolvedores**, com guias de design do assistente de nomes
+- **Descrição da release preenchida automaticamente** — ao publicar uma release, o `publish.yml` monta o corpo a partir da seção correspondente do `CHANGELOG.md` (mais o bloco de novos contribuidores e o link de comparação que o GitHub gera), sem depender de PRs/labels
 
 ---
 

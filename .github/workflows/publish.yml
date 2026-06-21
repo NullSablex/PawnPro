@@ -7,6 +7,55 @@ on:
 permissions: {}
 
 jobs:
+  # Preenche o corpo da release publicada a partir do CHANGELOG.md (seção da
+  # versão) + o bloco "New Contributors"/"Full Changelog" que o GitHub computa.
+  # Roda uma vez (sem matriz), independente do build dos VSIX.
+  release-notes:
+    name: Fill release notes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Build and apply release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+
+          # 1. Seção curada do CHANGELOG.md (cabeçalho "## [VERSÃO] - data").
+          # Apara linhas em branco e o separador "---" do fim da seção.
+          BODY=$(awk "/^## \[?v?${VERSION}\]?/{found=1; next} found && /^## /{exit} found{print}" CHANGELOG.md \
+            | awk '{lines[NR]=$0} END{n=NR; while(n>0 && (lines[n] ~ /^[[:space:]]*$/ || lines[n] ~ /^---[[:space:]]*$/)) n--; for(i=1;i<=n;i++) print lines[i]}')
+          if [ -z "$BODY" ]; then
+            BODY="Consulte o [CHANGELOG.md](CHANGELOG.md) para detalhes."
+          fi
+
+          # 2. Notas automáticas — usadas só para o bloco "New Contributors" e o
+          # link "Full Changelog"; a categorização auto é descartada (o CHANGELOG
+          # já faz isso com mais contexto).
+          AUTO=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="$TAG" -q .body 2>/dev/null || echo "")
+          APPENDIX=$(echo "$AUTO" | sed -n '/^## New Contributors$/,$p')
+          if [ -z "$APPENDIX" ]; then
+            APPENDIX=$(echo "$AUTO" | grep '^\*\*Full Changelog\*\*' | tail -1)
+          fi
+
+          {
+            echo "$BODY"
+            if [ -n "$APPENDIX" ]; then
+              printf '\n---\n\n%s\n' "$APPENDIX"
+            fi
+          } > release_body.md
+
+          cat release_body.md
+          gh release edit "$TAG" --notes-file release_body.md
+
   publish:
     name: Publish ${{ matrix.vsce_target }}
     runs-on: ubuntu-latest
