@@ -66,6 +66,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 - **Dependências de CI pinadas** — todas as GitHub Actions de todos os workflows são referenciadas por commit SHA (com a versão em comentário); o build instala dependências com `npm ci` (lockfile) e o deploy de docs usa `pip install --require-hashes` sobre um `docs/requirements.txt` com hash de cada dependência. Atende à boa prática de dependências pinadas do OpenSSF Scorecard
 - **Documentação atualizada** — `features.md`, `configuration.md` e `commands.md` cobrem os novos recursos (formatação, assistente de nomes, renomeação, idiomas, listas `.ban`/`.allow`); navegação do site reorganizada em **Guia do usuário** e **Para desenvolvedores**, com guias de design do assistente de nomes
 - **Descrição da release preenchida automaticamente** — ao publicar uma release, o `publish.yml` monta o corpo a partir da seção correspondente do `CHANGELOG.md` (mais o bloco de novos contribuidores e o link de comparação que o GitHub gera), sem depender de PRs/labels
+- **Actions de CI atualizadas para Node 24** — `checkout`, `setup-node`, `stale`, `deploy-pages` e `action-gh-release` subiram para versões baseadas em Node 24, eliminando o aviso de deprecação do Node 20 nos runners do GitHub
 
 ---
 
