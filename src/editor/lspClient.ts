@@ -9,6 +9,7 @@ import {
 } from 'vscode-languageclient/node';
 import type { PawnProConfigManager } from '../core/config.js';
 import { buildIncludePaths } from '../core/includes.js';
+import { resolveLocale } from './locale.js';
 
 export function resolveSdkFilePath(
   platform: string,
@@ -55,9 +56,6 @@ function buildEngineSettings(
   return { resolvedPaths, sdkFilePath };
 }
 
-function resolveLocale(cfg: ReturnType<PawnProConfigManager['getAll']>): string {
-  return cfg.locale || vscode.env.language;
-}
 
 /**
  * Opções de formatação enviadas à engine. O preset é sempre enviado; os ajustes
@@ -74,6 +72,8 @@ function buildFormatOptions(
     opts.formatSpaceAroundOperators = fmt.spaceAroundOperators;
     opts.formatEmptyBlockSameLine = fmt.emptyBlockSameLine;
   }
+  // Ortogonal ao preset: vale para Allman/K&R/Compacto/Custom.
+  opts.formatPreserveArrayAlignment = fmt.preserveArrayAlignment;
   return opts;
 }
 

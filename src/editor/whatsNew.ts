@@ -34,6 +34,7 @@ function showPanel(context: vscode.ExtensionContext): void {
       localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'images'))],
     },
   );
+  panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
   panel.webview.html = buildHtml(context, panel.webview, version);
 }
 

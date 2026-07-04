@@ -63,6 +63,13 @@ async function showStatusBarMenu(config: PawnProConfigManager): Promise<void> {
     cmd(`$(file-add) ${msg.statusBar.newGamemode()}`,     'pawnpro.newScript', 'gamemode'),
     cmd(`$(file-add) ${msg.statusBar.newFilterscript()}`, 'pawnpro.newScript', 'filterscript'),
     cmd(`$(file-add) ${msg.statusBar.newInclude()}`,      'pawnpro.newScript', 'include'),
+
+    sep(msg.statusBar.sectionHelp()),
+    {
+      label: `$(question) ${msg.statusBar.openHelp()}`,
+      detail: msg.statusBar.openHelpDetail(),
+      action: () => { void vscode.commands.executeCommand('pawnpro.help'); },
+    },
   ];
 
   const picked = await vscode.window.showQuickPick(items, {

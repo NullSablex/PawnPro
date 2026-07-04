@@ -1,0 +1,31 @@
+# Labels do repositório PawnPro
+# Sincronizados automaticamente via .github/workflows/labels.yml
+
+# --- Tipo de mudança ---
+- name: feat
+  color: "0075ca"
+  description: "Nova funcionalidade"
+
+- name: fix
+  color: "d73a4a"
+  description: "Correção de bug"
+
+- name: docs
+  color: "0075ca"
+  description: "Documentação"
+
+- name: chore
+  color: "e4e669"
+  description: "Manutenção interna (sem impacto para o usuário)"
+
+- name: ci
+  color: "e4e669"
+  description: "CI/CD e infraestrutura"
+
+- name: refactor
+  color: "a2eeef"
+  description: "Refatoração sem mudança de comportamento"
+
+- name: deps
+  color: "0075ca"
+  description: "Atualizações de dependências"

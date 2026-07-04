@@ -12,6 +12,32 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
+## [3.4.0]
+
+### Adicionado
+- **Depurador (DAP)** — integração com o **PawnPro Debugger** (binário externo): a extensão registra o tipo de depuração `pawn`, com `contributes.debuggers`, `breakpoints` para a linguagem Pawn e uma `launch.json` padrão. Ao iniciar a sessão (F5), recompila o `.pwn` com `-d3` automaticamente (sem alterar a configuração do usuário), sobe o servidor e conecta o adaptador
+  - Detecção do plugin oficial pelo símbolo marcador (`PAWNPRO_DEBUG_MARKER`) embutido no `.so`, e preflight antes de iniciar
+  - Recursos do depurador: breakpoints simples, **condicionais**, **por contagem de acertos** (hit count), **logpoints**, step (in/out/over), inspeção de variáveis (int/float/bool/array/hex), watch, hover, editar variável e **pausar em erro de runtime** (divisão por zero, índice de array fora do limite)
+  - As mensagens de erro do depurador seguem o mesmo idioma da engine (config `pawnpro.locale`)
+- **Página "Ajuda e informações"** — comando **"PawnPro: Ajuda e informações"** (também no menu de ações da status bar) que abre uma página com: o **compilador recomendado** em destaque (o compilador do open.mp **3.10.11**, único testado no momento), as **versões atuais** dos componentes (extensão, engine LSP e adaptador do depurador), **links** (documentação, repositórios e reportar problema) e um **guia rápido do depurador** — como instalar o plugin no servidor (SA-MP/open.mp) e como iniciar a depuração
+- **Biblioteca de Recursos — recursos adicionados ao projeto** — filtro **"Adicionados"** para ver só o que está no projeto, **selo "Adicionado"** nos cards, e ações contextuais na página de detalhe: **Adicionar** (com seletor de versão) quando ainda não está no projeto, **Remover** quando já está. Nesta prévia o estado é de exemplo (não altera o projeto de verdade)
+- **Preservar alinhamento de arrays** — nova opção de formatação (`format.preserveArrayAlignment`, com toggle na página de configurações): mantém intacto o alinhamento manual em colunas de inicializadores de array `{ }` quebrados em várias linhas
+- **Dependabot e sincronização de labels** — `.github/dependabot.yml` (atualizações semanais de dependências npm e GitHub Actions) e workflow que sincroniza os labels do repositório a partir de `.github/labels.yml`
+- **Blindagem por SHA dos binários** — os binários externos (engine e adaptador do depurador) podem ter o checksum SHA-256 fixado no `package.json` (`engineChecksums`/`debuggerChecksums`); quando presente, é a fonte da verdade na verificação, protegendo contra republicação de uma release. Modo `--pin` no script de download para gerar/atualizar os checksums
+
+### Alterado
+- **Página "Biblioteca de Recursos"** — layout, responsividade e legibilidade revistos: espaçamentos fluidos com `clamp()` (sem breakpoints), grade que adapta ao painel, separação clara entre descrição e informações, botão de ação e seletor de versão reformulados (controles separados, melhor alinhamento), seção "Informações" com espaçamento ajustado, e **tipografia maior** (títulos, autor, chips e badges dos cards) com o contador de resultados mais destacado. O filtro/selo "Adicionados" usa uma cor verde discreta própria, distinta dos filtros de Tipo/Fonte
+- **Cor de foco das páginas** — o realce de foco/seleção nas webviews (configurações, biblioteca) passa a usar a cor de botão do tema em vez da borda de foco, evitando o destaque amarelo de alguns temas
+- **Configuração de idioma** — a config `pawnpro.locale` agora também controla as mensagens do depurador, além dos diagnósticos da engine; descrição atualizada na página de configurações
+- **Dependências** — `@types/node` para `^26.1.0`, `vscode-languageclient` para `^10.1.0` e `iconv-lite` para `^0.7.3`
+- **Build** — download dos binários unificado em `scripts/download-binaries.js` (substitui `scripts/download-engine.js`), cobrindo engine e adaptador do depurador
+
+### Corrigido
+- **Ícone da aba das páginas em WebView** — as páginas "O que há de novo" e "Ajuda e informações" mostravam o ícone de arquivo genérico na aba, em vez do ícone da extensão. As WebViews ignoram `<link rel="icon">` no HTML; o ícone da aba é definido por `panel.iconPath`. A página "O que há de novo" arrastava esse comportamento desde a **2.1.0-rc.1** (quando foi introduzida); agora ambas usam o ícone da extensão, como as demais páginas (Configurações, Biblioteca de Recursos)
+
+### Documentação
+- **Guia de depuração** (`docs/debugging.md`) — como funciona (adaptador local + plugin no servidor), o passo único de colocar o plugin do servidor na pasta correta (SA-MP/open.mp), como iniciar a sessão (F5) e um exemplo de `launch.json`. A extensão apenas **verifica** (preflight) se o plugin está presente — não o instala
+
 ## [3.3.0] - 21/06/2026
 
 ### Adicionado

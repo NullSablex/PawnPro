@@ -1,9 +1,9 @@
 {
   "text.description": "Compilation and diagnostics for PAWN files, including #include checking and pawncc integration. Settings managed via .pawnpro/config.json.",
-
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
   "command.whatsNew": "PawnPro: What's New",
+  "command.help": "PawnPro: Help & Info",
   "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)",
   "command.applySyntaxScheme": "PawnPro: Apply syntax scheme",
   "command.resetSyntaxScheme": "PawnPro: Reset syntax (remove PawnPro scheme)",
@@ -16,7 +16,6 @@
   "command.recoverConfig": "PawnPro: Recover large config (migrate lists)",
   "command.openSettings": "PawnPro: Settings",
   "command.openStore": "PawnPro: Resource Library",
-
   "config.includePaths": "Pawn compiler include directories. Use `${workspaceFolder}` for project-relative paths. Example: `[\"${workspaceFolder}/pawno/include\"]`.\n\n> Can also be configured in `.pawnpro/config.json` (takes precedence over this option).",
   "config.compiler.path": "Path to the `pawncc` executable. If empty and `autoDetect` is enabled, the extension will try to detect it automatically.\n\n> Can also be configured in `.pawnpro/config.json`.",
   "config.compiler.args": "Extra arguments passed to the compiler. Example: `[\"-d3\", \"-;+\"]`.\n\n> Can also be configured in `.pawnpro/config.json`.",
@@ -52,5 +51,10 @@
   "config.server.type": "Server type. Select `samp` for SA-MP, `omp` for open.mp, or `auto` to detect automatically from the config file present (`server.cfg` or `config.json`).\n\n> Can also be configured in `.pawnpro/config.json` as `server.type`.",
   "config.server.type.auto": "Auto-detect from file present (config.json → open.mp, server.cfg → SA-MP)",
   "config.server.type.samp": "SA-MP — uses server.cfg and server_log.txt",
-  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file"
+  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file",
+  "debug.program": "Path of the `.amx` to debug (gamemode, filterscript or other Pawn script). The adjacent `.pwn` source is automatically recompiled with debug info on start.",
+  "debug.server": "Path to the server executable (SA-MP/open.mp). Empty: use the extension's auto-detection.",
+  "debug.cwd": "Working directory when starting the server for debugging.",
+  "debug.session": "Debug session identifier (local socket between the adapter and the plugin). Auto-generated if empty.",
+  "debug.stopOnEntry": "Pause right at the script entry."
 }

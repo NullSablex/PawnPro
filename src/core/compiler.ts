@@ -153,18 +153,41 @@ export function sanitizeUserArgs(
   return { kept, removed };
 }
 
+/**
+ * `true` se os argumentos já incluem uma flag de informação de depuração do
+ * pawncc (`-d1`/`-d2`/`-d3`, com ou sem espaço/`=`). Usado para não duplicar a
+ * flag quando o usuário já depura.
+ */
+export function hasDebugFlag(args: readonly string[]): boolean {
+  return args.some(a => /^-d[123]\b/.test(a.trim()));
+}
+
 export function buildCompileArgs(opts: {
   config: PawnProConfig;
   filePath: string;
   workspaceRoot: string;
+  /** Garante informação de depuração: injeta `-d3` se o usuário não passar `-d`. */
+  forceDebug?: boolean;
 }): CompileArgs {
-  const { config, filePath, workspaceRoot } = opts;
+  const { config, filePath, workspaceRoot, forceDebug } = opts;
   const { compiler } = config;
 
   const exe = detectPawncc(compiler.path || undefined, compiler.autoDetect, workspaceRoot);
   const supported = detectSupportedFlags(exe);
 
   const rawArgs = compiler.args.length > 0 ? compiler.args.slice() : computeMinimalArgs(supported);
+  // Para depuração, o `.amx` PRECISA de `-d3` (símbolos + linhas). `-d1`/`-d2`
+  // não bastam para o hook/inspeção. Garante `-d3` apenas nesta compilação de
+  // depuração: remove qualquer `-d{0,1,2,3}` existente e acrescenta `-d3`. A
+  // configuração do usuário não é alterada.
+  if (forceDebug) {
+    for (let i = rawArgs.length - 1; i >= 0; i--) {
+      if (/^-d[0-3]\b/.test(rawArgs[i].trim())) {
+        rawArgs.splice(i, 1);
+      }
+    }
+    rawArgs.push('-d3');
+  }
   const { kept, removed } = sanitizeUserArgs(rawArgs, supported);
 
   const fileDir = path.dirname(filePath);

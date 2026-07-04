@@ -6,16 +6,27 @@ import { registerIncludesContainer } from './includeTree.js';
 import { registerServerControls } from './server.js';
 import { msg } from './nls.js';
 import { registerWhatsNew } from './whatsNew.js';
+import { registerHelpView } from './helpView.js';
 import { registerTemplates } from './templates.js';
 import { startLspClient, stopLspClient, restartLspClient, resolveSdkFilePath } from './lspClient.js';
 import { buildIncludePaths } from '../core/includes.js';
 import { activateStatusBar } from './statusBar.js';
 import { registerSettingsView } from './settingsView.js';
 import { registerStoreView } from './storeView.js';
+import { registerDebugAdapter } from './debugAdapter.js';
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
     const { config, state } = activateConfigBridge(context);
+
+    // Debugger (tipo `pawn`) registrado CEDO, antes de qualquer `await` (LSP) que
+    // possa atrasar/abortar a ativação — senão o provider de debug não estaria
+    // pronto quando o usuário aperta F5. Isolado: falha aqui não derruba o resto.
+    try {
+      registerDebugAdapter(context, config, getWorkspaceRoot);
+    } catch (e) {
+      console.error('[PawnPro] falha ao registrar o debugger:', e);
+    }
 
     registerCompileCommand(context, config);
     registerSyntaxSchemeCommands(context, config);
@@ -23,6 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
     registerIncludesContainer(context, config);
     registerServerControls(context, config, state);
     registerWhatsNew(context);
+    registerHelpView(context);
     registerTemplates(context);
 
     context.subscriptions.push(

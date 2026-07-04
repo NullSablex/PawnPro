@@ -91,7 +91,7 @@ jobs:
         run: npm ci
 
       - name: Download engine binary
-        run: node scripts/download-engine.js --artifact ${{ matrix.engine_artifact }}
+        run: node scripts/download-binaries.js --artifact ${{ matrix.engine_artifact }}
         env:
           CI: 'true'
 

@@ -4,6 +4,7 @@
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
   "command.whatsNew": "PawnPro: What's New",
+  "command.help": "PawnPro: Справка и информация",
   "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)",
   "command.applySyntaxScheme": "PawnPro: Apply syntax scheme",
   "command.resetSyntaxScheme": "PawnPro: Reset syntax (remove PawnPro scheme)",

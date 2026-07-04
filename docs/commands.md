@@ -52,6 +52,7 @@ Os comandos do PawnPro podem ser executados pela paleta de comandos (`Ctrl+Shift
 | Comando | Descrição |
 |---------|-----------|
 | `pawnpro.openSettings` | Abre o painel de configurações gráfico do PawnPro |
+| `pawnpro.openStore` | Abre a Biblioteca de Recursos (vitrine de plugins/filterscripts/includes) |
 
 ## Outros
 

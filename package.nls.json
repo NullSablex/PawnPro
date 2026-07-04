@@ -1,9 +1,9 @@
 {
   "text.description": "Compilação e diagnósticos para arquivos PAWN, incluindo verificação de #include e integração com pawncc. Configurações em .pawnpro/config.json.",
-
   "command.compile": "PawnPro: Compilar arquivo atual",
   "command.detect": "PawnPro: Detectar compilador (pawncc)",
   "command.whatsNew": "PawnPro: O que há de novo",
+  "command.help": "PawnPro: Ajuda e informações",
   "command.newScript": "PawnPro: Novo Script (Gamemode/Filterscript)",
   "command.applySyntaxScheme": "PawnPro: Aplicar esquema de sintaxe",
   "command.resetSyntaxScheme": "PawnPro: Restaurar sintaxe (remover esquema PawnPro)",
@@ -16,7 +16,6 @@
   "command.recoverConfig": "PawnPro: Recuperar configuração grande (migrar listas)",
   "command.openSettings": "PawnPro: Configurações",
   "command.openStore": "PawnPro: Biblioteca de Recursos",
-
   "config.includePaths": "Diretórios de includes do compilador Pawn. Use `${workspaceFolder}` para caminhos relativos ao projeto. Exemplo: `[\"${workspaceFolder}/pawno/include\"]`.\n\n> Também pode ser configurado em `.pawnpro/config.json` (tem prioridade sobre esta opção).",
   "config.compiler.path": "Caminho para o executável `pawncc`. Se vazio e `autoDetect` estiver ativo, a extensão tentará detectar automaticamente.\n\n> Também pode ser configurado em `.pawnpro/config.json`.",
   "config.compiler.args": "Argumentos extras passados ao compilador. Exemplo: `[\"-d3\", \"-;+\"]`.\n\n> Também pode ser configurado em `.pawnpro/config.json`.",
@@ -52,5 +51,10 @@
   "config.server.type": "Tipo de servidor. Selecione `samp` para SA-MP, `omp` para open.mp, ou `auto` para detecção automática pelo arquivo de configuração presente (`server.cfg` ou `config.json`).\n\n> Também pode ser configurado em `.pawnpro/config.json` como `server.type`.",
   "config.server.type.auto": "Detecta automaticamente pelo arquivo presente (config.json → open.mp, server.cfg → SA-MP)",
   "config.server.type.samp": "SA-MP — usa server.cfg e server_log.txt",
-  "config.server.type.omp": "open.mp — usa config.json e o arquivo de log configurado em logging.file"
+  "config.server.type.omp": "open.mp — usa config.json e o arquivo de log configurado em logging.file",
+  "debug.program": "Caminho do `.amx` a depurar (gamemode, filterscript ou outro script Pawn). O source `.pwn` ao lado é recompilado automaticamente com informação de depuração ao iniciar.",
+  "debug.server": "Caminho do executável do servidor (SA-MP/open.mp). Vazio: usa a detecção automática da extensão.",
+  "debug.cwd": "Diretório de trabalho ao iniciar o servidor para depuração.",
+  "debug.session": "Identificador da sessão de depuração (socket local entre o adaptador e o plugin). Gerado automaticamente se vazio.",
+  "debug.stopOnEntry": "Pausar logo na entrada do script."
 }

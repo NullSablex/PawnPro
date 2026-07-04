@@ -9,9 +9,11 @@ rm -f *.vsix
 echo "[build] Instalando dependências..."
 npm ci
 
-# Baixa binário do motor para a plataforma atual (ou --all para CI)
-echo "[build] Baixando motor pawnpro-engine..."
-node scripts/download-engine.js "$@"
+# Baixa os binários externos (engine LSP e adaptador do debugger) para a
+# plataforma atual (ou --all para CI). Cada componente reporta seu próprio
+# progresso; o debugger é opcional e não quebra o build se faltar.
+echo "[build] Obtendo binários externos..."
+node scripts/download-binaries.js "$@"
 
 # Type-check
 echo "[build] Verificando tipos..."

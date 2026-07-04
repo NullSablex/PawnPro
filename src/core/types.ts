@@ -115,6 +115,11 @@ export interface FormatConfig {
   spaceAroundOperators: boolean;
   /** Mantém blocos vazios colados (`if (a) {}`). Só aplicado quando preset = custom. */
   emptyBlockSameLine: boolean;
+  /**
+   * Preserva o alinhamento manual em colunas de inicializadores de array `{ }`
+   * multi-linha (o miolo sai intacto). Ortogonal ao preset — aplicado sempre.
+   */
+  preserveArrayAlignment: boolean;
 }
 
 export interface PawnProConfig {

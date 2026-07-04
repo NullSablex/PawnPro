@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Mantém as GitHub Actions pinadas por SHA sempre frescas: o Dependabot atualiza
+  # tanto o SHA do commit quanto o comentário `# vX`, então os pins não envelhecem.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  # Dependências npm da extensão (package.json na raiz).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps

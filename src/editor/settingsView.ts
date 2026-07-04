@@ -192,6 +192,8 @@ function buildI18n() {
     formatSpaceOpsDesc:          s.formatSpaceOpsDesc(),
     formatEmptyBlock:            s.formatEmptyBlock(),
     formatEmptyBlockDesc:        s.formatEmptyBlockDesc(),
+    formatPreserveArrayAlign:    s.formatPreserveArrayAlign(),
+    formatPreserveArrayAlignDesc: s.formatPreserveArrayAlignDesc(),
     navNaming:                   s.navNaming(),
     namingEnabled:               s.namingEnabled(),
     namingEnabledDesc:           s.namingEnabledDesc(),
@@ -310,6 +312,9 @@ function getHtml(logoUri: string): string {
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Padding horizontal fluido: encolhe em painéis estreitos sem breakpoints. */
+  :root { --pad-x: clamp(14px, 5vw, 36px); }
+
   body {
     font-family: var(--vscode-font-family);
     font-size: 14px;
@@ -359,12 +364,12 @@ function getHtml(logoUri: string): string {
     transition: opacity 0.1s, border-color 0.1s;
   }
   nav a:hover { opacity: 1; background: var(--vscode-list-hoverBackground, #ffffff10); }
-  nav a.active { opacity: 1; border-left-color: var(--vscode-focusBorder, #007acc); font-weight: 600; }
+  nav a.active { opacity: 1; border-left-color: var(--vscode-button-background, #007acc); font-weight: 600; }
 
   main {
     flex: 1;
     overflow-y: auto;
-    padding: 28px 36px 24px;
+    padding: 28px var(--pad-x) 24px;
     scroll-behavior: smooth;
   }
 
@@ -417,7 +422,7 @@ function getHtml(logoUri: string): string {
   .preset-header { padding: 14px 0 4px; }
   .preset-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
     gap: 12px;
     padding: 10px 0 24px;
   }
@@ -437,8 +442,8 @@ function getHtml(logoUri: string): string {
   }
   .preset-card:hover { background: var(--vscode-list-hoverBackground, #ffffff10); }
   .preset-card.selected {
-    border-color: var(--vscode-focusBorder, #007acc);
-    box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007acc);
+    border-color: var(--vscode-button-background, #007acc);
+    box-shadow: 0 0 0 1px var(--vscode-button-background, #007acc);
   }
   .preset-preview {
     margin: 0;
@@ -463,11 +468,11 @@ function getHtml(logoUri: string): string {
   }
   .style-checks {
     display: grid;
-    grid-template-columns: repeat(2, minmax(110px, 1fr));
+    grid-template-columns: repeat(2, minmax(min(110px, 100%), 1fr));
     grid-auto-flow: column;
     grid-template-rows: repeat(3, auto);
     gap: 6px 8px;
-    min-width: 240px;
+    min-width: min(240px, 100%);
   }
   .style-badge { cursor: pointer; }
   .style-badge input { position: absolute; opacity: 0; width: 0; height: 0; }
@@ -485,12 +490,12 @@ function getHtml(logoUri: string): string {
   .style-badge:hover span { opacity: 0.9; }
   .style-badge input:checked + span {
     opacity: 1;
-    border-color: var(--vscode-focusBorder, #007acc);
-    background: var(--vscode-focusBorder, #007acc);
+    border-color: var(--vscode-button-background, #007acc);
+    background: var(--vscode-button-background, #007acc);
     color: var(--vscode-button-foreground, #fff);
   }
   .style-badge input:focus-visible + span {
-    box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007acc);
+    box-shadow: 0 0 0 2px var(--vscode-button-background, #007acc);
   }
   .naming-styles { padding: 10px 0; }
   .naming-styles > summary {
@@ -529,7 +534,7 @@ function getHtml(logoUri: string): string {
     transition: border-color 0.1s;
   }
   input[type="text"]:focus, input[type="number"]:focus, select:focus {
-    border-color: var(--vscode-focusBorder, #007acc);
+    border-color: var(--vscode-button-background, #007acc);
   }
 
   code {
@@ -624,7 +629,7 @@ function getHtml(logoUri: string): string {
     color: var(--vscode-descriptionForeground);
     margin-bottom: 24px;
     padding: 8px 12px;
-    border-left: 2px solid var(--vscode-focusBorder, #007acc);
+    border-left: 2px solid var(--vscode-button-background, #007acc);
     background: var(--vscode-textBlockQuote-background, #ffffff08);
     border-radius: 0 3px 3px 0;
   }
@@ -853,6 +858,19 @@ baz();</pre>
     <div class="row-control">
       <label class="toggle">
         <input type="checkbox" id="format-emptyBlockSameLine" onchange="set('format.emptyBlockSameLine', this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="formatPreserveArrayAlign"></div>
+      <div class="row-desc" data-i18n="formatPreserveArrayAlignDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="format-preserveArrayAlignment" onchange="set('format.preserveArrayAlignment', this.checked)">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -1178,6 +1196,7 @@ function applyState(cfg) {
   setSelect('format-braceStyle',            cfg.format?.braceStyle ?? 'nextLine');
   setCheck('format-spaceAroundOperators',   cfg.format?.spaceAroundOperators ?? true);
   setCheck('format-emptyBlockSameLine',     cfg.format?.emptyBlockSameLine ?? true);
+  setCheck('format-preserveArrayAlignment', cfg.format?.preserveArrayAlignment ?? false);
   toggleFormatCustom(fmtPreset);
   const naming = cfg.analysis?.naming ?? {};
   setCheck('naming-enabled', naming.enabled ?? false);

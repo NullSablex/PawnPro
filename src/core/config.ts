@@ -50,6 +50,7 @@ const DEFAULTS: PawnProConfig = {
     braceStyle: 'nextLine',
     spaceAroundOperators: true,
     emptyBlockSameLine: true,
+    preserveArrayAlignment: false,
   },
   locale: '',
 };

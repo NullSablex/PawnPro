@@ -65,6 +65,16 @@ Verificação de qualidade de nomes, **offline e determinística** (sem IA, sem 
 
 Interface e mensagens em **Português (BR)** e **Inglês**, com esqueletos para **Espanhol, Russo e Romeno** (a traduzir). Detalhes em [Idiomas (i18n)](i18n.md).
 
+## Biblioteca de Recursos (prévia)
+
+Vitrine para encontrar plugins, filterscripts e includes, aberta pelo comando **"PawnPro: Biblioteca de Recursos"**.
+
+- **Busca** por nome, descrição ou autor.
+- **Lista ou grade** — alterna o layout pelo botão da barra de ferramentas.
+- **Detalhe** de cada item ao clicar.
+
+> Nesta versão é uma **prévia** com catálogo de exemplo — a instalação ainda não está disponível. Fontes previstas: catálogo próprio + `packages.open.mp`.
+
 ## Depreciação com `@DEPRECATED`
 
 O marcador `@DEPRECATED` (case-insensitive) pode ser usado de três formas:
@@ -98,6 +108,14 @@ stock OutraFuncao() { ... } // @deprecated
 - *Tail* do log do servidor com *follow* configurável — **exclusivo para Linux e macOS** (não disponível no Windows).
 - Detecção automática de executável do servidor nos subdiretórios: raiz do workspace, `server/`, `samp/`, `samp-server/`, `samp03/`, `open.mp/`.
 - Detecção automática de `server.cfg` (SA-MP) ou `config.json` (open.mp); log padrão: `server_log.txt` (SA-MP) ou o arquivo definido em `logging.file` no `config.json` (open.mp, padrão `log.txt`).
+
+## Depuração (DAP)
+
+- **Depurador visual** para servidor local: breakpoints, *step*, inspeção de variáveis e *call stack* (`F5` / `launch.json` tipo `pawn`).
+- **Recompilação automática com debug info** — a extensão adiciona `-d3` ao compilar para depuração se você ainda não usa uma flag `-d` (sua configuração não é alterada).
+- **Preflight** — verifica se o plugin de depuração está instalado em `plugins/` e registrado (`server.cfg` ou `config.json`) antes de iniciar, avisando o que falta.
+- **Servidor iniciado automaticamente** com as variáveis de depuração; o adaptador conecta ao plugin via socket local.
+- O **plugin do servidor** é instalado uma vez (mesmo binário para SA-MP e open.mp). Ver o [guia de depuração](debugging.md).
 
 ## Interface
 

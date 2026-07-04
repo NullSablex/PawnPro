@@ -299,3 +299,140 @@ function ompLogFile(cwd: string): string {
     return String(logging?.['file'] || 'log.txt');
   } catch { return 'log.txt'; }
 }
+
+/** Nome base do plugin de depuração instalado pelo usuário (sem extensão). */
+export const DEBUG_PLUGIN_NAME = 'pawnpro_debug';
+
+/**
+ * Símbolo marcador exportado pelo plugin oficial do PawnPro Debugger. Sua
+ * presença na tabela de exportação distingue o plugin de verdade de um arquivo
+ * homônimo qualquer. Procuramos a string do nome do símbolo nos bytes do binário
+ * — robusto e sem parsear ELF/PE.
+ */
+const DEBUG_PLUGIN_MARKER = 'PAWNPRO_DEBUG_MARKER';
+
+/** `true` se o binário em `filePath` é o plugin oficial (contém o marcador). */
+export function isOfficialDebugPlugin(filePath: string): boolean {
+  try {
+    const buf = fs.readFileSync(filePath);
+    return buf.includes(Buffer.from(DEBUG_PLUGIN_MARKER, 'ascii'));
+  } catch {
+    return false;
+  }
+}
+
+/** Como o plugin está (ou deveria estar) instalado, conforme o servidor. */
+export type DebugInstallKind =
+  | 'samp'          // SA-MP: plugins/ + linha `plugins` no server.cfg
+  | 'omp-component' // open.mp nativo (recomendado): components/, auto-descoberto
+  | 'omp-legacy';   // open.mp legado: plugins/ + `legacy_plugins` no config.json
+
+/** Resultado do preflight de depuração: o que está pronto e o que falta. */
+export interface DebugPreflight {
+  /** `true` se nada impede a depuração. */
+  ok: boolean;
+  /** O binário do plugin foi encontrado num local válido. */
+  pluginFilePresent: boolean;
+  /**
+   * Um arquivo com o nome do plugin existe, mas **não é o plugin oficial** (não
+   * contém o marcador) — provavelmente um homônimo. Sinaliza um aviso claro.
+   */
+  pluginNameClash: boolean;
+  /** O plugin está registrado quando o modo exige (SA-MP / omp-legacy). */
+  pluginRegistered: boolean;
+  /** `'samp' | 'omp'` detectado, para instruções específicas. */
+  serverType: 'samp' | 'omp';
+  /** Caminho recomendado para instalar o plugin neste servidor. */
+  recommendedPath: string;
+  /** Forma de instalação recomendada/detectada. */
+  installKind: DebugInstallKind;
+}
+
+/**
+ * Procura o binário do plugin em `<cwd>/<dir>/<name><ext>` e classifica:
+ * `'official'` (existe + tem o marcador), `'clash'` (existe mas é outro plugin),
+ * `'absent'`.
+ */
+function probePluginFile(cwd: string, dir: string, file: string): 'official' | 'clash' | 'absent' {
+  const p = path.join(cwd, dir, file);
+  if (!fs.existsSync(p)) return 'absent';
+  return isOfficialDebugPlugin(p) ? 'official' : 'clash';
+}
+
+/**
+ * Verifica, sem efeitos colaterais, se o servidor em `cwd` está pronto para
+ * depuração. Detecta SA-MP (`server.cfg`) vs open.mp (`config.json`).
+ *
+ * - **SA-MP:** o binário em `plugins/` e listado na linha `plugins`.
+ * - **open.mp:** o ideal é `components/` (componente nativo, **auto-descoberto**,
+ *   sem registro). O modo legado — `plugins/` + `legacy_plugins` — também é
+ *   aceito, mas o componente é preferido.
+ */
+export function checkDebugPlugin(cwd: string): DebugPreflight {
+  const ext = process.platform === 'win32' ? '.dll' : '.so';
+  const file = `${DEBUG_PLUGIN_NAME}${ext}`;
+
+  const plugins = probePluginFile(cwd, 'plugins', file);
+  const components = probePluginFile(cwd, 'components', file);
+
+  const isOmp = fs.existsSync(path.join(cwd, 'config.json'));
+  const serverType: 'samp' | 'omp' = isOmp ? 'omp' : 'samp';
+
+  if (!isOmp) {
+    // SA-MP: o binário OFICIAL em plugins/ E registro na linha `plugins`.
+    let registered = false;
+    try {
+      const cfg = fs.readFileSync(path.join(cwd, 'server.cfg'), 'utf8');
+      const line = cfg.split(/\r?\n/).find(l => /^\s*plugins\b/i.test(l)) ?? '';
+      registered = line.includes(DEBUG_PLUGIN_NAME);
+    } catch {
+      registered = false;
+    }
+    return {
+      ok: plugins === 'official' && registered,
+      pluginFilePresent: plugins === 'official',
+      pluginNameClash: plugins === 'clash',
+      pluginRegistered: registered,
+      serverType,
+      recommendedPath: path.join(cwd, 'plugins', file),
+      installKind: 'samp',
+    };
+  }
+
+  // open.mp: componente nativo OFICIAL em components/ é auto-descoberto.
+  if (components === 'official') {
+    return {
+      ok: true,
+      pluginFilePresent: true,
+      pluginNameClash: false,
+      pluginRegistered: true, // não precisa registrar
+      serverType,
+      recommendedPath: path.join(cwd, 'components', file),
+      installKind: 'omp-component',
+    };
+  }
+
+  // Fallback: modo legado — plugins/ (oficial) + `legacy_plugins` no config.json.
+  let legacyRegistered = false;
+  try {
+    const json = JSON.parse(fs.readFileSync(path.join(cwd, 'config.json'), 'utf8')) as Record<string, unknown>;
+    const pawn = json?.['pawn'] as Record<string, unknown> | undefined;
+    const legacy = pawn?.['legacy_plugins'];
+    const list = Array.isArray(legacy) ? legacy.map(String) : [];
+    legacyRegistered = list.some(p => p.includes(DEBUG_PLUGIN_NAME));
+  } catch {
+    legacyRegistered = false;
+  }
+
+  // Aqui `components` nunca é 'official' (já retornou acima nesse caso).
+  return {
+    ok: plugins === 'official' && legacyRegistered,
+    pluginFilePresent: plugins === 'official',
+    pluginNameClash: plugins === 'clash' || components === 'clash',
+    pluginRegistered: legacyRegistered,
+    serverType,
+    // Recomenda o caminho de componente (preferido), mesmo no fallback.
+    recommendedPath: path.join(cwd, 'components', file),
+    installKind: plugins === 'official' ? 'omp-legacy' : 'omp-component',
+  };
+}
