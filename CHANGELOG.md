@@ -31,9 +31,11 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 - **Configuração de idioma** — a config `pawnpro.locale` agora também controla as mensagens do depurador, além dos diagnósticos da engine; descrição atualizada na página de configurações
 - **Dependências** — `@types/node` para `^26.1.0`, `vscode-languageclient` para `^10.1.0` e `iconv-lite` para `^0.7.3`
 - **Build** — download dos binários unificado em `scripts/download-binaries.js` (substitui `scripts/download-engine.js`), cobrindo engine e adaptador do depurador
+- **CI — dependências das GitHub Actions atualizadas** (pinadas por SHA): `actions/checkout` 4.2.2 → 7.0.0, `actions/upload-pages-artifact` 3.0.1 → 5.0.0, `actions/first-interaction` 1.3.0 → 3.1.0 e `github/codeql-action` 4.36.2 → 4.36.3
 
 ### Corrigido
 - **Ícone da aba das páginas em WebView** — as páginas "O que há de novo" e "Ajuda e informações" mostravam o ícone de arquivo genérico na aba, em vez do ícone da extensão. As WebViews ignoram `<link rel="icon">` no HTML; o ícone da aba é definido por `panel.iconPath`. A página "O que há de novo" arrastava esse comportamento desde a **2.1.0-rc.1** (quando foi introduzida); agora ambas usam o ícone da extensão, como as demais páginas (Configurações, Biblioteca de Recursos)
+- **CI: análise CodeQL falhando por versão inconsistente** — o workflow tinha `github/codeql-action/init` e `.../analyze` pinados em versões diferentes (4.36.2 e 4.36.3), causando o erro `Loaded a configuration file for version '4.36.3', but running version '4.36.2'`. Ambos os passos passam a usar a **v4.36.3**
 
 ### Documentação
 - **Guia de depuração** (`docs/debugging.md`) — como funciona (adaptador local + plugin no servidor), o passo único de colocar o plugin do servidor na pasta correta (SA-MP/open.mp), como iniciar a sessão (F5) e um exemplo de `launch.json`. A extensão apenas **verifica** (preflight) se o plugin está presente — não o instala
