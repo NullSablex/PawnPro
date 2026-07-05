@@ -12,7 +12,12 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
-## [3.4.0]
+## [3.4.2] - 04/07/2026
+
+> As versões **3.4.0** e **3.4.1** foram publicadas sem o binário do depurador no
+> VSIX: o workflow de release definia o artefato do depurador na matriz, mas não
+> tinha o passo que o baixava antes de empacotar. A **3.4.2** corrige o release
+> (o depurador agora é incluído no pacote). O conteúdo abaixo é o desta linha 3.4.
 
 ### Adicionado
 - **Depurador (DAP)** — integração com o **PawnPro Debugger** (binário externo): a extensão registra o tipo de depuração `pawn`, com `contributes.debuggers`, `breakpoints` para a linguagem Pawn e uma `launch.json` padrão. Ao iniciar a sessão (F5), recompila o `.pwn` com `-d3` automaticamente (sem alterar a configuração do usuário), sobe o servidor e conecta o adaptador
