@@ -11,6 +11,8 @@ permissions: {}
 jobs:
   greeting:
     name: Greet first-time contributors
+    # Não saúda bots (ex.: dependabot[bot]): a saudação é para novos contribuidores humanos.
+    if: ${{ !endsWith(github.actor, '[bot]') }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
