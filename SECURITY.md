@@ -2,36 +2,43 @@
 
 ## Reportar uma vulnerabilidade
 
-Encontrou uma vulnerabilidade de segurança? Não abra uma issue pública.
+Encontrou uma vulnerabilidade de segurança? **Não abra uma issue pública.**
 
-**Contato:** abra um [Security Advisory](https://github.com/NullSablex/PawnPro/security/advisories/new) privado no GitHub ou envie um e-mail diretamente ao mantenedor.
+Reporte de forma privada por um destes canais:
 
-Resposta esperada em até **7 dias úteis**.
+- Abra um [Security Advisory](https://github.com/NullSablex/PawnPro/security/advisories/new) privado no GitHub (preferido); ou
+- Envie um e-mail diretamente ao mantenedor.
+
+Inclua, se possível: uma descrição do problema, os passos para reproduzir, a versão afetada e o impacto esperado. Resposta inicial em até **7 dias úteis**.
 
 ---
 
 ## Escopo
 
-Esta política cobre o código-fonte da extensão PawnPro (repositório `NullSablex/PawnPro`) e o motor LSP ([`NullSablex/PawnPro-Engine`](https://github.com/NullSablex/PawnPro-Engine)).
+Esta política cobre o código-fonte da extensão PawnPro (`NullSablex/PawnPro`) e o motor LSP ([`NullSablex/PawnPro-Engine`](https://github.com/NullSablex/PawnPro-Engine)).
 
-Vulnerabilidades em dependências de terceiros devem ser reportadas aos respectivos mantenedores. Dependências de desenvolvimento (`devDependencies`) **não são empacotadas** no `.vsix` e não afetam os usuários finais.
+O que **está** no escopo:
 
----
+- Execução de código, escalonamento de privilégios ou vazamento de dados a partir da extensão ou do motor.
+- Tratamento inseguro de arquivos do projeto, configuração (`.pawnpro/`), entrada do compilador ou do servidor.
+- Manuseio de credenciais (ex.: senha RCON) e de conexões de rede da extensão.
 
-## Dependências empacotadas no `.vsix`
+O que **não** está no escopo:
 
-Apenas três pacotes são embutidos no bundle da extensão:
-
-| Pacote | Finalidade |
-|--------|-----------|
-| `iconv-lite` | Decodificação do log do servidor (windows-1252, latin-1) |
-| `safer-buffer` | Dependência de `iconv-lite` |
-| `vscode-nls` | Internacionalização das mensagens |
-
-Todas as demais dependências (incluindo `@vscode/vsce`, `typescript`, `esbuild`, etc.) são `devDependencies` e **não estão presentes** no pacote distribuído.
+- Vulnerabilidades em dependências de terceiros — reporte aos respectivos mantenedores. A extensão embute no `.vsix` apenas as dependências de runtime estritamente necessárias; as ferramentas de build e teste (`devDependencies`) **não são distribuídas** e não afetam quem usa a extensão. O `.vsix` publicado é a fonte da verdade sobre o que é distribuído.
+- Comportamento do compilador `pawncc`, do servidor SA-MP/open.mp ou de plugins de terceiros.
+- Configurações inseguras feitas pelo próprio usuário (ex.: expor a porta RCON publicamente).
 
 ---
 
 ## Versões suportadas
 
-Somente a versão mais recente recebe correções de segurança. A extensão é distribuída via [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=NullSablex.pawnpro), [Open VSX](https://open-vsx.org/extension/NullSablex/pawnpro) e como artefato `.vsix` nas [Releases do GitHub](https://github.com/NullSablex/PawnPro/releases).
+Somente a versão mais recente recebe correções de segurança. A extensão é distribuída pelo [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=NullSablex.pawnpro), [Open VSX](https://open-vsx.org/extension/NullSablex/pawnpro) e como artefato `.vsix` nas [Releases do GitHub](https://github.com/NullSablex/PawnPro/releases).
+
+---
+
+## Práticas do projeto
+
+- As dependências de CI são fixadas por commit SHA; o build usa lockfile (`npm ci`) e o deploy da documentação usa hashes (`pip install --require-hashes`).
+- Análise estática de segurança via **CodeQL** e avaliação de boas práticas via **OpenSSF Scorecard** rodam no repositório.
+- Atualizações de dependências chegam pelo **Dependabot**.

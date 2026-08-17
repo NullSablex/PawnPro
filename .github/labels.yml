@@ -29,3 +29,24 @@
 - name: deps
   color: "0075ca"
   description: "Atualizações de dependências"
+
+# --- Área (aplicadas automaticamente pelo caminho dos arquivos) ---
+- name: "area: core"
+  color: "5319e7"
+  description: "Lógica pura em src/core"
+
+- name: "area: editor"
+  color: "5319e7"
+  description: "Camada de adaptação em src/editor"
+
+- name: "area: engine"
+  color: "5319e7"
+  description: "Integração com o motor LSP / debugger"
+
+- name: i18n
+  color: "1d76db"
+  description: "Traduções e localização (l10n, package.nls)"
+
+- name: build
+  color: "e4e669"
+  description: "Scripts de build, bundle e empacotamento"

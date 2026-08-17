@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Dúvidas de uso e ideias
+    url: https://github.com/NullSablex/PawnPro/discussions
+    about: Para perguntas de configuração, uso ou discussão de ideias, use as Discussions.
+  - name: Vulnerabilidade de segurança
+    url: https://github.com/NullSablex/PawnPro/security/advisories/new
+    about: Reporte de forma privada — não abra uma issue pública. Ver SECURITY.md.
+  - name: Documentação
+    url: https://pawnpro.nullsablex.com/
+    about: Consulte o guia do usuário e a referência de configuração.

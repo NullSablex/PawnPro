@@ -2,9 +2,11 @@
 
 ## Antes de pedir ajuda
 
+- Abra **`PawnPro: Ajuda e informações`** (paleta de comandos ou menu da status bar) para ver as versões dos componentes e links úteis.
 - Verifique se o motor LSP está ativo: o item `PawnPro` na status bar deve estar visível.
 - Confira os logs em **Output → PawnPro Engine** para mensagens de erro.
 - Certifique-se de que `.pawnpro/config.json` está configurado corretamente (ver [docs/configuration.md](docs/configuration.md)).
+- Para dúvidas de depuração, consulte o [guia de depuração](docs/debugging.md).
 
 ## Canais de suporte
 
