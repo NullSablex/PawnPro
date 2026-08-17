@@ -3,7 +3,7 @@
   "text.description": "Compilation and diagnostics for PAWN files, including #include checking and pawncc integration. Settings managed via .pawnpro/config.json.",
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
-  "command.whatsNew": "PawnPro: What's New",
+  "command.whatsNew": "PawnPro: Noutăți",
   "command.help": "PawnPro: Ajutor și informații",
   "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)",
   "command.applySyntaxScheme": "PawnPro: Apply syntax scheme",
@@ -52,5 +52,10 @@
   "config.server.type": "Server type. Select `samp` for SA-MP, `omp` for open.mp, or `auto` to detect automatically from the config file present (`server.cfg` or `config.json`).\n\n> Can also be configured in `.pawnpro/config.json` as `server.type`.",
   "config.server.type.auto": "Auto-detect from file present (config.json → open.mp, server.cfg → SA-MP)",
   "config.server.type.samp": "SA-MP — uses server.cfg and server_log.txt",
-  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file"
+  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file",
+  "debug.program": "Calea către `.amx` de depanat (gamemode, filterscript sau alt script Pawn). Sursa `.pwn` alăturată este recompilată automat cu informații de depanare la pornire.",
+  "debug.server": "Calea către executabilul serverului (SA-MP/open.mp). Gol: folosește detectarea automată a extensiei.",
+  "debug.cwd": "Directorul de lucru la pornirea serverului pentru depanare.",
+  "debug.session": "Identificatorul sesiunii de depanare (socket local între adaptor și plugin). Se generează automat dacă este gol.",
+  "debug.stopOnEntry": "Oprește chiar la intrarea în script."
 }

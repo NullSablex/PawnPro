@@ -3,7 +3,7 @@
   "text.description": "Compilation and diagnostics for PAWN files, including #include checking and pawncc integration. Settings managed via .pawnpro/config.json.",
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
-  "command.whatsNew": "PawnPro: What's New",
+  "command.whatsNew": "PawnPro: Novedades",
   "command.help": "PawnPro: Ayuda e información",
   "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)",
   "command.applySyntaxScheme": "PawnPro: Apply syntax scheme",
@@ -52,5 +52,10 @@
   "config.server.type": "Server type. Select `samp` for SA-MP, `omp` for open.mp, or `auto` to detect automatically from the config file present (`server.cfg` or `config.json`).\n\n> Can also be configured in `.pawnpro/config.json` as `server.type`.",
   "config.server.type.auto": "Auto-detect from file present (config.json → open.mp, server.cfg → SA-MP)",
   "config.server.type.samp": "SA-MP — uses server.cfg and server_log.txt",
-  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file"
+  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file",
+  "debug.program": "Ruta del `.amx` a depurar (gamemode, filterscript u otro script Pawn). El fuente `.pwn` adyacente se recompila automáticamente con información de depuración al iniciar.",
+  "debug.server": "Ruta del ejecutable del servidor (SA-MP/open.mp). Vacío: usa la detección automática de la extensión.",
+  "debug.cwd": "Directorio de trabajo al iniciar el servidor para depuración.",
+  "debug.session": "Identificador de la sesión de depuración (socket local entre el adaptador y el plugin). Se genera automáticamente si está vacío.",
+  "debug.stopOnEntry": "Pausar justo en la entrada del script."
 }

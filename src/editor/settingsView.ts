@@ -8,7 +8,8 @@ import {
   inlineNamingBytes,
   migrateNamingLists,
 } from './configBridge.js';
-import { msg } from './nls.js';
+import { msg, type Msg } from './nls.js';
+import { createWebviewMsg } from './webviewNls.js';
 
 let panel: vscode.WebviewPanel | undefined;
 
@@ -57,13 +58,15 @@ export function registerSettingsView(
         vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg'),
       );
       panel.webview.html = getHtml(logoUri.toString());
-      sendState(panel, config);
+      sendState(panel, config, context);
 
-      const unsub = config.onChange(() => sendState(panel!, config));
+      // Re-envia o estado (e re-traduz via ui.locale) sempre que a config muda —
+      // inclusive quando o próprio idioma da interface é alterado.
+      const unsub = config.onChange(() => sendState(panel!, config, context));
 
       panel.webview.onDidReceiveMessage((message: unknown) => {
         if (!message || typeof message !== 'object') return;
-        handleMessage(message as Record<string, unknown>, config);
+        handleMessage(message as Record<string, unknown>, config, context);
       });
 
       panel.onDidDispose(() => {
@@ -74,7 +77,11 @@ export function registerSettingsView(
   );
 }
 
-function handleMessage(m: Record<string, unknown>, config: PawnProConfigManager): void {
+function handleMessage(
+  m: Record<string, unknown>,
+  config: PawnProConfigManager,
+  context: vscode.ExtensionContext,
+): void {
   switch (m['type']) {
     case 'set': {
       const key = m['key'];
@@ -84,7 +91,7 @@ function handleMessage(m: Record<string, unknown>, config: PawnProConfigManager)
       break;
     }
     case 'requestState':
-      if (panel) sendState(panel, config);
+      if (panel) sendState(panel, config, context);
       break;
     case 'openNamingFile': {
       const which = m['which'];
@@ -94,7 +101,7 @@ function handleMessage(m: Record<string, unknown>, config: PawnProConfigManager)
       break;
     }
     case 'migrateNaming':
-      void runNamingMigration(config);
+      void runNamingMigration(config, context);
       break;
   }
 }
@@ -104,7 +111,10 @@ function handleMessage(m: Record<string, unknown>, config: PawnProConfigManager)
  * excede o limite, faz backup do config.json, migra e informa o dev (incluindo
  * onde ficou o backup, para conferir e limpar depois).
  */
-async function runNamingMigration(config: PawnProConfigManager): Promise<void> {
+async function runNamingMigration(
+  config: PawnProConfigManager,
+  context: vscode.ExtensionContext,
+): Promise<void> {
   if (!hasInlineNamingLists(config)) return;
 
   const bytes = inlineNamingBytes(config);
@@ -139,11 +149,11 @@ async function runNamingMigration(config: PawnProConfigManager): Promise<void> {
   void vscode.window.showInformationMessage(
     backup ? msg.naming.migrateDoneBackup(summary, backup) : msg.naming.migrateDone(summary),
   );
-  if (panel) sendState(panel, config);
+  if (panel) sendState(panel, config, context);
 }
 
-function buildI18n() {
-  const s = msg.settings;
+function buildI18n(m: Msg) {
+  const s = m.settings;
   return {
     noteText:              s.noteText(),
     navCompiler:           s.navCompiler(),
@@ -166,8 +176,15 @@ function buildI18n() {
     buildShowCommandDesc:  s.buildShowCommandDesc(),
     outputEncoding:        s.outputEncoding(),
     outputEncodingDesc:    s.outputEncodingDesc(),
-    encodingWin1252:       s.encodingWin1252(),
     encodingUtf8:          s.encodingUtf8(),
+    encodingWin1250:       s.encodingWin1250(),
+    encodingWin1251:       s.encodingWin1251(),
+    encodingWin1252:       s.encodingWin1252(),
+    encodingWin1253:       s.encodingWin1253(),
+    encodingWin1254:       s.encodingWin1254(),
+    encodingWin1255:       s.encodingWin1255(),
+    encodingWin1256:       s.encodingWin1256(),
+    encodingWin1257:       s.encodingWin1257(),
     encodingLatin1:        s.encodingLatin1(),
     analysisWarnUnused:          s.analysisWarnUnused(),
     analysisWarnUnusedDesc:      s.analysisWarnUnusedDesc(),
@@ -232,9 +249,14 @@ function buildI18n() {
     uiAnimateTitleDesc:          s.uiAnimateTitleDesc(),
     uiLocale:                    s.uiLocale(),
     uiLocaleDesc:                s.uiLocaleDesc(),
+    uiInterfaceLocale:           s.uiInterfaceLocale(),
+    uiInterfaceLocaleDesc:       s.uiInterfaceLocaleDesc(),
     localeAuto:                  s.localeAuto(),
     localePtBr:                  s.localePtBr(),
     localeEn:                    s.localeEn(),
+    localeEs:                    s.localeEs(),
+    localeRo:                    s.localeRo(),
+    localeRu:                    s.localeRu(),
     serverType:                  s.serverType(),
     serverTypeDesc:              s.serverTypeDesc(),
     serverPath:                  s.serverPath(),
@@ -262,12 +284,17 @@ function buildI18n() {
   };
 }
 
-function sendState(p: vscode.WebviewPanel, config: PawnProConfigManager): void {
+function sendState(
+  p: vscode.WebviewPanel,
+  config: PawnProConfigManager,
+  context: vscode.ExtensionContext,
+): void {
   const cfg = config.getAll();
+  const wmsg = createWebviewMsg(context, config);
   p.webview.postMessage({
     type: 'state',
     payload: cfg,
-    i18n: buildI18n(),
+    i18n: buildI18n(wmsg),
     hasInlineNaming: hasInlineNamingLists(config),
   });
 }
@@ -301,6 +328,29 @@ function namingStyleRow(category: string): string {
     <div class="row-control style-checks">${checks}</div>
   </div>`;
 }
+
+// Opções reutilizadas nos dois seletores de idioma (interface e diagnósticos) e
+// nos dois de codificação (saída e log). Definidas uma vez para não divergirem —
+// adicionar um idioma/codificação passa a ser uma única edição.
+const LOCALE_OPTIONS = /* html */`
+        <option value=""      data-i18n="localeAuto"></option>
+        <option value="pt-BR" data-i18n="localePtBr"></option>
+        <option value="en"    data-i18n="localeEn"></option>
+        <option value="es"    data-i18n="localeEs"></option>
+        <option value="ro"    data-i18n="localeRo"></option>
+        <option value="ru"    data-i18n="localeRu"></option>`;
+
+const ENCODING_OPTIONS = /* html */`
+        <option value="utf8"        data-i18n="encodingUtf8"></option>
+        <option value="windows1250" data-i18n="encodingWin1250"></option>
+        <option value="windows1251" data-i18n="encodingWin1251"></option>
+        <option value="windows1252" data-i18n="encodingWin1252"></option>
+        <option value="windows1253" data-i18n="encodingWin1253"></option>
+        <option value="windows1254" data-i18n="encodingWin1254"></option>
+        <option value="windows1255" data-i18n="encodingWin1255"></option>
+        <option value="windows1256" data-i18n="encodingWin1256"></option>
+        <option value="windows1257" data-i18n="encodingWin1257"></option>
+        <option value="latin1"      data-i18n="encodingLatin1"></option>`;
 
 function getHtml(logoUri: string): string {
   return /* html */`<!DOCTYPE html>
@@ -727,9 +777,7 @@ ${brandAnimationCss()}
     </div>
     <div class="row-control" style="min-width:180px">
       <select id="output-encoding" onchange="set('output.encoding', this.value)">
-        <option value="windows1252" data-i18n="encodingWin1252"></option>
-        <option value="utf8"        data-i18n="encodingUtf8"></option>
-        <option value="latin1"      data-i18n="encodingLatin1"></option>
+${ENCODING_OPTIONS}
       </select>
     </div>
   </div>
@@ -1009,14 +1057,23 @@ baz();</pre>
   </div>
   <div class="row">
     <div class="row-info">
+      <div class="row-label" data-i18n="uiInterfaceLocale"></div>
+      <div class="row-desc" data-i18n="uiInterfaceLocaleDesc"></div>
+    </div>
+    <div class="row-control" style="min-width:200px">
+      <select id="ui-locale" onchange="set('ui.locale', this.value)">
+${LOCALE_OPTIONS}
+      </select>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
       <div class="row-label" data-i18n="uiLocale"></div>
       <div class="row-desc" data-i18n="uiLocaleDesc"></div>
     </div>
     <div class="row-control" style="min-width:200px">
       <select id="locale" onchange="set('locale', this.value)">
-        <option value=""      data-i18n="localeAuto"></option>
-        <option value="pt-BR" data-i18n="localePtBr"></option>
-        <option value="en"    data-i18n="localeEn"></option>
+${LOCALE_OPTIONS}
       </select>
     </div>
   </div>
@@ -1109,9 +1166,7 @@ baz();</pre>
     </div>
     <div class="row-control" style="min-width:180px">
       <select id="server-logEncoding" onchange="set('server.logEncoding', this.value)">
-        <option value="windows1252" data-i18n="encodingWin1252"></option>
-        <option value="utf8"        data-i18n="encodingUtf8"></option>
-        <option value="latin1"      data-i18n="encodingLatin1"></option>
+${ENCODING_OPTIONS}
       </select>
     </div>
   </div>
@@ -1212,6 +1267,7 @@ function applyState(cfg) {
   setSelect('syntax-scheme',        cfg.syntax?.scheme ?? 'none');
   setCheck('syntax-applyOnStartup', cfg.syntax?.applyOnStartup ?? false);
   setCheck('ui-showIncludePaths',   cfg.ui?.showIncludePaths ?? false);
+  setSelect('ui-locale',            cfg.ui?.locale ?? '');
   setSelect('locale',               cfg.locale ?? '');
   setSelect('server-type',          cfg.server?.type ?? 'auto');
   setInput('server-path',           cfg.server?.path ?? '');

@@ -11,7 +11,7 @@ Obrigado pelo interesse em contribuir! Leia este guia antes de abrir uma issue o
 ## Configurando o ambiente
 
 **Pré-requisitos:**
-- Node.js 18+
+- Node.js 20+
 - npm
 - VS Code (para testar a extensão)
 
@@ -39,10 +39,11 @@ Pressione `F5` no VS Code com o repositório aberto para abrir uma janela de ext
 
 ```
 src/core/      ← lógica pura (zero imports de vscode)
-src/vscode/    ← adaptação para APIs do VS Code
+src/editor/    ← adaptação para as APIs do editor
 snippets/      ← snippets Pawn
 syntaxes/      ← gramática TextMate e temas de sintaxe
 templates/     ← templates de scripts (gamemode, filterscript, include)
+l10n/          ← bundles de tradução (vscode.l10n)
 scripts/       ← build, bundle, repack
 docs/          ← documentação detalhada (não incluída no .vsix)
 ```
@@ -50,10 +51,24 @@ docs/          ← documentação detalhada (não incluída no .vsix)
 ## Regras de código
 
 - **Nunca importar `vscode` em `src/core/`** — essa camada deve permanecer pura e testável fora do VS Code.
-- **Mensagens ao usuário sempre via `src/vscode/nls.ts`** — sem strings hardcoded em outros arquivos.
+- **Mensagens ao usuário sempre via `src/editor/nls.ts`** — sem strings hardcoded em outros arquivos.
 - **Sem `any`** — usar tipos precisos ou `unknown` com narrowing.
 - **Sem comentários óbvios** — apenas comentários que explicam *por quê*, não *o quê*.
 - **Configuração sempre via `PawnProConfigManager`** — nunca ler `vscode.workspace.getConfiguration` fora de `configBridge.ts`.
+
+## Uso de IA
+
+O uso de ferramentas de IA (assistentes de código, LLMs, tradutores) neste
+projeto é **permitido e bem-vindo**. Em resumo:
+
+- **Você é o responsável.** Quem abre o PR assume autoria e responsabilidade
+  integral pelo que enviou — revise e entenda o código, tenha usado IA ou não.
+- **Sem co-autoria de IA.** A autoria é humana; não atribua co-autoria a um
+  assistente em commits ou PRs (`Co-Authored-By:` de IA, "gerado por", etc.).
+- **Sem preconceito.** Nenhuma contribuição é rejeitada *só por* ter sido feita
+  com auxílio de IA — o que vale é o mérito dela.
+
+Detalhes completos em [AI-POLICY.md](AI-POLICY.md).
 
 ## Abrindo uma Pull Request
 

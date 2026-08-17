@@ -3,7 +3,7 @@
   "text.description": "Compilation and diagnostics for PAWN files, including #include checking and pawncc integration. Settings managed via .pawnpro/config.json.",
   "command.compile": "PawnPro: Compile current file",
   "command.detect": "PawnPro: Detect compiler (pawncc)",
-  "command.whatsNew": "PawnPro: What's New",
+  "command.whatsNew": "PawnPro: Что нового",
   "command.help": "PawnPro: Справка и информация",
   "command.newScript": "PawnPro: New Script (Gamemode/Filterscript)",
   "command.applySyntaxScheme": "PawnPro: Apply syntax scheme",
@@ -52,5 +52,10 @@
   "config.server.type": "Server type. Select `samp` for SA-MP, `omp` for open.mp, or `auto` to detect automatically from the config file present (`server.cfg` or `config.json`).\n\n> Can also be configured in `.pawnpro/config.json` as `server.type`.",
   "config.server.type.auto": "Auto-detect from file present (config.json → open.mp, server.cfg → SA-MP)",
   "config.server.type.samp": "SA-MP — uses server.cfg and server_log.txt",
-  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file"
+  "config.server.type.omp": "open.mp — uses config.json and the log file set in logging.file",
+  "debug.program": "Путь к `.amx` для отладки (gamemode, filterscript или другой скрипт Pawn). Соседний исходник `.pwn` автоматически перекомпилируется с отладочной информацией при запуске.",
+  "debug.server": "Путь к исполняемому файлу сервера (SA-MP/open.mp). Пусто: используется автоопределение расширения.",
+  "debug.cwd": "Рабочий каталог при запуске сервера для отладки.",
+  "debug.session": "Идентификатор сеанса отладки (локальный сокет между адаптером и плагином). Генерируется автоматически, если пусто.",
+  "debug.stopOnEntry": "Остановиться сразу на входе в скрипт."
 }

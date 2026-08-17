@@ -1,15 +1,17 @@
 import * as vscode from 'vscode';
 import type { PawnProConfigManager } from '../core/config.js';
 import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
-import { msg } from './nls.js';
+import { msg, type Msg } from './nls.js';
+import { createWebviewMsg } from './webviewNls.js';
 
 let panel: vscode.WebviewPanel | undefined;
 let cfgManager: PawnProConfigManager | undefined;
+let extCtx: vscode.ExtensionContext | undefined;
 
 /**
- * Item do catálogo da loja. Espelha os campos que um manifesto real precisaria
- * (ver `docs/store-plan.md`). Os campos além dos básicos alimentam a página de
- * detalhe; são opcionais para que o motor real possa preenchê-los aos poucos.
+ * Item do catálogo da loja. Espelha os campos que um manifesto real precisaria.
+ * Os campos além dos básicos alimentam a página de detalhe; são opcionais para
+ * que uma futura fonte real possa preenchê-los aos poucos.
  */
 interface StoreItem {
   id: string;
@@ -186,6 +188,7 @@ export function registerStoreView(
   config: PawnProConfigManager,
 ): void {
   cfgManager = config;
+  extCtx = context;
   context.subscriptions.push(
     vscode.commands.registerCommand('pawnpro.openStore', () => {
       if (panel) {
@@ -231,8 +234,8 @@ function handleMessage(m: Record<string, unknown>): void {
       break;
     case 'add':
     case 'remove': {
-      // Mock: ainda não há motor real (ver docs/store-plan.md). Atualiza só o
-      // estado em memória e avisa, para a UI refletir Adicionar/Remover.
+      // Prévia: ainda não há instalação real. Atualiza só o estado em memória e
+      // avisa, para a UI refletir Adicionar/Remover.
       const id = m['id'];
       const item = typeof id === 'string' ? MOCK_CATALOG.find(i => i.id === id) : undefined;
       if (item) {
@@ -250,8 +253,8 @@ function handleMessage(m: Record<string, unknown>): void {
   }
 }
 
-function buildI18n() {
-  const s = msg.store;
+function buildI18n(m: Msg) {
+  const s = m.store;
   return {
     title: s.title(),
     searchPlaceholder: s.searchPlaceholder(),
@@ -318,11 +321,15 @@ const addedIds = new Set<string>(['sscanf', 'streamer']);
 
 function sendState(p: vscode.WebviewPanel): void {
   const animateTitle = cfgManager?.getAll().ui.animateTitle ?? false;
+  // msg traduzido pelo idioma da interface (ui.locale); fallback ao msg nativo se
+  // o contexto/config ainda não estiverem disponíveis.
+  const wmsg =
+    extCtx && cfgManager ? createWebviewMsg(extCtx, cfgManager) : msg;
   p.webview.postMessage({
     type: 'state',
     items: MOCK_CATALOG,
     added: [...addedIds],
-    i18n: buildI18n(),
+    i18n: buildI18n(wmsg),
     animateTitle,
   });
 }

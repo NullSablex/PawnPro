@@ -16,6 +16,7 @@ Nos comprometemos a manter um ambiente aberto, respeitoso e acolhedor para todos
 - Linguagem ou imagens ofensivas, ataques pessoais ou políticos.
 - Assédio público ou privado de qualquer forma.
 - Publicar informações privadas de terceiros sem permissão.
+- Depreciar, hostilizar ou rejeitar uma contribuição *pelo simples fato* de ter sido feita com auxílio de IA. A contribuição é avaliada pelo seu mérito, não pela ferramenta usada para produzi-la (ver [AI-POLICY.md](AI-POLICY.md)).
 - Qualquer conduta que razoavelmente possa ser considerada inadequada.
 
 ## Aplicação

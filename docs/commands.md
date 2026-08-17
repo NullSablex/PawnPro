@@ -58,6 +58,7 @@ Os comandos do PawnPro podem ser executados pela paleta de comandos (`Ctrl+Shift
 
 | Comando | Descrição |
 |---------|-----------|
+| `pawnpro.help` | Abre a página "Ajuda e informações" (versões dos componentes, links e guia do depurador) |
 | `pawnpro.whatsNew` | Abre o painel "O que há de novo" |
 
 ---

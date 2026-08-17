@@ -37,7 +37,7 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 | `compiler.path` | `""` | Caminho absoluto para o executável `pawncc`. Se apontar para um diretório, procura `pawncc` dentro dele. No painel de configurações gráfico, este campo fica **oculto** enquanto `compiler.autoDetect` está ligado (a detecção automática torna o caminho manual irrelevante); desligue a detecção automática para exibi-lo e editá-lo |
 | `compiler.args` | `[]` | Argumentos adicionais passados ao compilador |
 | `includePaths` | `["${workspaceFolder}/pawno/include"]` | Diretórios de includes; suporta `${workspaceFolder}`. Em runtime, a extensão também adiciona automaticamente `qawno/include`, `pawno/include` e `include` da raiz do workspace se existirem, além de paths vindos de `-i` em `compiler.args` |
-| `output.encoding` | `"windows1252"` | Encoding da saída do compilador (`windows1252`, `utf8`, `latin1`) |
+| `output.encoding` | `"windows1252"` | Codificação da saída do compilador: `utf8`, `windows1250`–`windows1257` ou `latin1` |
 | `build.showCommand` | `false` | Exibe o comando completo do compilador no painel de saída |
 
 ## Análise
@@ -164,7 +164,7 @@ Observações:
 | `server.cwd` | `"${workspaceFolder}"` | Diretório de trabalho ao iniciar o servidor. Se vazio e `server.path` está preenchido, usa o diretório do executável |
 | `server.args` | `[]` | Argumentos adicionais passados ao executável |
 | `server.logPath` | `""` | Caminho do arquivo de log a ser monitorado. Vazio: SA-MP usa `server_log.txt`; open.mp usa o valor de `logging.file` em `config.json` (padrão `log.txt`). O monitoramento de log funciona **somente em Linux e macOS** |
-| `server.logEncoding` | `"windows1252"` | Encoding do arquivo de log (`windows1252`, `utf8`, `latin1`) |
+| `server.logEncoding` | `"windows1252"` | Codificação do arquivo de log: `utf8`, `windows1250`–`windows1257` ou `latin1` |
 | `server.clearOnStart` | `true` | Limpa o painel de saída ao (re)iniciar o servidor |
 | `server.output.follow` | `"visible"` | Rola automaticamente o painel de log: `"visible"` (quando visível), `"always"` ou `"off"` |
 
@@ -178,7 +178,8 @@ Observações:
   },
   "ui": {
     "showIncludePaths": false,
-    "animateTitle": false
+    "animateTitle": false,
+    "locale": ""
   },
   "locale": ""
 }
@@ -190,4 +191,5 @@ Observações:
 | `syntax.applyOnStartup` | `false` | Reaplicar o esquema ao iniciar (gerenciado automaticamente pelos comandos `applySyntaxScheme` e `resetSyntaxScheme`) |
 | `ui.showIncludePaths` | `false` | Exibe o caminho relativo de cada arquivo `.inc` na aba Includes da barra lateral |
 | `ui.animateTitle` | `false` | Anima as letras do título PawnPro no topo das páginas em sequência (teclado → bloco → cair), em loop com pausa |
-| `locale` | `""` | Idioma das mensagens de diagnóstico do motor LSP: `""` (automático, herda o idioma do editor), `"pt-BR"` ou `"en"` |
+| `ui.locale` | `""` | Idioma das **páginas da extensão** (Configurações, Ajuda, O que há de novo): `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"`. Independente de `locale` |
+| `locale` | `""` | Idioma dos **diagnósticos** do motor LSP e do debugger: `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"` |
