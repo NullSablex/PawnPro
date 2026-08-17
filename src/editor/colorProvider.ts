@@ -1,10 +1,17 @@
 import * as vscode from 'vscode';
-import { findColorLiterals, formatHexColor, formatAlphaAddColor, type RgbaColor } from '../core/colors.js';
+import {
+  findColorLiterals,
+  formatHexColor,
+  formatAlphaAddColor,
+  formatBracesColor,
+  type RgbaColor,
+} from '../core/colors.js';
 
 /**
- * Mostra um swatch de cor (com color picker nativo) sobre literais `0xRRGGBBAA`
- * / `0xRRGGBB` em código Pawn. O editor desenha o quadradinho e abre o seletor;
- * aqui só localizamos os literais e traduzimos cor ⇄ texto.
+ * Mostra um swatch de cor (com color picker nativo) sobre literais de cor em
+ * código Pawn: `0xRRGGBBAA` / `0xRRGGBB` (open.mp) e `{RRGGBB}` (embutido em
+ * texto do SA-MP). O editor desenha o quadradinho e abre o seletor; aqui só
+ * localizamos os literais e traduzimos cor ⇄ texto.
  */
 class PawnColorProvider implements vscode.DocumentColorProvider {
   provideDocumentColors(
@@ -35,6 +42,11 @@ class PawnColorProvider implements vscode.DocumentColorProvider {
       alpha: color.alpha,
     };
     const original = context.document.getText(context.range);
+
+    // Cor embutida `{RRGGBB}` do SA-MP: reescreve no mesmo formato (sem alpha).
+    if (/^\{[0-9A-Fa-f]{6}\}$/.test(original)) {
+      return [new vscode.ColorPresentation(formatBracesColor(rgba))];
+    }
 
     // Idioma `0xRRGGBBAA ± N`: preserva a forma base±N, recalculando N para o
     // novo alpha em vez de achatar a expressão num literal só.

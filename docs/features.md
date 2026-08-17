@@ -130,5 +130,5 @@ stock OutraFuncao() { ... } // @deprecated
 
 ## Realce de sintaxe adicional
 
-- **Prévia de cor** — literais de cor `0xRRGGBBAA` (e `0xRRGGBB`, tratado como opaco) exibem um *swatch* clicável com a cor real; clicar abre o seletor nativo, que reescreve o valor no formato do open.mp. Reconhece também o ajuste de alpha por aritmética (`0xRRGGBB00 + N`).
+- **Prévia de cor** — literais de cor `0xRRGGBBAA` (e `0xRRGGBB`, tratado como opaco) e cores embutidas em texto do SA-MP `{RRGGBB}` (chat, textdraws) exibem um *swatch* clicável com a cor real; clicar abre o seletor nativo, que reescreve o valor no mesmo formato. Reconhece também o ajuste de alpha por aritmética (`0xRRGGBB00 + N`).
 - **TOML** — arquivos `.toml` e `package.lock` recebem realce de sintaxe (gramática adaptada da extensão Even Better TOML, MIT).

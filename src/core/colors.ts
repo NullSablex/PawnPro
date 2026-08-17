@@ -6,6 +6,9 @@
  *
  * Também aceitamos `0xRRGGBB` (6 dígitos, sem alpha): tratado como opaco (A=FF).
  *
+ * E o formato de cor embutida em texto do SA-MP, `{RRGGBB}` (chat, textdraws,
+ * GameText): 6 dígitos hex entre chaves, sempre opaco e sem alpha.
+ *
  * Este módulo é puro (sem `vscode`): só faz varredura de texto e conversão de
  * cor, para ser testável fora do editor. A camada editor/ liga isso ao
  * DocumentColorProvider.
@@ -34,6 +37,11 @@ export interface ColorLiteral {
    * A soma só é interpretada quando afeta apenas o byte de alpha (sem carry).
    */
   alphaAdd?: number;
+  /**
+   * Formato de cor embutida `{RRGGBB}` (SA-MP). Sempre 6 dígitos, opaco. Guardado
+   * para reescrever no mesmo formato ao editar (senão viraria `0x...`).
+   */
+  braces?: boolean;
 }
 
 // `0x` seguido de exatamente 8 ou 6 dígitos hex, com fronteira de palavra depois
@@ -41,6 +49,10 @@ export interface ColorLiteral {
 // Grupos 2/3 (opcionais): operador +/- e um inteiro decimal — o idioma de ajuste
 // de alpha `0x...00 + 20`. Só interpretado se a soma não estourar o byte de alpha.
 const COLOR_RE = /\b0x([0-9A-Fa-f]{8}|[0-9A-Fa-f]{6})\b(?:\s*([+-])\s*(\d+))?/g;
+
+// Cor embutida do SA-MP: `{RRGGBB}` — exatamente 6 dígitos hex entre chaves.
+// Aparece dentro de strings de chat/textdraw (ex.: "{FF0000}Vermelho").
+const BRACES_RE = /\{([0-9A-Fa-f]{6})\}/g;
 
 function byteToUnit(b: number): number {
   return b / 255;
@@ -102,6 +114,22 @@ export function findColorLiterals(text: string): ColorLiteral[] {
     // Sem aritmética interpretável: só o literal base (não consome o `± N`).
     out.push({ start: m.index, end: literalEnd, digits, color });
   }
+
+  // Cores embutidas `{RRGGBB}` do SA-MP: 6 dígitos, sempre opaco.
+  BRACES_RE.lastIndex = 0;
+  let b: RegExpExecArray | null;
+  while ((b = BRACES_RE.exec(text)) !== null) {
+    const color = parseHexColor(b[1]);
+    if (!color) continue;
+    out.push({
+      start: b.index,
+      end: b.index + b[0].length,
+      digits: 6,
+      color,
+      braces: true,
+    });
+  }
+
   return out;
 }
 
@@ -149,4 +177,13 @@ export function formatAlphaAddColor(color: RgbaColor, baseAlphaByte: number): st
   const n = newAlpha - baseAlphaByte;
   if (n === 0) return base;
   return n > 0 ? `${base}+${n}` : `${base}-${Math.abs(n)}`;
+}
+
+/**
+ * Reescreve uma cor no formato `{RRGGBB}` do SA-MP. Esse formato não carrega
+ * alpha; o canal é descartado (o texto do jogo não o usa).
+ */
+export function formatBracesColor(color: RgbaColor): string {
+  const hx = (v: number) => unitToByte(v).toString(16).toUpperCase().padStart(2, '0');
+  return `{${hx(color.red)}${hx(color.green)}${hx(color.blue)}}`;
 }
