@@ -31,6 +31,7 @@ Ainda não lançada. Versão prevista: **3.5.0**.
 - **CI — GitHub Actions atualizadas** (pinadas por SHA): `github/codeql-action` 4.36.3 → 4.37.6 (passos `init`, `analyze` e `upload-sarif` mantidos alinhados na mesma versão), `actions/checkout` 7.0.0 → 7.0.1, `actions/setup-node` 6.4.0 → 7.0.0, `actions/stale` 10.3.0 → 11.0.0, `ossf/scorecard-action` 2.4.3 → 2.4.4 e `softprops/action-gh-release` 3.0.1 → 3.0.2
 - **Docs (CI)** — `pymdown-extensions` atualizado no grupo pip da documentação
 - **Segurança de dependências** — atualizações de dependências transitivas do npm sinalizadas pelo Dependabot (grupo `npm_and_yarn`, incluindo `brace-expansion` e `js-yaml`)
+- **Governança do repositório** — templates de *issue* (formulários) e de *pull request*, auto-classificação de PRs por caminho (labels de área), e `SECURITY.md` revisado (deixa de listar dependências empacotadas — o `.vsix` é a fonte da verdade do que é distribuído)
 
 ### Corrigido
 - **Descrição enganosa do seletor de idioma** — dizia "Vazio segue o editor", mas a opção correspondente que o usuário vê é "Automático" (não há opção "vazio" visível). Reescrita para "'Automático' acompanha o idioma do editor"
