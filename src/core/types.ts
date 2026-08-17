@@ -29,6 +29,12 @@ export interface UiConfig {
   showIncludePaths: boolean;
   /** Anima sutilmente o título "PawnPro" no topo das páginas. Padrão desligado. */
   animateTitle: boolean;
+  /**
+   * Idioma da interface da extensão (páginas WebView: Configurações, Ajuda, O que
+   * há de novo). Independente de `locale` (que é o idioma da engine/debugger).
+   * Vazio = segue o idioma do editor. Tags aceitas: "pt-BR", "en", "es", "ro", "ru".
+   */
+  locale: string;
 }
 
 export interface ServerOutputConfig {

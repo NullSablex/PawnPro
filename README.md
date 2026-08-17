@@ -17,19 +17,25 @@
   ![macOS x64](https://img.shields.io/badge/macOS-x64%20·%20arm64-000000?style=flat-square&logo=apple&logoColor=white)
 </div>
 
-Extensão para desenvolver **Pawn** no Visual Studio Code — motor IntelliSense nativo em Rust, 13 diagnósticos `PP####`, compilação com `Ctrl+Alt+B`, CodeLens com referências, snippets e controles de servidor SA-MP / open.mp.
+Extensão para desenvolvimento em **Pawn** (SA-MP e open.mp) no Visual Studio Code e VSCodium: IntelliSense e diagnósticos por um motor LSP em Rust, com ferramentas integradas para edição, compilação, depuração e gerenciamento de servidor.
 
 ## Recursos
 
-- **IntelliSense completo** — auto-complete, hover, signature help, CodeLens e coloração semântica para Pawn, cobrindo todos os includes transitivos.
-- **Diagnósticos** — 13 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação e mais (ver [docs/features.md](docs/features.md)).
+- **IntelliSense** — auto-complete, hover, signature help, CodeLens (referências) e coloração semântica para Pawn, cobrindo os includes transitivos.
+- **Diagnósticos** — 18 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação, nomenclatura e mais (ver [docs/features.md](docs/features.md)).
 - **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc` via `$PAWNCC`, `$PATH` e subdiretórios do workspace.
-- **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON pelo terminal integrado; painel lateral com histórico (até 200 entradas) e favoritos.
+- **Depuração** — sessão de depuração via DAP (`F5`): breakpoints (simples, condicionais, por contagem, logpoints), passo a passo, inspeção de variáveis e watch. Usa um plugin de servidor (SA-MP / open.mp); ver [docs/debugging.md](docs/debugging.md).
+- **Formatação** — formatação de documento e de seleção (`Ctrl+K Ctrl+F`), com estilos configuráveis (Allman, K&R, compacto ou personalizado).
+- **Assistente de nomenclatura** — avisos opcionais sobre nomes pobres e convenções de caixa por categoria de identificador.
+- **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON pelo terminal integrado; painel lateral com histórico e favoritos.
 - **Templates** — Gamemode e Filterscript (open.mp e SA-MP) e Include (open.mp), filtrados pela plataforma configurada.
-- **Painel de configurações** — interface gráfica acessível por `PawnPro: Configurações`; todas as opções editáveis sem tocar em JSON.
-- **Temas de sintaxe** — cinco esquemas (`auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark`) com reaplicação automática ao trocar o tema do editor.
+- **Biblioteca de recursos** — vitrine de plugins, filterscripts e includes (prévia).
+- **Painel de configurações** — interface gráfica (`PawnPro: Configurações`) com todas as opções editáveis sem tocar em JSON.
+- **Temas de sintaxe** — esquemas claro/escuro (clássico e moderno) com reaplicação automática ao trocar o tema do editor.
+- **Multi-idioma** — interface e diagnósticos em português, inglês, espanhol, romeno e russo, configuráveis de forma independente.
+- **Realce de sintaxe adicional** — `.toml`/`package.lock` e prévia de cor (`swatch`) em literais `0xRRGGBBAA`.
 - **Motor Rust LSP** — análise nativa via [pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine); iniciado automaticamente se o binário estiver presente em `engines/`.
-- **Suporte a `.pwn`, `.inc`, `.p` e `.pawn`** — todos os arquivos Pawn recebem IntelliSense e diagnósticos.
+- **Arquivos Pawn** — `.pwn`, `.inc`, `.p` e `.pawn` recebem IntelliSense e diagnósticos.
 
 ## Configuração
 
@@ -51,6 +57,14 @@ Para a lista de comandos, consulte [docs/commands.md](docs/commands.md).
 - O monitoramento de log do servidor funciona apenas em **Linux e macOS**.
 - Firewalls/antivírus podem bloquear tráfego RCON (UDP) — libere a porta local se necessário.
 - `${workspaceFolder}` é substituído automaticamente em caminhos de configuração.
+
+## Contribuindo
+
+Contribuições são bem-vindas — veja o [guia de contribuição](CONTRIBUTING.md).
+
+O uso de **IA** é permitido: quem contribui é responsável pelo que envia, sem
+co-autoria de IA, e sem preconceito quanto ao seu uso. Detalhes na
+[política de IA](AI-POLICY.md).
 
 ## Licença
 

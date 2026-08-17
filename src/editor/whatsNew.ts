@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { msg } from './nls.js';
+import type { Msg } from './nls.js';
+import { createWebviewMsg } from './webviewNls.js';
+import type { PawnProConfigManager } from '../core/config.js';
 
 const VERSION_KEY = 'pawnpro.lastSeenVersion';
 
@@ -9,20 +11,24 @@ function getVersion(context: vscode.ExtensionContext): string {
   return context.extension.packageJSON.version as string;
 }
 
-export function registerWhatsNew(context: vscode.ExtensionContext): void {
+export function registerWhatsNew(
+  context: vscode.ExtensionContext,
+  config: PawnProConfigManager,
+): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('pawnpro.whatsNew', () => showPanel(context)),
+    vscode.commands.registerCommand('pawnpro.whatsNew', () => showPanel(context, config)),
   );
 
   const version = getVersion(context);
   const lastSeen = context.globalState.get<string>(VERSION_KEY);
   if (lastSeen !== version) {
     void context.globalState.update(VERSION_KEY, version);
-    showPanel(context);
+    showPanel(context, config);
   }
 }
 
-function showPanel(context: vscode.ExtensionContext): void {
+function showPanel(context: vscode.ExtensionContext, config: PawnProConfigManager): void {
+  const msg = createWebviewMsg(context, config);
   const version = getVersion(context);
   const panel = vscode.window.createWebviewPanel(
     'pawnpro.whatsNew',
@@ -35,7 +41,7 @@ function showPanel(context: vscode.ExtensionContext): void {
     },
   );
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
-  panel.webview.html = buildHtml(context, panel.webview, version);
+  panel.webview.html = buildHtml(context, panel.webview, version, msg);
 }
 
 function extractSection(changelogPath: string, version: string): string {
@@ -140,7 +146,7 @@ function mdToHtml(md: string): string {
   return out.join('\n');
 }
 
-function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, version: string): string {
+function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, version: string, msg: Msg): string {
   // vsce may lowercase the filename
   const changelogPath = [
     path.join(context.extensionPath, 'CHANGELOG.md'),

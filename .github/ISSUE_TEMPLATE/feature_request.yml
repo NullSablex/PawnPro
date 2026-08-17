@@ -1,0 +1,51 @@
+name: Sugerir um recurso
+description: Propor uma funcionalidade ou melhoria.
+labels: ["feat"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Descreva o problema que a ideia resolve, não só a solução. Para dúvidas de
+        uso, prefira as [Discussions](https://github.com/NullSablex/PawnPro/discussions).
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema ou motivação
+      description: Que dificuldade ou necessidade a proposta atende?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Solução proposta
+      description: Como você imagina que funcionaria.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+      description: Outras abordagens que você avaliou, se houver.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      description: Parte da extensão que a proposta afeta.
+      options:
+        - Não sei / geral
+        - IntelliSense e diagnósticos
+        - Compilação
+        - Depuração
+        - Servidor (RCON, logs)
+        - Formatação
+        - Interface e configurações
+        - Idiomas (i18n)
+        - Outra
+    validations:
+      required: false

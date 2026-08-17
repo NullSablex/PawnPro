@@ -63,7 +63,7 @@ Verificação de qualidade de nomes, **offline e determinística** (sem IA, sem 
 
 ## Idiomas
 
-Interface e mensagens em **Português (BR)** e **Inglês**, com esqueletos para **Espanhol, Russo e Romeno** (a traduzir). Detalhes em [Idiomas (i18n)](i18n.md).
+Interface e mensagens em **Português (BR)**, **Inglês**, **Espanhol**, **Romeno** e **Russo**. A interface e os diagnósticos podem usar idiomas diferentes, configuráveis de forma independente. Detalhes em [Idiomas (i18n)](i18n.md).
 
 ## Biblioteca de Recursos (prévia)
 
@@ -125,4 +125,10 @@ stock OutraFuncao() { ... } // @deprecated
 - **Temas de sintaxe** — cinco esquemas nomeados: `auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark` (mais `none` para desativar). O esquema `auto` seleciona automaticamente entre Clássico Claro e Clássico Escuro conforme o tema ativo do editor. Ao escolher um esquema via comando, a reaplicação automática na inicialização é habilitada automaticamente. Reaplica automaticamente ao trocar o tema do editor quando `scheme` é `auto`.
 - **Templates** — cria Gamemode (open.mp ou SA-MP), Filterscript (open.mp ou SA-MP) e Include (open.mp); filtra automaticamente pela plataforma configurada (`analysis.sdk.platform`). Não há template de Include para SA-MP.
 - **Biblioteca de Recursos** — WebView para buscar plugins, filterscripts e includes, com modos de visualização em lista e grade, acessível via `pawnpro.openStore`. **Prévia:** atualmente exibe um catálogo de exemplo; a instalação ainda não está disponível. As fontes previstas são o catálogo próprio do PawnPro e `packages.open.mp`.
-- **Internacionalização** — mensagens em PT-BR e EN; idioma do motor LSP configurável via `locale`.
+- **Internacionalização** — interface e diagnósticos em PT-BR, EN, ES, RO e RU; idioma da interface via `ui.locale` e idioma do motor LSP/debugger via `locale` (independentes).
+- **Sugestão do Material Icon Theme** — na ativação, se o tema não estiver instalado, a extensão sugere instalá-lo (melhora os ícones das pastas). Dispensável de vez; nunca reaparece quando já presente.
+
+## Realce de sintaxe adicional
+
+- **Prévia de cor** — literais de cor `0xRRGGBBAA` (e `0xRRGGBB`, tratado como opaco) e cores embutidas em texto do SA-MP `{RRGGBB}` (chat, textdraws) exibem um *swatch* clicável com a cor real; clicar abre o seletor nativo, que reescreve o valor no mesmo formato. Reconhece também o ajuste de alpha por aritmética (`0xRRGGBB00 + N`).
+- **TOML** — arquivos `.toml` e `package.lock` recebem realce de sintaxe (gramática adaptada da extensão Even Better TOML, MIT).

@@ -1,0 +1,79 @@
+name: Relatar um bug
+description: Comportamento incorreto na extensão ou no motor.
+labels: ["fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por relatar. Antes de continuar, confira **Output → PawnPro Engine**
+        e o comando **PawnPro: Ajuda e informações** (versões dos componentes).
+        Para vulnerabilidades de segurança, **não** abra uma issue — veja o [SECURITY.md](../../SECURITY.md).
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: Descrição
+      description: O que aconteceu e o que você esperava que acontecesse.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducao
+    attributes:
+      label: Passos para reproduzir
+      description: Passos mínimos para o problema aparecer.
+      placeholder: |
+        1. Abrir um `.pwn` com ...
+        2. Executar ...
+        3. Observar ...
+    validations:
+      required: true
+
+  - type: input
+    id: versao-extensao
+    attributes:
+      label: Versão da extensão
+      description: 'Visível na status bar ou em Extensões → PawnPro (e no comando "PawnPro: Ajuda e informações").'
+      placeholder: "3.5.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: editor
+    attributes:
+      label: Editor
+      options:
+        - Visual Studio Code
+        - VSCodium
+        - Outro (informe na descrição)
+    validations:
+      required: true
+
+  - type: input
+    id: so
+    attributes:
+      label: Sistema operacional
+      placeholder: "Windows 11 / Ubuntu 24.04 / macOS 14"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: plataforma
+    attributes:
+      label: Plataforma do servidor
+      description: Se aplicável ao problema.
+      options:
+        - Não se aplica
+        - SA-MP
+        - open.mp
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Conteúdo relevante de **Output → PawnPro Engine** (será formatado como código).
+      render: shell
+    validations:
+      required: false

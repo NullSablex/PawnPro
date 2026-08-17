@@ -6,6 +6,8 @@ import { registerIncludesContainer } from './includeTree.js';
 import { registerServerControls } from './server.js';
 import { msg } from './nls.js';
 import { registerWhatsNew } from './whatsNew.js';
+import { suggestIconTheme } from './recommendIconTheme.js';
+import { registerColorProvider } from './colorProvider.js';
 import { registerHelpView } from './helpView.js';
 import { registerTemplates } from './templates.js';
 import { startLspClient, stopLspClient, restartLspClient, resolveSdkFilePath } from './lspClient.js';
@@ -33,9 +35,11 @@ export async function activate(context: vscode.ExtensionContext) {
     void applySchemeOnActivate(context, config);
     registerIncludesContainer(context, config);
     registerServerControls(context, config, state);
-    registerWhatsNew(context);
-    registerHelpView(context);
+    registerWhatsNew(context, config);
+    suggestIconTheme(context);
+    registerHelpView(context, config);
     registerTemplates(context);
+    registerColorProvider(context);
 
     context.subscriptions.push(
       vscode.commands.registerCommand('pawnpro.clearEngineCache', async () => {

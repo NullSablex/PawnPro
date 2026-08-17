@@ -12,6 +12,32 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
+## [Unreleased]
+
+Ainda não lançada. Versão prevista: **3.5.0**.
+
+### Adicionado
+- **Prévia de cores nos literais** — literais de cor `0xRRGGBBAA` (e `0xRRGGBB`, tratado como opaco) no código Pawn passam a exibir um *swatch* clicável do editor com a cor real, em vez de apenas a cor de sintaxe. Clicar abre o seletor de cores nativo, que reescreve o valor no formato do open.mp (`0xRRGGBBAA`, alpha por último — ex.: vermelho `0xFF0000FF`). Um literal de 6 dígitos que permaneça opaco é reescrito com 6 dígitos; se ganhar transparência, é promovido a 8. Reconhece também o idioma de ajuste de alpha por aritmética (`0xRRGGBB00 + N`): o *swatch* mostra a cor com o alpha resultante, e a edição preserva a forma `base±N` (a soma só é interpretada quando afeta apenas o byte de alpha, sem transbordar para os demais canais). Reconhece ainda o formato de cor embutida em texto do SA-MP `{RRGGBB}` (chat, textdraws), reescrito no mesmo formato ao editar
+- **Sugestão do Material Icon Theme** — na ativação, se o **Material Icon Theme** ainda não estiver instalado, a extensão sugere instalá-lo (melhora os ícones das pastas do projeto). É apenas um complemento: a sugestão pode ser dispensada de vez ("Não perguntar de novo") e nunca reaparece quando o tema já está presente
+- **Realce de sintaxe TOML** — arquivos `.toml` (e `package.lock`) passam a ter destaque de sintaxe próprio, cobrindo tables e array-of-tables, chaves simples e pontuadas, strings básicas/literais e multilinha (triplas), inteiros (decimal, hexadecimal, octal e binário), floats (incluindo `inf`/`nan`), booleanos, datas/horas, arrays e inline tables. Inclui configuração de linguagem (comentário `#`, auto-fechamento de aspas e colchetes). A gramática é adaptada da extensão Even Better TOML (MIT) — as chaves usam escopos de *property-name*, coloridas pelos temas como propriedades (atribuição em `THIRD-PARTY-NOTICES.md`)
+
+### Alterado
+- **Mais codificações de caracteres** — os seletores de codificação (saída do compilador e log do servidor) passam a oferecer **UTF-8** e toda a família **Windows-1250 a 1257** (Europeu Central, Cirílico, Europeu Ocidental, Grego, Turco, Hebraico, Árabe, Báltico), além de Latin-1. Cobre projetos e logs em outros alfabetos além do padrão SA-MP. Rótulos regionais traduzidos por idioma
+- **Traduções completas (EN, ES, RO, RU)** — as mensagens de runtime (`l10n/`) e os títulos de comando/config (`package.nls.*`) foram totalmente traduzidos para inglês, espanhol, romeno e russo (antes só o esqueleto existia, com a maior parte ainda em português). Termos técnicos consagrados (pawncc, RCON, gamemode, filterscript, include, breakpoint, SA-MP, open.mp) mantidos em inglês
+- **Idioma da interface independente do editor** — nova configuração "Idioma da interface" (`ui.locale`): as páginas da extensão (Configurações, Ajuda, O que há de novo) passam a poder ter um idioma próprio, separado do idioma do editor e do idioma dos diagnósticos. Antes a UI seguia obrigatoriamente o idioma do editor (limitação do `vscode.l10n`); agora as WebViews traduzem a partir dos bundles `l10n/` conforme `ui.locale`. Padrão "Automático" (segue o editor)
+- **Seletor de idioma com os 5 idiomas** — os seletores de idioma (interface e diagnósticos/debugger) na página de configurações passam a oferecer **Español, Română e Русский** além de Automático, Português e English. O de diagnósticos espelha o que a engine entrega; cada opção aparece no próprio idioma (endônimo)
+- **Política de uso de IA** — novo `AI-POLICY.md` (referenciado no README, CONTRIBUTING e CODE_OF_CONDUCT): o uso de IA é permitido, quem contribui é o responsável pelo que envia, sem co-autoria de IA e sem preconceito quanto ao seu uso
+- **Dependências** — `typescript` para `^7.0.2` e `@types/node` para `^26.1.2`
+- **CI — GitHub Actions atualizadas** (pinadas por SHA): `github/codeql-action` 4.36.3 → 4.37.6 (passos `init`, `analyze` e `upload-sarif` mantidos alinhados na mesma versão), `actions/checkout` 7.0.0 → 7.0.1, `actions/setup-node` 6.4.0 → 7.0.0, `actions/stale` 10.3.0 → 11.0.0, `ossf/scorecard-action` 2.4.3 → 2.4.4 e `softprops/action-gh-release` 3.0.1 → 3.0.2
+- **Docs (CI)** — `pymdown-extensions` atualizado no grupo pip da documentação
+- **Segurança de dependências** — atualizações de dependências transitivas do npm sinalizadas pelo Dependabot (grupo `npm_and_yarn`, incluindo `brace-expansion` e `js-yaml`)
+- **Governança do repositório** — templates de *issue* (formulários) e de *pull request*, auto-classificação de PRs por caminho (labels de área), e `SECURITY.md` revisado (deixa de listar dependências empacotadas — o `.vsix` é a fonte da verdade do que é distribuído)
+
+### Corrigido
+- **Descrição enganosa do seletor de idioma** — dizia "Vazio segue o editor", mas a opção correspondente que o usuário vê é "Automático" (não há opção "vazio" visível). Reescrita para "'Automático' acompanha o idioma do editor"
+- **CI: saudação a novos contribuidores falhando** — o workflow `Greetings` usava os inputs no formato antigo (`repo-token`, `issue-message`, `pr-message`), ignorados pela `actions/first-interaction` v3.x, o que abortava a action com `Input required and not supplied: issue_message`. Renomeados para `repo_token`, `issue_message` e `pr_message`. Além disso, o job passa a ser pulado quando o autor é um bot (`if: !endsWith(github.actor, '[bot]')`), evitando saudar automações como o Dependabot
+- **CI: análise CodeQL falhando por versão inconsistente** — nos bumps do `codeql-action`, os passos `init` e `analyze` chegaram a ficar em versões diferentes (o que quebra o job "Analyze TypeScript"). Passam a ser atualizados sempre juntos, no mesmo SHA
+
 ## [3.4.2] - 04/07/2026
 
 > As versões **3.4.0** e **3.4.1** foram publicadas sem o binário do depurador no

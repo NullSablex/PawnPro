@@ -1,0 +1,45 @@
+# Auto-classificação de PRs por caminho de arquivo (actions/labeler v5).
+# As labels aqui devem existir em .github/labels.yml.
+
+"area: core":
+  - changed-files:
+      - any-glob-to-any-file: "src/core/**"
+
+"area: editor":
+  - changed-files:
+      - any-glob-to-any-file: "src/editor/**"
+
+"area: engine":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/editor/lspClient.ts"
+          - "src/editor/debugAdapter.ts"
+          - "engines/**"
+
+i18n:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "l10n/**"
+          - "package.nls*.json"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "scripts/**"
+          - ".vscodeignore"
+
+deps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "package-lock.json"

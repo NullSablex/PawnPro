@@ -85,7 +85,11 @@ Atualizações em tempo real via `workspace/didChangeConfiguration` — função
 
 O `restartLspClient` **recria o cliente LSP do zero** (stop + startLspClient com a config atual). Não usa `client.restart()` — que reenviaria as `initializationOptions` originais e perderia mudanças de config.
 
-O locale é resolvido por `resolveLocale(cfg)`: usa `cfg.locale` se definido, senão `vscode.env.language`. A engine aceita qualquer string começando com `"pt"` como PT-BR; qualquer outra coisa vira EN.
+O locale é resolvido por `resolveLocale(cfg)`: usa `cfg.locale` se definido, senão `vscode.env.language`. A engine resolve o idioma por prefixo da tag (`Locale::from_str` em `messages/mod.rs`): `pt*` → PT-BR, `es*` → ES, `ru*` → RU, `ro*` → RO; qualquer outra coisa → EN. O seletor de idioma na `settingsView` deve espelhar exatamente os idiomas que a engine entrega (hoje: Automático, PT-BR, EN, ES, RO, RU).
+
+**Dois idiomas independentes:** `locale` (config) → engine/debugger, via `resolveLocale`. `ui.locale` (config, em `UiConfig`) → idioma das **páginas WebView** (Configurações, Ajuda, O que há de novo). São desacoplados: dá para ter interface em PT e diagnósticos em EN.
+
+**Tradução das WebViews:** o `vscode.l10n` fixa o idioma da extensão pelo idioma do **editor** e não pode ser trocado em runtime — por isso as WebViews **não** podem depender só dele. `nls.ts` expõe `createMsg(translate)`: `msg` (default) usa `vscode.l10n` e serve **notificações, menus, status bar** (efêmeros, seguem o editor); as WebViews chamam `createWebviewMsg(context, config)` (`webviewNls.ts`), que cria um `msg` traduzido pelo `ui.locale` — sem estado global, cada página com sua instância. A fonte de tradução são os mesmos bundles `l10n/` (chave = string PT). Ver `core/uiLocale.ts` (`resolveUiLocale`, `makeUiTranslator`). Ao trocar `ui.locale`, a página de configurações re-renderiza via `onChange`.
 
 O binário é procurado em:
 1. `context.extensionPath/engines/pawnpro-engine-{platform}-{arch}[.exe]`
