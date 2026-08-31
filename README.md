@@ -21,7 +21,7 @@ Extensão para desenvolvimento em **Pawn** (SA-MP e open.mp) no Visual Studio Co
 
 ## Recursos
 
-- **IntelliSense** — auto-complete, hover, signature help, CodeLens (referências) e coloração semântica para Pawn, cobrindo os includes transitivos.
+- **IntelliSense** — auto-complete, hover, signature help, CodeLens (referências) e coloração semântica para Pawn, cobrindo os includes transitivos. Os comentários de documentação acima das funções são formatados no hover e no signature help, nos formatos Javadoc (`@param`) e XMLdoc (`<summary>`, usado pelo open.mp).
 - **Diagnósticos** — 18 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação, nomenclatura e mais (ver [docs/features.md](docs/features.md)).
 - **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc` via `$PAWNCC`, `$PATH` e subdiretórios do workspace.
 - **Depuração** — sessão de depuração via DAP (`F5`): breakpoints (simples, condicionais, por contagem, logpoints), passo a passo, inspeção de variáveis e watch. Usa um plugin de servidor (SA-MP / open.mp); ver [docs/debugging.md](docs/debugging.md).

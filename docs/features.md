@@ -14,8 +14,8 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 | `PP0004` | Aviso | `public`/`stock`/`static` sem corpo |
 | `PP0005` | Aviso¹ | Variável declarada e não utilizada |
 | `PP0006` | Aviso¹ | Função `stock`/`static` não utilizada |
-| `PP0007` | Aviso | Uso de símbolo marcado com `@DEPRECATED`, ou símbolo de include depreciado |
-| `PP0008` | Aviso | `#include` marcado com `@DEPRECATED` |
+| `PP0007` | Aviso | Uso de símbolo marcado com `#pragma deprecated`, ou símbolo de include depreciado |
+| `PP0008` | Aviso | `#include` precedido de `#pragma deprecated` |
 | `PP0009` | Hint | Parâmetro de função não utilizado |
 | `PP0010` | Aviso | Função chamada não declarada em nenhum include ativo |
 | `PP0011` | Hint | `#define` declarado mas não utilizado |
@@ -36,13 +36,49 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 ## IntelliSense
 
 - **Auto-complete** — funções (`native`, `stock`, `public`, `forward`, `static`), macros (`#define`) e variáveis de todos os includes transitivos; parâmetros com snippets; itens depreciados marcados visivelmente.
-- **Hover** — assinatura e comentário de documentação; em `#include` exibe o caminho resolvido e o doc do topo do arquivo.
-- **Signature Help** — parâmetro ativo destacado ao digitar `(` e `,`.
+- **Hover** — assinatura e comentário de documentação formatado (ver [Comentários de documentação](#comentários-de-documentação)); em `#include` exibe o caminho resolvido e o doc do topo do arquivo.
+- **Signature Help** — parâmetro ativo destacado ao digitar `(` e `,`, com a descrição daquele parâmetro quando a função está documentada.
 - **CodeLens** — contagem de referências acima de cada função; clique para listar todas no painel.
-- **Semantic Tokens** — coloração semântica para funções, incluindo chamadas multiline.
 - **Semantic Tokens** — coloração semântica para funções, incluindo chamadas multiline.
 - **Renomeação (`F2`)** — renomeia o símbolo sob o cursor em todas as ocorrências do projeto aberto.
 - **Snippets** — estruturas prontas para controle de fluxo, funções, variáveis, includes, callbacks SA-MP/open.mp e utilitários como `CMD`, `SetTimer` e `fmsg`. Lista completa em [docs/snippets.md](snippets.md).
+
+## Comentários de documentação
+
+O comentário escrito imediatamente acima de uma declaração alimenta o hover, o *signature help* e o autocomplete. Dois formatos são reconhecidos, detectados pelo próprio conteúdo.
+
+**Javadoc** — `@param`, `@return`, `@remarks` (ou `@note`):
+
+```pawn
+/**
+ * Bane o endereço de um jogador conectado, com um motivo.
+ *
+ * @param playerid  o jogador a ser banido
+ * @param reason[]  o motivo, mostrado a ele e guardado no registro
+ * @return          1 sempre
+ */
+native BanEx(playerid, const reason[]);
+```
+
+**XMLdoc** — o formato usado pelo `omp-stdlib` do open.mp:
+
+```pawn
+/**
+ * <library>omp_actor</library>
+ * <summary>Verifica se um ator está transmitido para um jogador.</summary>
+ * <param name="actorid">O ID do ator</param>
+ * <param name="playerid">O ID do jogador</param>
+ * <seealso name="CreateActor" />
+ * <returns><b><c>1</c></b> se estiver, <b><c>0</c></b> caso contrário.</returns>
+ */
+native bool:IsActorStreamedIn(actorid, playerid);
+```
+
+No XMLdoc, a formatação embutida vira texto formatado (`<b>` negrito, `<c>` código, `<br />` quebra de linha), e `<library>`, `<seealso>` e os links `<a href="#Função">` — que servem ao gerador da wiki do open.mp — não aparecem no hover.
+
+Em ambos os formatos, cada parâmetro é casado **pelo nome** (o `[]` de array é ignorado) e não pela posição, então o comentário pode omitir parâmetros ou listá-los fora de ordem. O hover mostra o bloco inteiro com os títulos das seções no idioma configurado; o *signature help*, a descrição do parâmetro sob o cursor; o autocomplete, apenas o resumo.
+
+Um comentário comum, sem nenhuma tag, continua aparecendo como descrição.
 
 ## Formatação de código
 
@@ -75,19 +111,22 @@ Vitrine para encontrar plugins, filterscripts e includes, aberta pelo comando **
 
 > Nesta versão é uma **prévia** com catálogo de exemplo — a instalação ainda não está disponível. Fontes previstas: catálogo próprio + `packages.open.mp`.
 
-## Depreciação com `@DEPRECATED`
+## Depreciação com `#pragma deprecated`
 
-O marcador `@DEPRECATED` (case-insensitive) pode ser usado de três formas:
+A diretiva do compilador Pawn marca a **próxima** declaração. O texto que a segue é opcional e, quando presente, aparece junto do aviso — normalmente é onde se diz o que usar no lugar:
 
 ```pawn
-// @DEPRECATED
+#pragma deprecated
 stock MinhaFuncaoAntiga() { ... }
 
-stock OutraFuncao() { ... } // @deprecated
+#pragma deprecated Use BanPlayerFor em vez desta
+stock BanTemporario(playerid, seconds) { ... }
 
-/* @DEPRECATED */
+#pragma deprecated
 #include <include_legado>
 ```
+
+Como no compilador, não há forma na mesma linha da declaração.
 
 - **Símbolo** (`native`, `stock`, `public`, `forward`, `static`, `#define`, variável global) → a declaração recebe PP0007 (hint visual) e qualquer uso também exibe **PP0007**.
 - **Par `forward`/`public`** — depreciar o `forward` marca automaticamente o `public` correspondente, e vice-versa.
