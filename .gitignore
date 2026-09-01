@@ -7,3 +7,5 @@ site/
 
 # Planos / roadmap internos — não publicados
 /docs/store-plan.md
+# Rascunhos locais (posts, anotações) — não versionados
+notes/
