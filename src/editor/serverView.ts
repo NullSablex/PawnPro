@@ -386,10 +386,13 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
   /* Ocupa a área da lista em vez de ficar encolhido num canto: o vazio é a
      primeira coisa que se vê num painel novo. */
+  /* A lista é uma grade alinhada ao topo, então o vazio ficava encostado no
+     campo de busca com a área toda livre abaixo. Ocupar a altura inteira o
+     mantém centrado no espaço da lista, que é onde o olho procura. */
   .empty {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: var(--gap-sm);
-    min-height: 96px; padding: var(--gap-md);
+    height: 100%; min-height: 96px; padding: var(--gap-md);
     text-align: center;
   }
   /* Cada ícone recebe a cor do que representa: a estrela dos favoritos usa o

@@ -520,14 +520,18 @@ function getHtml(logoUri: string): string {
     color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
     opacity: 0.85;
   }
+  /* Os estilos são cinco, e a grade estava fixada em 3 linhas × 2 colunas —
+     seis células. A última sobrava sozinha numa linha extra, com um vão ao
+     lado. Sem linhas fixas, as etiquetas preenchem o espaço disponível e
+     quebram só quando precisam. */
   .style-checks {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(min(110px, 100%), 1fr));
-    grid-auto-flow: column;
-    grid-template-rows: repeat(3, auto);
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px 8px;
+    justify-content: flex-end;
     min-width: min(240px, 100%);
   }
+  .style-checks .style-badge { flex: 0 1 auto; }
   .style-badge { cursor: pointer; }
   .style-badge input { position: absolute; opacity: 0; width: 0; height: 0; }
   .style-badge span {
@@ -1158,8 +1162,8 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverSensitiveCommands"></div>
       <div class="row-desc" data-i18n="serverSensitiveCommandsDesc"></div>
     </div>
-    <div class="row-control" style="min-width:220px">
-      <div id="server-sensitive-editor" class="array-editor"></div>
+    <div class="row-control" style="min-width:100%;margin-top:8px">
+      <div class="array-editor" id="server-sensitive-editor"></div>
     </div>
   </div>
   <div class="row">
