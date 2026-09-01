@@ -339,6 +339,7 @@ function namingStyleRow(category: string): string {
   <div class="row naming-opt naming-regex-row">
     <div class="row-info">
       <label class="regex-label" for="naming-regex-${category}" data-i18n="namingRegex"></label>
+      <div class="regex-status" id="naming-regex-status-${category}" hidden></div>
     </div>
     <div class="row-control">
       <input type="text" class="regex-input" id="naming-regex-${category}"
@@ -347,8 +348,7 @@ function namingStyleRow(category: string): string {
         oninput="onNamingRegexInput('${category}')"
         onchange="commitNamingRegex('${category}')" />
     </div>
-  </div>
-  <div class="regex-status" id="naming-regex-status-${category}" hidden></div>`;
+  </div>`;
 }
 
 // Opções reutilizadas nos dois seletores de idioma (interface e diagnósticos) e
@@ -572,7 +572,9 @@ function getHtml(logoUri: string): string {
   /* O campo de padrão próprio fica sob as etiquetas da mesma categoria: é uma
      alternativa a elas, não um ajuste de outra seção. */
   .naming-regex-row { border-bottom: none; padding-top: 0; }
-  .naming-regex-row .row-control { min-width: 240px; }
+  /* Fluido como o recuo da página: num painel estreito o campo cede largura em
+     vez de espremer o rótulo ao lado. */
+  .naming-regex-row .row-control { min-width: clamp(160px, 40vw, 280px); }
   .regex-label { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
   .regex-input {
     width: 100%;
@@ -581,37 +583,29 @@ function getHtml(logoUri: string): string {
   }
   /* Só colore quando há o que dizer: vazio é o estado normal, não um erro. */
   .regex-input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
-  /* Os exemplos ocupam a linha inteira, abaixo do campo: na coluna estreita do
-     rótulo eles quebravam no meio das palavras e desalinhavam a página. */
+  /* O exemplo do padrão é o mesmo trecho de código Pawn que as etiquetas de
+     estilo mostram acima (.naming-preview), na mesma coluna do rótulo: as duas
+     respondem à mesma pergunta e não faz sentido terem aparências diferentes. */
   .regex-status {
-    display: flex; flex-wrap: wrap; gap: 4px 6px;
-    align-items: center;
-    padding: 0 0 10px 0;
-    font-size: 0.85em;
-  }
-  .regex-status.err {
     display: block;
-    color: var(--vscode-inputValidation-errorForeground, #f14c4c);
-  }
-  /* Cada exemplo é uma etiqueta inteira — nunca partida entre duas linhas. */
-  .regex-status code {
+    white-space: pre;
+    overflow-x: auto;
     font-family: var(--vscode-editor-font-family, monospace);
-    white-space: nowrap;
-    padding: 1px 6px;
-    border-radius: 10px;
-    border: 1px solid transparent;
+    font-size: 0.85em;
+    color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
+    opacity: 0.85;
+    margin-top: 3px;
   }
-  .regex-status .hit {
-    color: var(--vscode-charts-green, #89d185);
-    border-color: var(--vscode-charts-green, #89d185);
-    opacity: .95;
+  /* Aviso não é código: volta à fonte da interface para não ser lido como um
+     nome de exemplo. */
+  .regex-status.err,
+  .regex-status.note {
+    white-space: normal;
+    font-family: inherit;
+    opacity: 1;
   }
-  .regex-status .miss {
-    color: var(--vscode-descriptionForeground);
-    border-color: var(--vscode-input-border, #555);
-    opacity: .6;
-  }
-  .regex-status .note { color: var(--vscode-descriptionForeground); }
+  .regex-status.err  { color: var(--vscode-inputValidation-errorForeground, #f14c4c); }
+  .regex-status.note { color: var(--vscode-descriptionForeground); }
 
   .naming-styles { padding: 10px 0; }
   .naming-styles > summary {
@@ -1588,45 +1582,32 @@ function updateRegexStatus(category, settled) {
     return;
   }
 
-  // Os aceitos primeiro: é a resposta que o usuário procura, e assim ela cabe
-  // na primeira linha mesmo quando a lista quebra.
+  // Mostra UM nome aceito, no mesmo trecho de código Pawn que as etiquetas de
+  // estilo usam logo acima. A pergunta do usuário é "o que este padrão aceita?",
+  // e uma lista de aceitos e rejeitados lado a lado obriga a decodificar sete
+  // itens para responder a isso.
   const budget = { left: 50 };
-  const hits = [];
-  const misses = [];
-  let slow = false;
+  let accepted = null;
   for (const probe of regexProbes(category, raw)) {
     const hit = testWithBudget(re, probe, budget);
-    if (hit === null) { slow = true; break; }
-    (hit ? hits : misses).push(probe);
+    if (hit === null) {
+      status.classList.add('err');
+      status.textContent = T.namingRegexTooSlow;
+      status.hidden = false;
+      return;
+    }
+    if (hit) { accepted = probe; break; }
   }
 
-  if (slow) {
-    status.classList.add('err');
-    status.textContent = T.namingRegexTooSlow;
+  if (accepted === null) {
+    status.classList.add('note');
+    status.textContent = T.namingRegexMatchesNothing;
     status.hidden = false;
     return;
   }
 
-  const frag = document.createDocumentFragment();
-  for (const probe of hits) {
-    const el = document.createElement('code');
-    el.className = 'hit';
-    el.textContent = '\u2713 ' + probe;
-    frag.appendChild(el);
-  }
-  for (const probe of misses) {
-    const el = document.createElement('code');
-    el.className = 'miss';
-    el.textContent = '\u00d7 ' + probe;
-    frag.appendChild(el);
-  }
-  if (hits.length === 0) {
-    const warn = document.createElement('span');
-    warn.className = 'note';
-    warn.textContent = T.namingRegexMatchesNothing;
-    status.appendChild(warn);
-  }
-  status.appendChild(frag);
+  const tpl = NAMING_TEMPLATE[category] ?? '{}';
+  status.textContent = tpl.replace('{}', accepted);
   status.hidden = false;
 }
 
