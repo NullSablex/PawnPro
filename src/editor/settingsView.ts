@@ -1329,7 +1329,7 @@ function applyState(cfg) {
     }
     // O padrão próprio é o item entre barras; os demais são os embutidos.
     setInput('naming-regex-' + cat, accepted.find(isRegexRule) ?? '');
-    updateRegexStatus(cat);
+    updateRegexStatus(cat, true);
     updateNamingPreview(cat, accepted);
   }
   setSelect('syntax-scheme',        cfg.syntax?.scheme ?? 'none');
@@ -1467,20 +1467,48 @@ function compileRule(raw) {
 
 // Nomes testados contra o padrão do usuário: os cinco estilos embutidos daquela
 // categoria, mais variantes com prefixo, que é o caso real mais comum.
-function regexProbes(category) {
+function regexProbes(category, raw) {
   const out = [];
   for (const st of STYLE_OPTIONS) {
     const sample = styleSample(category, st);
     if (sample) out.push(sample);
   }
   const base = out[0];
-  if (base) out.push('g_' + base, '_' + base);
+  if (!base) return out;
+  // O prefixo sai do próprio padrão quando ele começa por um literal (o caso
+  // comum: /^g_[a-z].../). Sem isso o exemplo prefixado usaria uma letra fixa
+  // e não casaria com o padrão que o usuário acabou de escrever.
+  const prefix = literalPrefix(raw);
+  if (prefix && !out.includes(prefix + base)) out.push(prefix + base);
+  out.push('_' + base);
   return out;
+}
+
+// Trecho literal no início do padrão, antes de qualquer metacaractere. Devolve
+// '' quando não há um — aí não há prefixo a exemplificar.
+function literalPrefix(raw) {
+  if (!isRegexRule(raw)) return '';
+  let body = raw.slice(1, -1);
+  if (body.startsWith('^')) body = body.slice(1);
+  const m = /^[A-Za-z0-9_]+/.exec(body);
+  if (!m) return '';
+  // Um literal seguido de quantificador pertence ao quantificador, não ao
+  // prefixo: em ab* o b é opcional.
+  const lit = m[0];
+  const next = body.charAt(lit.length);
+  const trimmed = '*?+{'.includes(next) ? lit.slice(0, -1) : lit;
+  return trimmed;
 }
 
 // Mostra se o padrão é válido e quais exemplos ele aceita — o usuário vê o
 // efeito da regra antes de salvá-la.
-function updateRegexStatus(category) {
+//
+// O parâmetro settled distingue quem está digitando de quem terminou: na
+// digitação o texto passa por estados incompletos (a barra final é o último
+// caractere), e acusá-los como erro a cada tecla seria ruído. O que não
+// pode acontecer em nenhum dos dois casos é o preview mostrar exemplos de um
+// padrão diferente do que está no campo.
+function updateRegexStatus(category, settled) {
   const input = document.getElementById('naming-regex-' + category);
   const status = document.getElementById('naming-regex-status-' + category);
   if (!input || !status) return;
@@ -1491,16 +1519,13 @@ function updateRegexStatus(category) {
   input.classList.remove('invalid');
   if (!raw) return;
 
-  if (!isRegexRule(raw)) {
-    status.classList.add('err');
-    status.textContent = T.namingRegexNeedsSlashes;
-    input.classList.add('invalid');
-    return;
-  }
-  const re = compileRule(raw);
+  const re = isRegexRule(raw) ? compileRule(raw) : null;
   if (!re) {
+    // Sem padrão utilizável não há exemplos a mostrar: o campo fica sem
+    // resposta em vez de manter a do padrão anterior.
+    if (!settled) return;
     status.classList.add('err');
-    status.textContent = T.namingRegexInvalid;
+    status.textContent = isRegexRule(raw) ? T.namingRegexInvalid : T.namingRegexNeedsSlashes;
     input.classList.add('invalid');
     return;
   }
@@ -1508,7 +1533,7 @@ function updateRegexStatus(category) {
   status.classList.add('ok');
   const frag = document.createDocumentFragment();
   let any = false;
-  for (const probe of regexProbes(category)) {
+  for (const probe of regexProbes(category, raw)) {
     const el = document.createElement('code');
     const hit = re.test(probe);
     if (hit) any = true;
@@ -1525,9 +1550,10 @@ function updateRegexStatus(category) {
   status.appendChild(frag);
 }
 
-// Enquanto digita: só valida e mostra o efeito, sem gravar a cada tecla.
+// Enquanto digita: mostra o efeito do que já é um padrão completo, sem gravar
+// a cada tecla e sem acusar como erro o que ainda está pela metade.
 function onNamingRegexInput(category) {
-  updateRegexStatus(category);
+  updateRegexStatus(category, false);
 }
 
 // Ao confirmar: grava junto dos estilos marcados. Um padrão inválido não é
@@ -1537,9 +1563,12 @@ function commitNamingRegex(category) {
   const input = document.getElementById('naming-regex-' + category);
   if (!input) return;
   const raw = input.value.trim();
+  // Agora sim vale apontar o que está errado: o usuário terminou de escrever.
+  updateRegexStatus(category, true);
   if (raw && (!isRegexRule(raw) || !compileRule(raw))) return;
-  set('analysis.naming.style.' + category, readAcceptedStyles(category));
-  updateNamingPreview(category, readAcceptedStyles(category));
+  const accepted = readAcceptedStyles(category);
+  set('analysis.naming.style.' + category, accepted);
+  updateNamingPreview(category, accepted);
 }
 
 // Pede ao host para abrir o arquivo de lista (.ban / .allow), criando-o se
