@@ -326,25 +326,24 @@ function namingStyleRow(category: string): string {
         </label>`,
     )
     .join('');
+  // Uma linha por categoria: as etiquetas e o padrão próprio são a MESMA
+  // configuração (a lista de critérios aceitos), então dividir em duas linhas
+  // com borda entre elas fazia o padrão parecer pertencer à categoria seguinte.
   return /* html */`
   <div class="row naming-opt naming-style-row">
     <div class="row-info">
       <div class="row-label" data-i18n="namingStyle.${category}"></div>
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
+        <code class="naming-preview regex-status" id="naming-regex-status-${category}" hidden></code>
       </div>
     </div>
-    <div class="row-control style-checks">${checks}</div>
-  </div>
-  <div class="row naming-opt naming-regex-row">
-    <div class="row-info">
-      <label class="regex-label" for="naming-regex-${category}" data-i18n="namingRegex"></label>
-      <div class="regex-status" id="naming-regex-status-${category}" hidden></div>
-    </div>
-    <div class="row-control">
+    <div class="row-control style-checks">
+      ${checks}
       <input type="text" class="regex-input" id="naming-regex-${category}"
         spellcheck="false" autocapitalize="off" autocomplete="off"
         placeholder="/^g_[a-z][a-zA-Z0-9]*$/"
+        data-i18n-aria="namingRegex"
         oninput="onNamingRegexInput('${category}')"
         onchange="commitNamingRegex('${category}')" />
     </div>
@@ -571,31 +570,25 @@ function getHtml(logoUri: string): string {
   }
   /* O campo de padrão próprio fica sob as etiquetas da mesma categoria: é uma
      alternativa a elas, não um ajuste de outra seção. */
-  .naming-regex-row { border-bottom: none; padding-top: 0; }
-  /* Fluido como o recuo da página: num painel estreito o campo cede largura em
-     vez de espremer o rótulo ao lado. */
-  .naming-regex-row .row-control { min-width: clamp(160px, 40vw, 280px); }
-  .regex-label { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
-  .regex-input {
+  /* O campo fecha a grade de etiquetas ocupando as duas colunas: é o mesmo
+     grupo de critérios, e a linha da categoria não se divide. */
+  .style-checks .regex-input {
+    /* A grade preenche por coluna (3 linhas fixas), então o campo é colocado
+       explicitamente numa quarta linha própria, cruzando as duas colunas — sem
+       isso ele entraria como sexta etiqueta, ao lado das outras. */
+    grid-row: 4;
+    grid-column: 1 / -1;
     width: 100%;
+    margin-top: 2px;
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 0.85em;
   }
   /* Só colore quando há o que dizer: vazio é o estado normal, não um erro. */
   .regex-input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
-  /* O exemplo do padrão é o mesmo trecho de código Pawn que as etiquetas de
-     estilo mostram acima (.naming-preview), na mesma coluna do rótulo: as duas
-     respondem à mesma pergunta e não faz sentido terem aparências diferentes. */
-  .regex-status {
-    display: block;
-    white-space: pre;
-    overflow-x: auto;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 0.85em;
-    color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
-    opacity: 0.85;
-    margin-top: 3px;
-  }
+  /* O exemplo do padrão é o mesmo trecho de código Pawn dos estilos embutidos
+     (.naming-preview, de onde herda a aparência): as duas respondem à mesma
+     pergunta e ficam na mesma coluna, uma sob a outra. */
+  .regex-status { overflow-x: auto; }
   /* Aviso não é código: volta à fonte da interface para não ser lido como um
      nome de exemplo. */
   .regex-status.err,
@@ -786,7 +779,7 @@ ${brandAnimationCss()}
       <div class="row-label" data-i18n="compilerPath"></div>
       <div class="row-desc" data-i18n="compilerPathDesc"></div>
     </div>
-    <div class="row-control" style="min-width:280px">
+    <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="compiler-path" placeholder="ex: C:/pawno/pawncc.exe"
         onchange="set('compiler.path', this.value.trim())">
     </div>
@@ -835,7 +828,7 @@ ${brandAnimationCss()}
       <div class="row-label" data-i18n="outputEncoding"></div>
       <div class="row-desc" data-i18n="outputEncodingDesc"></div>
     </div>
-    <div class="row-control" style="min-width:180px">
+    <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
       <select id="output-encoding" onchange="set('output.encoding', this.value)">
 ${ENCODING_OPTIONS}
       </select>
@@ -876,7 +869,7 @@ ${ENCODING_OPTIONS}
       <div class="row-label" data-i18n="analysisSdkPlatform"></div>
       <div class="row-desc" data-i18n="analysisSdkPlatformDesc"></div>
     </div>
-    <div class="row-control" style="min-width:160px">
+    <div class="row-control" style="min-width:clamp(96px, 23vw, 160px)">
       <select id="analysis-sdk-platform" onchange="set('analysis.sdk.platform', this.value)">
         <option value="omp">open.mp</option>
         <option value="samp">SA-MP</option>
@@ -889,7 +882,7 @@ ${ENCODING_OPTIONS}
       <div class="row-label" data-i18n="analysisSdkPath"></div>
       <div class="row-desc" data-i18n="analysisSdkPathDesc"></div>
     </div>
-    <div class="row-control" style="min-width:280px">
+    <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="analysis-sdk-filePath" placeholder="\${workspaceFolder}/pawno/include/a_samp.inc"
         onchange="set('analysis.sdk.filePath', this.value.trim())">
     </div>
@@ -938,7 +931,7 @@ baz();</pre>
       <div class="row-label" data-i18n="formatBraceStyle"></div>
       <div class="row-desc" data-i18n="formatBraceStyleDesc"></div>
     </div>
-    <div class="row-control" style="min-width:180px">
+    <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
       <select id="format-braceStyle" onchange="set('format.braceStyle', this.value)">
         <option value="nextLine" data-i18n="formatBraceNextLine"></option>
         <option value="sameLine" data-i18n="formatBraceSameLine"></option>
@@ -1061,7 +1054,7 @@ baz();</pre>
       <div class="row-label" data-i18n="syntaxScheme"></div>
       <div class="row-desc" data-i18n="syntaxSchemeDesc"></div>
     </div>
-    <div class="row-control" style="min-width:220px">
+    <div class="row-control" style="min-width:clamp(132px, 31vw, 220px)">
       <select id="syntax-scheme" onchange="set('syntax.scheme', this.value)">
         <option value="auto"          data-i18n="schemeAuto"></option>
         <option value="classic_white" data-i18n="schemeClassicLight"></option>
@@ -1120,7 +1113,7 @@ baz();</pre>
       <div class="row-label" data-i18n="uiInterfaceLocale"></div>
       <div class="row-desc" data-i18n="uiInterfaceLocaleDesc"></div>
     </div>
-    <div class="row-control" style="min-width:200px">
+    <div class="row-control" style="min-width:clamp(120px, 29vw, 200px)">
       <select id="ui-locale" onchange="set('ui.locale', this.value)">
 ${LOCALE_OPTIONS}
       </select>
@@ -1131,7 +1124,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="uiLocale"></div>
       <div class="row-desc" data-i18n="uiLocaleDesc"></div>
     </div>
-    <div class="row-control" style="min-width:200px">
+    <div class="row-control" style="min-width:clamp(120px, 29vw, 200px)">
       <select id="locale" onchange="set('locale', this.value)">
 ${LOCALE_OPTIONS}
       </select>
@@ -1146,7 +1139,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverType"></div>
       <div class="row-desc" data-i18n="serverTypeDesc"></div>
     </div>
-    <div class="row-control" style="min-width:180px">
+    <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
       <select id="server-type" onchange="set('server.type', this.value)">
         <option value="auto" data-i18n="serverTypeAuto"></option>
         <option value="samp" data-i18n="serverTypeSamp"></option>
@@ -1159,7 +1152,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverPath"></div>
       <div class="row-desc" data-i18n="serverPathDesc"></div>
     </div>
-    <div class="row-control" style="min-width:280px">
+    <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="server-path" placeholder="\${workspaceFolder}/samp-server.exe"
         onchange="set('server.path', this.value.trim())">
     </div>
@@ -1169,7 +1162,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverCwd"></div>
       <div class="row-desc" data-i18n="serverCwdDesc"></div>
     </div>
-    <div class="row-control" style="min-width:280px">
+    <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="server-cwd" placeholder="\${workspaceFolder}"
         onchange="set('server.cwd', this.value.trim())">
     </div>
@@ -1223,7 +1216,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverFollowLog"></div>
       <div class="row-desc" data-i18n="serverFollowLogDesc"></div>
     </div>
-    <div class="row-control" style="min-width:180px">
+    <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
       <select id="server-output-follow" onchange="set('server.output.follow', this.value)">
         <option value="visible" data-i18n="followVisible"></option>
         <option value="always"  data-i18n="followAlways"></option>
@@ -1236,7 +1229,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverLogPath"></div>
       <div class="row-desc" data-i18n="serverLogPathDesc"></div>
     </div>
-    <div class="row-control" style="min-width:280px">
+    <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="server-logPath" placeholder="\${workspaceFolder}/server_log.txt"
         onchange="set('server.logPath', this.value.trim())">
     </div>
@@ -1246,7 +1239,7 @@ ${LOCALE_OPTIONS}
       <div class="row-label" data-i18n="serverLogEncoding"></div>
       <div class="row-desc" data-i18n="serverLogEncodingDesc"></div>
     </div>
-    <div class="row-control" style="min-width:180px">
+    <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
       <select id="server-logEncoding" onchange="set('server.logEncoding', this.value)">
 ${ENCODING_OPTIONS}
       </select>
@@ -1303,6 +1296,12 @@ function applyI18n(i18n) {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (i18n[key] !== undefined) el.textContent = i18n[key];
+  });
+  // Campos sem rótulo visível levam o nome em aria-label, que textContent não
+  // alcança.
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const key = el.getAttribute('data-i18n-aria');
+    if (i18n[key] !== undefined) el.setAttribute('aria-label', i18n[key]);
   });
 
   const note = document.getElementById('note-text');
