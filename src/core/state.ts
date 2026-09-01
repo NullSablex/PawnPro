@@ -18,12 +18,43 @@ function readJsonFile(filePath: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Garante que `.pawnpro/` tenha um `.gitignore` cobrindo o estado local.
+ *
+ * `state.json` guarda o histórico de comandos do servidor — dados da operação
+ * de quem desenvolve, que não pertencem ao repositório. Um `.gitignore` dentro
+ * da própria pasta protege sem exigir que cada projeto lembre de listá-la, e
+ * sem tocar no `.gitignore` da raiz, que é do usuário.
+ */
+function ensureIgnored(dir: string): void {
+  const file = path.join(dir, '.gitignore');
+  try {
+    if (fs.existsSync(file)) return;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      file,
+      '# Estado local do PawnPro — não pertence ao repositório.\n'
+        + 'state.json\n',
+      'utf8',
+    );
+  } catch {
+    // Sem permissão de escrita, o estado ainda funciona; só não se autoprotege.
+  }
+}
+
 function writeJsonFile(filePath: string, data: unknown): void {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
   const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
+  // 0600: o histórico guarda o que se digitou no painel do servidor. Mesmo
+  // filtrando o que parece credencial, o resto revela a operação do servidor —
+  // não há motivo para outros usuários da máquina lerem. Em Windows o modo é
+  // ignorado pelo sistema, e a ACL do diretório é quem vale.
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
   fs.renameSync(tmp, filePath);
+  // `rename` preserva o modo do arquivo temporário, mas um arquivo que já
+  // existia de uma versão anterior mantém a permissão antiga.
+  try { fs.chmodSync(filePath, 0o600); } catch { /* sistema sem suporte */ }
 }
 
 function parseServerState(raw: Record<string, unknown>): ServerState {
@@ -41,6 +72,7 @@ export class PawnProStateManager {
 
   constructor(projectRoot: string) {
     this.filePath = path.join(projectRoot, '.pawnpro', 'state.json');
+    ensureIgnored(path.dirname(this.filePath));
     this.load();
   }
 
