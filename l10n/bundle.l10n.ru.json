@@ -292,5 +292,8 @@
   "Remover dos favoritos": "Убрать из избранного",
   "Recentes": "Недавние",
   "Digite um comando": "Введите команду",
-  "Sem barra: `gmx`, `kick 0`": "Без слэша: `gmx`, `kick 0`"
+  "Buscar comando": "Поиск команды",
+  "Nenhum comando corresponde à busca.": "Ни одна команда не соответствует поиску.",
+  "Mostrar mais": "Показать ещё",
+  "Guia do servidor: comandos, favoritos e log": "Руководство по серверу: команды, избранное и журнал"
 }

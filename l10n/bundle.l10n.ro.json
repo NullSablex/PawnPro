@@ -292,5 +292,8 @@
   "Remover dos favoritos": "Elimină de la favorite",
   "Recentes": "Recente",
   "Digite um comando": "Scrie o comandă",
-  "Sem barra: `gmx`, `kick 0`": "Fără bară: `gmx`, `kick 0`"
+  "Buscar comando": "Caută comandă",
+  "Nenhum comando corresponde à busca.": "Nicio comandă nu se potrivește căutării.",
+  "Mostrar mais": "Arată mai multe",
+  "Guia do servidor: comandos, favoritos e log": "Ghidul serverului: comenzi, favorite și jurnal"
 }

@@ -30,6 +30,11 @@ const ICON_STAR_OFF = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="fa
   <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
 </svg>`;
 
+/** Lixeira: limpar a lista da aba visível. */
+const ICON_TRASH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="M6.5 1a.5.5 0 0 0-.5.5V2H3a.5.5 0 0 0 0 1h.44l.63 10.06A1.5 1.5 0 0 0 5.57 14.5h4.86a1.5 1.5 0 0 0 1.5-1.44L12.56 3H13a.5.5 0 0 0 0-1h-3v-.5a.5.5 0 0 0-.5-.5h-3ZM7 2h2v-.5H7V2Zm-.44 3a.5.5 0 0 1 .5.47l.3 6a.5.5 0 1 1-1 .06l-.3-6a.5.5 0 0 1 .5-.53Zm2.88 0a.5.5 0 0 1 .5.53l-.3 6a.5.5 0 1 1-1-.06l.3-6a.5.5 0 0 1 .5-.47Z"/>
+</svg>`;
+
 /**
  * Escapa texto para interpolação em HTML.
  *
@@ -43,16 +48,6 @@ function esc(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-/**
- * Escapa e converte os trechos entre crases em `<code>`.
- *
- * A ordem importa: escapar primeiro e marcar depois garante que só as tags
- * geradas aqui cheguem ao HTML — um `<` vindo da tradução já virou `&lt;`.
- */
-function escWithCode(value: string): string {
-  return esc(value).replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
 export class ServerViewProvider implements vscode.WebviewViewProvider {
@@ -191,6 +186,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
        a legenda alinha por este mesmo valor. */
     --control-h: 28px;
     --control-pad: 9px;
+    /* Altura de uma linha da lista, base para o recorte do scroll. */
+    --row-h: 30px;
     --radius: 8px;
     --bg: var(--vscode-sideBar-background);
     --fg: var(--vscode-foreground);
@@ -200,7 +197,6 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     --btn-hover: var(--vscode-button-hoverBackground);
     --input-bg: var(--vscode-input-background);
     --input-fg: var(--vscode-input-foreground);
-    --hint: var(--vscode-descriptionForeground);
     --list-bg: var(--vscode-editorWidget-background);
     --list-border: var(--vscode-widget-border);
     --muted: var(--vscode-descriptionForeground);
@@ -228,17 +224,6 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
   }
   button:hover { background: var(--btn-hover); }
-  /* Legenda do campo: colada nele e alinhada ao texto do input, para ser
-     lida como parte do campo e não como um aviso solto. */
-  .hint {
-    margin: var(--gap-xs) 0 0; padding-left: var(--control-pad);
-    color: var(--hint); font-size: 11px;
-  }
-  .hint code {
-    padding: 0 3px; border-radius: 3px;
-    background: var(--vscode-textCodeBlock-background, rgba(255,255,255,.07));
-    font-family: var(--vscode-editor-font-family, monospace); font-size: 10px;
-  }
   .section {
     /* O recuo interno vive numa variável própria porque as abas se estendem
        até a borda cancelando-o; mudar um sem o outro desalinharia a régua. */
@@ -247,10 +232,34 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     border-radius: var(--radius); background: var(--list-bg);
     padding: var(--section-pad);
   }
-  .items { display: grid; gap: var(--gap-xs); max-height: 180px; overflow: auto; }
+  /* A altura vem do número de linhas visíveis, para a lista não cortar um
+     item ao meio; a barra usa as cores do tema, em vez da barra padrão larga
+     e clara que destoava do painel. */
+  .items {
+    display: grid; gap: var(--gap-xs);
+    max-height: calc(var(--row-h) * 6 + var(--gap-xs) * 5);
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+  }
+  .items::-webkit-scrollbar { width: 10px; }
+  .items::-webkit-scrollbar-track { background: transparent; }
+  .items::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border: 3px solid transparent; border-radius: 6px; background-clip: content-box;
+  }
+  .items::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+    background-clip: content-box;
+  }
+  .items::-webkit-scrollbar-thumb:active {
+    background: var(--vscode-scrollbarSlider-activeBackground);
+    background-clip: content-box;
+  }
   .empty { opacity:.7; font-style: italic; }
   .cmd-row {
     display: flex; gap: var(--gap-sm); align-items: center;
+    min-height: var(--row-h);
     padding: var(--gap-xs) var(--gap-sm); border-radius: 6px;
     border: 1px solid transparent;
     background: transparent;
@@ -305,7 +314,19 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     color: var(--fg);
     border-bottom-color: var(--vscode-focusBorder, var(--btn-bg));
   }
-  .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; }
+  /* Cabe até 3 dígitos (o histórico vai a 200) sem empurrar o rótulo. */
+  .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
+
+  .search {
+    width: 100%; margin-bottom: var(--gap-sm); height: 24px;
+    padding: 0 var(--control-pad); border-radius: var(--radius);
+    border: 1px solid var(--vscode-input-border, var(--border));
+    background: var(--input-bg); color: var(--input-fg);
+    font-size: 11px; outline: none;
+  }
+  .search:focus { border-color: var(--vscode-focusBorder); }
+
+  .load-more { width: 100%; margin-top: var(--gap-sm); }
   .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
   .tab-actions .mini { white-space: nowrap; }
   [hidden] { display: none !important; }
@@ -329,7 +350,6 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       ${ICON_SEND}
     </button>
   </div>
-  <div class="hint">${escWithCode(msg.serverView.hint())}</div>
 
   <div class="section">
     <div class="tabs" role="tablist">
@@ -340,12 +360,14 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
         ${esc(msg.serverView.tabFavorites())}<span id="favCount" class="tab-count"></span>
       </button>
       <div class="tab-actions">
-        <button id="histClear" class="mini ghost">${esc(msg.serverView.clear())}</button>
-        <button id="favClear" class="mini ghost" hidden>${esc(msg.serverView.clear())}</button>
+        <button id="histClear" class="mini ghost icon-btn" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}">${ICON_TRASH}</button>
+        <button id="favClear" class="mini ghost icon-btn" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}" hidden>${ICON_TRASH}</button>
       </div>
     </div>
+    <input id="search" class="search" type="search" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" hidden />
     <div id="histItems" class="items" role="tabpanel"><div class="empty">${esc(msg.serverView.emptyHistory())}</div></div>
     <div id="favItems" class="items" role="tabpanel" hidden><div class="empty">${esc(msg.serverView.emptyFavorites())}</div></div>
+    <button id="loadMore" class="mini ghost load-more" hidden>${esc(msg.serverView.loadMore())}</button>
   </div>
 
 <script>
@@ -359,6 +381,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     emptyFavorites: msg.serverView.emptyFavorites(),
     addFavorite: msg.serverView.addFavorite(),
     removeFavorite: msg.serverView.removeFavorite(),
+    noMatches: msg.serverView.noMatches(),
   })};
   const $ = sel => document.querySelector(sel);
   const input = $('#cmd');
@@ -367,6 +390,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   const favItems  = $('#favItems');
   const histClear = $('#histClear');
   const favClear  = $('#favClear');
+  const search    = $('#search');
+  const loadMore  = $('#loadMore');
   const tabHist   = $('#tabHist');
   const tabFav    = $('#tabFav');
   const histCount = $('#histCount');
@@ -375,6 +400,13 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   let history = [];
   let favorites = [];
   let cursor = -1;
+  let tab = 'hist';
+  let query = '';
+  // Quantos itens a lista mostra de uma vez. Cresce ao pedir mais, e volta ao
+  // início a cada troca de aba ou busca — a página não faz sentido sobre outro
+  // conjunto.
+  const PAGE = 20;
+  let shown = PAGE;
 
   function escapeAttr(s) {
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -423,45 +455,74 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     return row;
   }
 
-  function renderFavorites() {
-    favItems.innerHTML = '';
-    if (!favorites.length) {
+  function filtered(list) {
+    const q = query.trim().toLowerCase();
+    return q ? list.filter(c => c.toLowerCase().includes(q)) : list;
+  }
+
+  function renderList(container, list, emptyText, starOf) {
+    container.innerHTML = '';
+    const items = filtered(list);
+    if (!items.length) {
       const div = document.createElement('div');
       div.className = 'empty';
-      div.textContent = T.emptyFavorites;
-      favItems.appendChild(div);
-      return;
+      // Distingue "não há nada" de "a busca não achou nada".
+      div.textContent = list.length ? T.noMatches : emptyText;
+      container.appendChild(div);
+      return 0;
     }
-    favorites.forEach(cmd => favItems.appendChild(mkCmdRow(cmd, { star: true })));
+    items.slice(0, shown).forEach(cmd => {
+      container.appendChild(mkCmdRow(cmd, { star: starOf(cmd) }));
+    });
+    return items.length;
+  }
+
+  function renderFavorites() {
+    return renderList(favItems, favorites, T.emptyFavorites, () => true);
   }
 
   function renderHistory() {
-    histItems.innerHTML = '';
-    if (!history.length) {
-      const div = document.createElement('div');
-      div.className = 'empty';
-      div.textContent = T.emptyHistory;
-      histItems.appendChild(div);
-      return;
-    }
-    history.forEach(cmd => histItems.appendChild(mkCmdRow(cmd, { star: favorites.includes(cmd) })));
+    return renderList(histItems, history, T.emptyHistory, cmd => favorites.includes(cmd));
+  }
+
+  function render() {
+    const total = tab === 'fav' ? renderFavorites() : renderHistory();
+    loadMore.hidden = total <= shown;
+    renderCounts();
   }
 
   // A aba escolhida sobrevive ao re-render; o botão "Limpar" segue a aba
   // visível, para não haver dois com o mesmo rótulo e alvos diferentes.
   function selectTab(which) {
     const fav = which === 'fav';
+    tab = which;
+    shown = PAGE;
+    query = '';
+    search.value = '';
     tabFav.setAttribute('aria-selected', String(fav));
     tabHist.setAttribute('aria-selected', String(!fav));
     favItems.hidden = !fav;
     histItems.hidden = fav;
     favClear.hidden = !fav;
     histClear.hidden = fav;
+    updateSearchVisibility();
+    render();
+  }
+
+  // A busca só aparece quando há o que buscar.
+  function updateSearchVisibility() {
+    const list = tab === 'fav' ? favorites : history;
+    search.hidden = list.length <= PAGE / 2;
+  }
+
+  // Acima de 99 o número deixa de informar e só rouba espaço do rótulo.
+  function badge(n) {
+    return n ? '(' + (n > 99 ? '99+' : n) + ')' : '';
   }
 
   function renderCounts() {
-    histCount.textContent = history.length ? '(' + history.length + ')' : '';
-    favCount.textContent = favorites.length ? '(' + favorites.length + ')' : '';
+    histCount.textContent = badge(history.length);
+    favCount.textContent = badge(favorites.length);
   }
 
   function applyState(payload) {
@@ -469,9 +530,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     history = Array.isArray(p.history) ? p.history : [];
     favorites = Array.isArray(p.favorites) ? p.favorites : [];
     cursor = -1;
-    renderFavorites();
-    renderHistory();
-    renderCounts();
+    updateSearchVisibility();
+    render();
   }
 
   function sendCmd(text) {
@@ -501,6 +561,9 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
     }
   });
+
+  search.addEventListener('input', () => { query = search.value; shown = PAGE; render(); });
+  loadMore.addEventListener('click', () => { shown += PAGE; render(); });
 
   tabHist.addEventListener('click', () => selectTab('hist'));
   tabFav.addEventListener('click', () => selectTab('fav'));

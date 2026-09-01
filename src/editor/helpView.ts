@@ -6,6 +6,7 @@ import type { PawnProConfigManager } from '../core/config.js';
 
 const DOCS_URL = 'https://pawnpro.nullsablex.com';
 const DEBUG_DOCS_URL = 'https://pawnpro.nullsablex.com/debugging/';
+const SERVER_DOCS_URL = 'https://pawnpro.nullsablex.com/server/';
 const EXTENSION_REPO = 'https://github.com/NullSablex/PawnPro';
 const ISSUES_URL = 'https://github.com/NullSablex/PawnPro/issues';
 const OPENMP_COMPILER_URL = 'https://github.com/openmultiplayer/compiler/releases';
@@ -83,6 +84,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
 
   const links = [
     link(msg.help.linkDocs(), DOCS_URL),
+    link(msg.help.linkServerGuide(), SERVER_DOCS_URL),
     link(msg.help.linkExtension(), EXTENSION_REPO),
     link(msg.help.linkEngine(), engineRepo),
     link(msg.help.linkDebugger(), debuggerRepo),

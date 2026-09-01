@@ -292,5 +292,8 @@
   "Remover dos favoritos": "Quitar de favoritos",
   "Recentes": "Recientes",
   "Digite um comando": "Escribe un comando",
-  "Sem barra: `gmx`, `kick 0`": "Sin barra: `gmx`, `kick 0`"
+  "Buscar comando": "Buscar comando",
+  "Nenhum comando corresponde à busca.": "Ningún comando coincide con la búsqueda.",
+  "Mostrar mais": "Mostrar más",
+  "Guia do servidor: comandos, favoritos e log": "Guía del servidor: comandos, favoritos y registro"
 }
