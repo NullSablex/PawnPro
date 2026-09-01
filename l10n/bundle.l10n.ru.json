@@ -286,14 +286,17 @@
   "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
   "Enviar para o servidor": "Отправить на сервер",
   "Favoritos": "Избранное",
-  "Sem histórico ainda.": "Истории пока нет.",
-  "Nenhum favorito.": "Нет избранного.",
   "Adicionar aos favoritos": "Добавить в избранное",
   "Remover dos favoritos": "Убрать из избранного",
   "Recentes": "Недавние",
   "Digite um comando": "Введите команду",
   "Buscar comando": "Поиск команды",
-  "Nenhum comando corresponde à busca.": "Ни одна команда не соответствует поиску.",
   "Mostrar mais": "Показать ещё",
-  "Guia do servidor: comandos, favoritos e log": "Руководство по серверу: команды, избранное и журнал"
+  "Guia do servidor: comandos, favoritos e log": "Руководство по серверу: команды, избранное и журнал",
+  "Nenhum comando ainda": "Команд пока нет",
+  "Os comandos que você enviar aparecem aqui.": "Отправленные команды появятся здесь.",
+  "Nenhum favorito": "Нет избранного",
+  "Marque um comando com a estrela para tê-lo sempre à mão.": "Отметьте команду звёздочкой, чтобы держать её под рукой.",
+  "Nada encontrado": "Ничего не найдено",
+  "Tente outro trecho do comando.": "Попробуйте другую часть команды."
 }

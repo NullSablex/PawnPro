@@ -286,14 +286,17 @@
   "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
   "Enviar para o servidor": "Send to the server",
   "Favoritos": "Favorites",
-  "Sem histórico ainda.": "No history yet.",
-  "Nenhum favorito.": "No favorites.",
   "Adicionar aos favoritos": "Add to favorites",
   "Remover dos favoritos": "Remove from favorites",
   "Recentes": "Recent",
   "Digite um comando": "Type a command",
   "Buscar comando": "Search command",
-  "Nenhum comando corresponde à busca.": "No command matches the search.",
   "Mostrar mais": "Show more",
-  "Guia do servidor: comandos, favoritos e log": "Server guide: commands, favorites and log"
+  "Guia do servidor: comandos, favoritos e log": "Server guide: commands, favorites and log",
+  "Nenhum comando ainda": "No commands yet",
+  "Os comandos que você enviar aparecem aqui.": "Commands you send show up here.",
+  "Nenhum favorito": "No favorites",
+  "Marque um comando com a estrela para tê-lo sempre à mão.": "Star a command to keep it within reach.",
+  "Nada encontrado": "Nothing found",
+  "Tente outro trecho do comando.": "Try another part of the command."
 }

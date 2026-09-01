@@ -286,14 +286,17 @@
   "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
   "Enviar para o servidor": "Enviar para o servidor",
   "Favoritos": "Favoritos",
-  "Sem histórico ainda.": "Sem histórico ainda.",
-  "Nenhum favorito.": "Nenhum favorito.",
   "Adicionar aos favoritos": "Adicionar aos favoritos",
   "Remover dos favoritos": "Remover dos favoritos",
   "Recentes": "Recentes",
   "Digite um comando": "Digite um comando",
   "Buscar comando": "Buscar comando",
-  "Nenhum comando corresponde à busca.": "Nenhum comando corresponde à busca.",
   "Mostrar mais": "Mostrar mais",
-  "Guia do servidor: comandos, favoritos e log": "Guia do servidor: comandos, favoritos e log"
+  "Guia do servidor: comandos, favoritos e log": "Guia do servidor: comandos, favoritos e log",
+  "Nenhum comando ainda": "Nenhum comando ainda",
+  "Os comandos que você enviar aparecem aqui.": "Os comandos que você enviar aparecem aqui.",
+  "Nenhum favorito": "Nenhum favorito",
+  "Marque um comando com a estrela para tê-lo sempre à mão.": "Marque um comando com a estrela para tê-lo sempre à mão.",
+  "Nada encontrado": "Nada encontrado",
+  "Tente outro trecho do comando.": "Tente outro trecho do comando."
 }

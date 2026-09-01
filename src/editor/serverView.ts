@@ -30,6 +30,22 @@ const ICON_STAR_OFF = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="fa
   <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
 </svg>`;
 
+/** Estrela contornada, em tamanho grande, para o estado vazio dos favoritos. */
+const ICON_EMPTY_STAR = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+</svg>`;
+
+/** Terminal, para o estado vazio do histórico. */
+const ICON_EMPTY_HISTORY = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1h9A1.5 1.5 0 0 1 14 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5v-11Zm1.5-.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9Z"/>
+  <path d="M4.6 5.15a.5.5 0 0 1 .7-.05L7.9 7.3a.5.5 0 0 1 0 .76L5.3 10.3a.5.5 0 0 1-.65-.76L6.8 7.68 4.65 5.85a.5.5 0 0 1-.05-.7ZM8.5 10a.5.5 0 0 1 .5-.5h2.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5Z"/>
+</svg>`;
+
+/** Lupa, para quando a busca não encontra nada. */
+const ICON_EMPTY_SEARCH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="M6.75 1.5a5.25 5.25 0 1 0 3.2 9.41l3.42 3.42a.75.75 0 0 0 1.06-1.06l-3.42-3.42A5.25 5.25 0 0 0 6.75 1.5Zm-3.75 5.25a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z"/>
+</svg>`;
+
 /** Lixeira: limpar a lista da aba visível. */
 const ICON_TRASH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
   <path d="M6.5 1a.5.5 0 0 0-.5.5V2H3a.5.5 0 0 0 0 1h.44l.63 10.06A1.5 1.5 0 0 0 5.57 14.5h4.86a1.5 1.5 0 0 0 1.5-1.44L12.56 3H13a.5.5 0 0 0 0-1h-3v-.5a.5.5 0 0 0-.5-.5h-3ZM7 2h2v-.5H7V2Zm-.44 3a.5.5 0 0 1 .5.47l.3 6a.5.5 0 1 1-1 .06l-.3-6a.5.5 0 0 1 .5-.53Zm2.88 0a.5.5 0 0 1 .5.53l-.3 6a.5.5 0 1 1-1-.06l.3-6a.5.5 0 0 1 .5-.47Z"/>
@@ -189,6 +205,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     /* Altura mínima de uma linha da lista, para todas ficarem iguais. */
     --row-h: 30px;
     --radius: 8px;
+    --icon-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z'/%3E%3C/svg%3E");
     --bg: var(--vscode-sideBar-background);
     --fg: var(--vscode-foreground);
     --border: var(--vscode-panel-border);
@@ -265,7 +282,17 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: var(--vscode-scrollbarSlider-activeBackground);
     background-clip: content-box;
   }
-  .empty { opacity:.7; font-style: italic; }
+  /* Ocupa a área da lista em vez de ficar encolhido num canto: o vazio é a
+     primeira coisa que se vê num painel novo. */
+  .empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: var(--gap-sm);
+    min-height: 96px; padding: var(--gap-md);
+    color: var(--muted); text-align: center;
+  }
+  .empty svg { width: 26px; height: 26px; fill: currentColor; opacity: .45; }
+  .empty-title { font-size: 12px; }
+  .empty-hint { font-size: 11px; opacity: .75; max-width: 26ch; line-height: 1.45; }
   .cmd-row {
     display: flex; gap: var(--gap-sm); align-items: center;
     min-height: var(--row-h);
@@ -274,7 +301,13 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: transparent;
   }
   .cmd-row:hover { border-color: var(--border); background: rgba(255,255,255,.04); }
-  .cmd-text { flex:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Um comando longo encolhe com reticências em vez de empurrar os botões
+     para fora da linha; o texto inteiro fica no title. O min-width é o que
+     autoriza o flex a encolher abaixo do conteúdo. */
+  .cmd-text {
+    flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .mini { padding: 3px var(--gap-sm); font-size: 11px; border-radius: 6px; }
   .ghost { background: transparent; border-color: var(--list-border); color: var(--fg); }
   .ghost:hover { background: rgba(255,255,255,.06); }
@@ -335,6 +368,17 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     font-size: 11px; outline: none;
   }
   .search:focus { border-color: var(--vscode-focusBorder); }
+  /* O botão de limpar nativo herda o azul de acento do sistema; redesenhado
+     como um X na cor de erro do tema, que é o que a ação significa. */
+  .search::-webkit-search-cancel-button {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; cursor: pointer;
+    background-color: var(--vscode-errorForeground, #f14c4c);
+    mask: var(--icon-close) center / 11px 11px no-repeat;
+    -webkit-mask: var(--icon-close) center / 11px 11px no-repeat;
+    opacity: .75;
+  }
+  .search::-webkit-search-cancel-button:hover { opacity: 1; }
 
   .load-more { width: 100%; margin-top: var(--gap-sm); flex: 0 0 auto; }
   .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
@@ -343,7 +387,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
      discreta como as abas e destacando-se só ao passar o mouse. */
   .tab-action {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 26px; height: 24px; padding: 0;
+    width: 28px; height: 26px; padding: 0;
     border: none; border-radius: 5px;
     background: transparent; color: var(--muted);
     cursor: pointer;
@@ -352,7 +396,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: rgba(255,255,255,.07);
     color: var(--vscode-errorForeground, var(--fg));
   }
-  .tab-action svg { width: 13px; height: 13px; fill: currentColor; }
+  .tab-action svg { width: 16px; height: 16px; fill: currentColor; }
   [hidden] { display: none !important; }
 
   /* Só quando o painel em si aperta é que algo cede — primeiro o respiro
@@ -360,7 +404,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
      tamanho: é ele que identifica a aba. */
   @container (max-width: 230px) {
     .tab { padding: 5px var(--gap-sm); }
-    .tab-action { width: 22px; }
+    .tab-action { width: 24px; }
   }
   @container (max-width: 190px) {
     .tab-count { display: none; }
@@ -389,8 +433,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       </div>
     </div>
     <input id="search" class="search" type="search" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" hidden />
-    <div id="histItems" class="items" role="tabpanel"><div class="empty">${esc(msg.serverView.emptyHistory())}</div></div>
-    <div id="favItems" class="items" role="tabpanel" hidden><div class="empty">${esc(msg.serverView.emptyFavorites())}</div></div>
+    <div id="histItems" class="items" role="tabpanel"></div>
+    <div id="favItems" class="items" role="tabpanel" hidden></div>
     <button id="loadMore" class="mini ghost load-more" hidden>${esc(msg.serverView.loadMore())}</button>
   </div>
 
@@ -399,6 +443,11 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
   const ICON_MARKUP = ${JSON.stringify(ICON_SEND)};
   const ICON_STAR = { on: ${JSON.stringify(ICON_STAR_ON)}, off: ${JSON.stringify(ICON_STAR_OFF)} };
+  const ICON_EMPTY = {
+    hist: ${JSON.stringify(ICON_EMPTY_HISTORY)},
+    fav: ${JSON.stringify(ICON_EMPTY_STAR)},
+    search: ${JSON.stringify(ICON_EMPTY_SEARCH)},
+  };
   const T = ${JSON.stringify({
     send: msg.serverView.send(),
     emptyHistory: msg.serverView.emptyHistory(),
@@ -406,6 +455,9 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     addFavorite: msg.serverView.addFavorite(),
     removeFavorite: msg.serverView.removeFavorite(),
     noMatches: msg.serverView.noMatches(),
+    noMatchesHint: msg.serverView.noMatchesHint(),
+    emptyHistoryHint: msg.serverView.emptyHistoryHint(),
+    emptyFavoritesHint: msg.serverView.emptyFavoritesHint(),
   })};
   const $ = sel => document.querySelector(sel);
   const input = $('#cmd');
@@ -484,15 +536,33 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     return q ? list.filter(c => c.toLowerCase().includes(q)) : list;
   }
 
-  function renderList(container, list, emptyText, starOf) {
+  function mkEmpty(icon, title, hint) {
+    const box = document.createElement('div');
+    box.className = 'empty';
+    const ico = document.createElement('div');
+    ico.innerHTML = icon;
+    const t = document.createElement('div');
+    t.className = 'empty-title';
+    t.textContent = title;
+    const h = document.createElement('div');
+    h.className = 'empty-hint';
+    h.textContent = hint;
+    box.append(ico, t, h);
+    return box;
+  }
+
+  function renderList(container, kind, list, emptyText, hintText, starOf) {
     container.innerHTML = '';
     const items = filtered(list);
     if (!items.length) {
-      const div = document.createElement('div');
-      div.className = 'empty';
-      // Distingue "não há nada" de "a busca não achou nada".
-      div.textContent = list.length ? T.noMatches : emptyText;
-      container.appendChild(div);
+      // Distingue "não há nada" de "a busca não achou nada": a saída para
+      // cada caso é diferente.
+      const buscando = list.length > 0;
+      container.appendChild(mkEmpty(
+        buscando ? ICON_EMPTY.search : ICON_EMPTY[kind],
+        buscando ? T.noMatches : emptyText,
+        buscando ? T.noMatchesHint : hintText,
+      ));
       return 0;
     }
     items.slice(0, shown).forEach(cmd => {
@@ -502,11 +572,11 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
 
   function renderFavorites() {
-    return renderList(favItems, favorites, T.emptyFavorites, () => true);
+    return renderList(favItems, 'fav', favorites, T.emptyFavorites, T.emptyFavoritesHint, () => true);
   }
 
   function renderHistory() {
-    return renderList(histItems, history, T.emptyHistory, cmd => favorites.includes(cmd));
+    return renderList(histItems, 'hist', history, T.emptyHistory, T.emptyHistoryHint, cmd => favorites.includes(cmd));
   }
 
   function render() {

@@ -286,14 +286,17 @@
   "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
   "Enviar para o servidor": "Trimite către server",
   "Favoritos": "Favorite",
-  "Sem histórico ainda.": "Încă nu există istoric.",
-  "Nenhum favorito.": "Niciun favorit.",
   "Adicionar aos favoritos": "Adaugă la favorite",
   "Remover dos favoritos": "Elimină de la favorite",
   "Recentes": "Recente",
   "Digite um comando": "Scrie o comandă",
   "Buscar comando": "Caută comandă",
-  "Nenhum comando corresponde à busca.": "Nicio comandă nu se potrivește căutării.",
   "Mostrar mais": "Arată mai multe",
-  "Guia do servidor: comandos, favoritos e log": "Ghidul serverului: comenzi, favorite și jurnal"
+  "Guia do servidor: comandos, favoritos e log": "Ghidul serverului: comenzi, favorite și jurnal",
+  "Nenhum comando ainda": "Nicio comandă încă",
+  "Os comandos que você enviar aparecem aqui.": "Comenzile pe care le trimiți apar aici.",
+  "Nenhum favorito": "Niciun favorit",
+  "Marque um comando com a estrela para tê-lo sempre à mão.": "Marchează o comandă cu steaua ca s-o ai la îndemână.",
+  "Nada encontrado": "Nu s-a găsit nimic",
+  "Tente outro trecho do comando.": "Încearcă altă parte a comenzii."
 }
