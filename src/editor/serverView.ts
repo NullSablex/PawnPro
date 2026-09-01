@@ -187,7 +187,14 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     --muted: var(--vscode-descriptionForeground);
   }
   * { box-sizing: border-box; }
-  body { margin:0; padding: var(--pad); background: var(--bg); color: var(--fg); font: 12px/1.4 var(--vscode-font-family); }
+  body {
+    margin:0; padding: var(--pad); background: var(--bg); color: var(--fg);
+    font: 12px/1.4 var(--vscode-font-family);
+    /* A unidade vw mede a janela inteira, não este painel: numa janela
+       estreita as fontes encolhiam mesmo havendo espaço aqui. Declarar o
+       container faz as consultas abaixo medirem o painel. */
+    container-type: inline-size;
+  }
   .row { display: flex; gap: 6px; align-items: stretch; }
   input[type="text"]{
     flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: var(--radius);
@@ -199,11 +206,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
   }
   button:hover { background: var(--btn-hover); }
-  .hint {
-    margin-top: 6px; color: var(--hint);
-    font-size: clamp(10px, 2.4vw, 12px);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .hint { margin-top: 6px; color: var(--hint); font-size: 11px; }
   .section {
     margin-top: 10px; border: 1px solid var(--list-border); border-radius: var(--radius); background: var(--list-bg);
     padding: 6px;
@@ -246,17 +249,17 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
 
   /* Abas: Recentes e Favoritos dividem o mesmo espaço.
      O painel lateral pode ficar bem estreito, então os rótulos encolhem
-     (clamp) e truncam antes de empurrar o "Limpar" para fora. */
+     truncam antes de empurrar o "Limpar" para fora. */
   .tabs {
     display: flex; align-items: stretch; gap: 2px; margin-bottom: 6px;
     border-bottom: 1px solid var(--list-border);
   }
   .tab {
     min-width: 0; flex: 0 1 auto;
-    padding: 5px clamp(4px, 2vw, 10px);
+    padding: 5px 10px;
     border: none; border-bottom: 2px solid transparent; border-radius: 0;
     background: transparent; color: var(--muted);
-    font-size: clamp(10px, 2.6vw, 12px); font-weight: 600;
+    font-size: 12px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     cursor: pointer;
   }
@@ -270,9 +273,14 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .tab-actions .mini { white-space: nowrap; }
   [hidden] { display: none !important; }
 
-  /* Painel bem estreito: a contagem sai antes do rótulo, que é o que
-     identifica a aba. */
-  @media (max-width: 220px) {
+  /* Só quando o painel em si aperta é que algo cede — primeiro o respiro
+     lateral, depois a contagem, que é o menos essencial. O rótulo mantém o
+     tamanho: é ele que identifica a aba. */
+  @container (max-width: 230px) {
+    .tab { padding: 5px 6px; }
+    .tab-actions .mini { padding: 3px 5px; }
+  }
+  @container (max-width: 190px) {
     .tab-count { display: none; }
   }
 </style>
