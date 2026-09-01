@@ -75,11 +75,14 @@ function mdToHtml(md: string): string {
   // Pilha de níveis de lista abertos, pela indentação (espaços) que os abriu.
   const listStack: number[] = [];
 
-  const inline = (s: string) =>
+  const escape = (s: string) =>
     s
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+      .replace(/>/g, '&gt;');
+
+  const inline = (s: string) =>
+    escape(s)
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       // [texto](url) → link (após o escape de < >, então a URL está segura)
@@ -89,6 +92,13 @@ function mdToHtml(md: string): string {
       );
 
   let cardOpen = false;
+  // Bloco cercado por ``` : o conteúdo é literal, então nada dentro dele passa
+  // pela marcação inline. `null` quando não há bloco aberto.
+  let fenceLang: string | null = null;
+  let fenceLines: string[] = [];
+  // Indentação da cerca: num bloco aninhado numa lista, ela recua o conteúdo
+  // todo e apareceria dentro do código.
+  let fenceIndent = 0;
 
   const closeLists = (toIndent = -1) => {
     while (listStack.length > 0 && listStack[listStack.length - 1] > toIndent) {
@@ -109,6 +119,25 @@ function mdToHtml(md: string): string {
 
   for (const raw of lines) {
     const line = raw.trimEnd();
+
+    // A cerca vem antes de tudo: dentro dela, `-` e `#` são código, não
+    // marcação.
+    const fence = /^(\s*)```(\w*)\s*$/.exec(line);
+    if (fence) {
+      if (fenceLang === null) {
+        closeLists();
+        fenceIndent = fence[1].length;
+        fenceLang = fence[2] || '';
+        fenceLines = [];
+      } else {
+        const cls = fenceLang ? ` class="language-${fenceLang}"` : '';
+        out.push(`<pre><code${cls}>${escape(fenceLines.join('\n'))}</code></pre>`);
+        fenceLang = null;
+        fenceLines = [];
+      }
+      continue;
+    }
+    if (fenceLang !== null) { fenceLines.push(raw.slice(fenceIndent)); continue; }
 
     if (!line.trim()) { closeLists(); continue; }
 
@@ -139,9 +168,14 @@ function mdToHtml(md: string): string {
     }
 
     closeLists();
-    out.push(`<p>${inline(line)}</p>`);
+    out.push(`<p>${inline(line.trim())}</p>`);
   }
 
+  // Uma cerca não fechada no fim do texto ainda deve render o que já veio.
+  if (fenceLang !== null && fenceLines.length) {
+    const cls = fenceLang ? ` class="language-${fenceLang}"` : '';
+    out.push(`<pre><code${cls}>${escape(fenceLines.join('\n'))}</code></pre>`);
+  }
   closeCard();
   return out.join('\n');
 }
@@ -246,6 +280,26 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
     background: var(--vscode-textCodeBlock-background, rgba(255,255,255,.08));
     padding: .1em .35em;
     border-radius: 3px;
+  }
+  pre {
+    margin: .75rem 0;
+    padding: .75rem 1rem;
+    border: 1px solid var(--vscode-panel-border, #444);
+    border-radius: 6px;
+    background: var(--vscode-textCodeBlock-background, rgba(255,255,255,.05));
+    overflow-x: auto;
+  }
+  /* Dentro do bloco, o fundo e o recuo já vêm do elemento externo; repeti-los
+     aqui desenharia uma caixa dentro da outra. */
+  pre code {
+    display: block;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    font-size: .82rem;
+    line-height: 1.5;
+    color: var(--vscode-editor-foreground, var(--vscode-foreground));
+    white-space: pre;
   }
   footer {
     margin-top: 2rem;
