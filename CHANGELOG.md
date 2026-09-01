@@ -12,9 +12,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
-## [Unreleased]
-
-Ainda não lançada. Versão prevista: **3.5.0**.
+## [3.5.0] - 01/09/2026
 
 ### Adicionado
 - **Documentação de funções no hover, no signature help e no autocomplete** — o comentário escrito acima de uma função passa a ser lido e formatado, em vez de aparecer como texto cru com os `*` e as tags à mostra. Dois formatos são reconhecidos, detectados pelo próprio conteúdo: o estilo **Javadoc** (`@param`, `@return`) e o **XMLdoc** que o `omp-stdlib` do open.mp usa (`<summary>`, `<param name="">`, `<returns>`, `<remarks>`). No XMLdoc, a formatação embutida vira texto formatado de verdade (negrito, trechos de código, quebras de linha) e as tags que só servem ao gerador da wiki do open.mp — `<library>`, `<seealso>` e os links `<a href="#Função">` — deixam de poluir o hover. Cada parâmetro é casado **pelo nome**, não pela posição, então um comentário pode omitir parâmetros ou listá-los fora de ordem: ao digitar a chamada, o *signature help* mostra a descrição do parâmetro em que o cursor está; o autocomplete mostra o resumo; e o hover, o bloco inteiro, com os títulos das seções ("Parâmetros", "Retorna") no idioma configurado. Um comentário comum, sem tags, continua aparecendo como descrição
