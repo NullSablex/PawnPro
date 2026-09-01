@@ -383,6 +383,11 @@ function getHtml(logoUri: string): string {
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* O display do user-agent para [hidden] tem especificidade mínima e perde de
+     qualquer classe que declare display — .naming-preview é display:block, e o
+     elemento seguia visível com o atributo posto. */
+  [hidden] { display: none !important; }
+
   /* Padding horizontal fluido: encolhe em painéis estreitos sem breakpoints. */
   :root { --pad-x: clamp(14px, 5vw, 36px); }
 
