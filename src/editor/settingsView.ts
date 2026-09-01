@@ -718,10 +718,10 @@ function getHtml(logoUri: string, themeCss: string): string {
      dos ícones da página, que são traços SVG de peso uniforme. */
   .naming-styles .disclosure {
     grid-row: 1 / 3;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     fill: currentColor;
-    opacity: 0.6;
+    opacity: 0.85;
     transition: transform 0.15s;
   }
   .naming-styles[open] .disclosure { transform: rotate(90deg); }
@@ -1150,7 +1150,7 @@ baz();</pre>
   <details class="naming-styles naming-opt">
     <summary>
       <svg class="disclosure" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-        <path d="M6.2 3.3a.75.75 0 0 1 1.06 0l4.2 4.17a.75.75 0 0 1 0 1.06l-4.2 4.17a.75.75 0 1 1-1.06-1.06L9.87 8 6.2 4.36a.75.75 0 0 1 0-1.06Z"/>
+        <path d="M5.8 3.6 11.6 7.5a.6.6 0 0 1 0 1L5.8 12.4A.6.6 0 0 1 4.9 11.9V4.1a.6.6 0 0 1 .9-.5Z"/>
       </svg>
       <span class="naming-styles-title" data-i18n="namingStyleGroup"></span>
       <span class="naming-styles-desc" data-i18n="namingStyleGroupDesc"></span>
