@@ -294,7 +294,15 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     min-height: 96px; padding: var(--gap-md);
     text-align: center;
   }
-  .empty svg { width: 28px; height: 28px; fill: var(--muted); opacity: .6; }
+  /* Cada ícone recebe a cor do que representa: a estrela dos favoritos usa o
+     mesmo amarelo da estrela marcada, e a lupa da busca sem resultado o tom
+     de aviso. As cores vêm da paleta de gráficos do tema, que existe para
+     acentos assim e acompanha o claro e o escuro. */
+  .empty svg { width: 28px; height: 28px; fill: currentColor; opacity: .55; }
+  .empty-icon { line-height: 0; }
+  .empty-icon.hist   { color: var(--vscode-charts-blue, #4a9eff); }
+  .empty-icon.fav    { color: var(--vscode-charts-yellow, #d7ba7d); }
+  .empty-icon.search { color: var(--vscode-charts-orange, #d18616); }
   /* O título usa a cor normal do texto: é a resposta à pergunta "o que há
      aqui?" e precisa ser lido primeiro. */
   .empty-title { color: var(--fg); font-size: 12px; font-weight: 600; }
@@ -557,11 +565,12 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     return q ? list.filter(c => c.toLowerCase().includes(q)) : list;
   }
 
-  function mkEmpty(icon, title, hint) {
+  function mkEmpty(tipo, title, hint) {
     const box = document.createElement('div');
     box.className = 'empty';
     const ico = document.createElement('div');
-    ico.innerHTML = icon;
+    ico.className = 'empty-icon ' + tipo;
+    ico.innerHTML = ICON_EMPTY[tipo];
     const t = document.createElement('div');
     t.className = 'empty-title';
     t.textContent = title;
@@ -580,7 +589,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       // cada caso é diferente.
       const buscando = list.length > 0;
       container.appendChild(mkEmpty(
-        buscando ? ICON_EMPTY.search : ICON_EMPTY[kind],
+        buscando ? 'search' : kind,
         buscando ? T.noMatches : emptyText,
         buscando ? T.noMatchesHint : hintText,
       ));
