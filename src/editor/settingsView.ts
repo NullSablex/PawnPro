@@ -308,6 +308,39 @@ function sendState(
 }
 
 /**
+ * Ícones da navegação lateral. Traço de 16×16 herdando `currentColor`, como os
+ * do painel do servidor, para acompanharem o estado ativo/inativo do item.
+ */
+const NAV_ICONS: Record<string, string> = {
+  // Engrenagem: o compilador e seus parâmetros.
+  compilador: '<path d="M8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm0 1.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/><path d="M7.1 1a.8.8 0 0 0-.79.68l-.15 1a5.9 5.9 0 0 0-.98.57l-.94-.39a.8.8 0 0 0-.98.35l-.9 1.56a.8.8 0 0 0 .19 1.02l.8.63a5.9 5.9 0 0 0 0 1.13l-.8.63a.8.8 0 0 0-.19 1.02l.9 1.56a.8.8 0 0 0 .98.35l.94-.39c.3.23.63.42.98.57l.15 1a.8.8 0 0 0 .79.68h1.8a.8.8 0 0 0 .79-.68l.15-1c.35-.15.68-.34.98-.57l.94.39a.8.8 0 0 0 .98-.35l.9-1.56a.8.8 0 0 0-.19-1.02l-.8-.63a5.9 5.9 0 0 0 0-1.13l.8-.63a.8.8 0 0 0 .19-1.02l-.9-1.56a.8.8 0 0 0-.98-.35l-.94.39a5.9 5.9 0 0 0-.98-.57l-.15-1A.8.8 0 0 0 8.9 1H7.1Zm.35 1.5h1.1l.13.9a.75.75 0 0 0 .5.6c.4.14.78.36 1.1.64a.75.75 0 0 0 .78.12l.84-.35.55.95-.72.57a.75.75 0 0 0-.27.74 4.4 4.4 0 0 1 0 1.26.75.75 0 0 0 .27.74l.72.57-.55.95-.84-.35a.75.75 0 0 0-.78.12c-.32.28-.7.5-1.1.64a.75.75 0 0 0-.5.6l-.13.9h-1.1l-.13-.9a.75.75 0 0 0-.5-.6 4.4 4.4 0 0 1-1.1-.64.75.75 0 0 0-.78-.12l-.84.35-.55-.95.72-.57a.75.75 0 0 0 .27-.74 4.4 4.4 0 0 1 0-1.26.75.75 0 0 0-.27-.74l-.72-.57.55-.95.84.35a.75.75 0 0 0 .78-.12c.32-.28.7-.5 1.1-.64a.75.75 0 0 0 .5-.6l.13-.9Z"/>',
+  // Pasta com seta: caminhos de include.
+  includes: '<path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h3.1a1.5 1.5 0 0 1 1.06.44l.9.9H13A1.5 1.5 0 0 1 14.5 4.34V12.5A1.5 1.5 0 0 1 13 14H3a1.5 1.5 0 0 1-1.5-1.5V3Zm1.5 0v9.5h10V4.34H7.75a.75.75 0 0 1-.53-.22l-1.12-1.12H3Z"/>',
+  // Blocos empilhados: a saída do build.
+  build: '<path d="M8 1.2a.75.75 0 0 0-.36.1L2.3 4.3a.75.75 0 0 0-.38.65v6.1c0 .27.14.52.38.65l5.34 3a.75.75 0 0 0 .72 0l5.34-3a.75.75 0 0 0 .38-.65v-6.1a.75.75 0 0 0-.38-.65l-5.34-3A.75.75 0 0 0 8 1.2Zm0 1.62 3.94 2.2L8 7.24 4.06 5.02 8 2.82ZM3.42 6.3l3.83 2.16v4.4L3.42 10.7V6.3Zm5.33 6.56v-4.4l3.83-2.16v4.4l-3.83 2.16Z"/>',
+  // Lupa sobre linhas: a análise do código.
+  analise: '<path d="M2 2.75A.75.75 0 0 1 2.75 2h7a.75.75 0 0 1 0 1.5h-7A.75.75 0 0 1 2 2.75Zm0 3A.75.75 0 0 1 2.75 5h4a.75.75 0 0 1 0 1.5h-4A.75.75 0 0 1 2 5.75Zm0 3A.75.75 0 0 1 2.75 8h2.6a.75.75 0 0 1 0 1.5h-2.6A.75.75 0 0 1 2 8.75Z"/><path d="M10.4 7.5a2.9 2.9 0 1 0 1.74 5.22l1.83 1.83a.75.75 0 0 0 1.06-1.06l-1.83-1.83A2.9 2.9 0 0 0 10.4 7.5Zm-1.4 2.9a1.4 1.4 0 1 1 2.8 0 1.4 1.4 0 0 1-2.8 0Z"/>',
+  // Chaves de bloco: a formatação.
+  formatacao: '<path d="M6.3 1.6a.75.75 0 0 1 0 1.5c-.6 0-.95.12-1.14.3-.2.19-.31.5-.31 1.05v1.4c0 .8-.3 1.5-.87 1.95.57.45.87 1.15.87 1.95v1.4c0 .55.11.86.31 1.05.19.18.54.3 1.14.3a.75.75 0 0 1 0 1.5c-.83 0-1.62-.16-2.18-.7-.56-.55-.77-1.3-.77-2.15v-1.4c0-.5-.15-.72-.32-.85a1.3 1.3 0 0 0-.55-.25.75.75 0 0 1 0-1.5c.16-.03.38-.11.55-.25.17-.13.32-.35.32-.85v-1.4c0-.85.21-1.6.77-2.15.56-.54 1.35-.7 2.18-.7Zm3.4 0c.83 0 1.62.16 2.18.7.56.55.77 1.3.77 2.15v1.4c0 .5.15.72.32.85.17.14.39.22.55.25a.75.75 0 0 1 0 1.5c-.16.03-.38.11-.55.25-.17.13-.32.35-.32.85v1.4c0 .85-.21 1.6-.77 2.15-.56.54-1.35.7-2.18.7a.75.75 0 0 1 0-1.5c.6 0 .95-.12 1.14-.3.2-.19.31-.5.31-1.05v-1.4c0-.8.3-1.5.87-1.95a2.42 2.42 0 0 1-.87-1.95v-1.4c0-.55-.11-.86-.31-1.05-.19-.18-.54-.3-1.14-.3a.75.75 0 0 1 0-1.5Z"/>',
+  // Etiqueta: o nome dado a cada coisa.
+  nomenclatura: '<path d="M8.6 1.5H13A1.5 1.5 0 0 1 14.5 3v4.4a1.5 1.5 0 0 1-.44 1.06l-5.1 5.1a1.5 1.5 0 0 1-2.12 0L1.94 8.66a1.5 1.5 0 0 1 0-2.12l5.1-5.1A1.5 1.5 0 0 1 8.6 1.5ZM13 3H8.6L3.5 8.1l4.9 4.9L13 7.9V3Zm-2.4 1.4a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/>',
+  // Pincel: as cores da sintaxe.
+  sintaxe: '<path d="M11.6 1.6a2.05 2.05 0 0 1 2.9 2.9l-.9.9-2.9-2.9.9-.9Zm-1.96 1.96 2.9 2.9-5.6 5.6a1.5 1.5 0 0 1-.7.4l-3.1.8a.75.75 0 0 1-.92-.92l.8-3.1a1.5 1.5 0 0 1 .4-.7l5.6-5.6Zm-4.54 6.66-.45 1.73 1.73-.45-1.28-1.28Z"/>',
+  // Janela: a interface do editor.
+  interface: '<path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9Zm1.5 0v1.6h9V3.5h-9Zm9 3.1h-9v5.9h9V6.6Z"/>',
+  // Torre de servidor.
+  servidor: '<path d="M2.5 2.5A1.5 1.5 0 0 1 4 1h8a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 12 7H4a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5 0v3h8v-3H4Zm-1.5 7A1.5 1.5 0 0 1 4 8h8a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 12 14H4a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5 0v3h8v-3H4Z"/><path d="M5.5 3.25a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm0 7a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Z"/>',
+};
+
+/** Envolve o traço do ícone no `<svg>` da navegação. */
+function navIcon(key: string): string {
+  const path = NAV_ICONS[key];
+  return path
+    ? `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">${path}</svg>`
+    : '';
+}
+
+/**
  * Linha de configuração de estilo para uma categoria de identificador. O `<code>`
  * de preview é preenchido em runtime pelo cliente conforme o estilo escolhido.
  */
@@ -427,8 +460,12 @@ function getHtml(logoUri: string): string {
   }
 
   nav a {
-    display: block;
-    padding: 7px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* O recuo perde os 2px que a borda esquerda ocupa, para o ícone do item
+       ativo não deslizar para a direita ao ganhar a borda. */
+    padding: 7px 16px 7px 14px;
     font-size: 0.93em;
     color: var(--vscode-foreground);
     text-decoration: none;
@@ -436,6 +473,21 @@ function getHtml(logoUri: string): string {
     border-left: 2px solid transparent;
     opacity: 0.7;
     transition: opacity 0.1s, border-color 0.1s;
+  }
+  /* O ícone herda a cor e a opacidade do item: acompanha ativo e hover sem
+     precisar de regra própria para cada estado. */
+  nav a svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    fill: currentColor;
+  }
+  /* O rótulo cede primeiro quando a navegação aperta; o ícone permanece. */
+  nav a span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   nav a:hover { opacity: 1; background: var(--vscode-list-hoverBackground, #ffffff10); }
   nav a.active { opacity: 1; border-left-color: var(--vscode-button-background, #007acc); font-weight: 600; }
@@ -745,15 +797,15 @@ ${brandAnimationCss()}
 
 <nav>
   <div class="logo"><img src="${logoUri}" alt="" /><span class="brand" id="brand">PawnPro</span></div>
-  <a data-target="compilador" class="nav-link active" data-i18n="navCompiler"></a>
-  <a data-target="includes"   class="nav-link" data-i18n="navIncludes"></a>
-  <a data-target="build"      class="nav-link" data-i18n="navBuild"></a>
-  <a data-target="analise"    class="nav-link" data-i18n="navAnalysis"></a>
-  <a data-target="formatacao" class="nav-link" data-i18n="navFormat"></a>
-  <a data-target="nomenclatura" class="nav-link" data-i18n="navNaming"></a>
-  <a data-target="sintaxe"    class="nav-link" data-i18n="navSyntax"></a>
-  <a data-target="interface"  class="nav-link" data-i18n="navInterface"></a>
-  <a data-target="servidor"   class="nav-link" data-i18n="navServer"></a>
+  <a data-target="compilador" class="nav-link active">${navIcon('compilador')}<span data-i18n="navCompiler"></span></a>
+  <a data-target="includes" class="nav-link">${navIcon('includes')}<span data-i18n="navIncludes"></span></a>
+  <a data-target="build" class="nav-link">${navIcon('build')}<span data-i18n="navBuild"></span></a>
+  <a data-target="analise" class="nav-link">${navIcon('analise')}<span data-i18n="navAnalysis"></span></a>
+  <a data-target="formatacao" class="nav-link">${navIcon('formatacao')}<span data-i18n="navFormat"></span></a>
+  <a data-target="nomenclatura" class="nav-link">${navIcon('nomenclatura')}<span data-i18n="navNaming"></span></a>
+  <a data-target="sintaxe" class="nav-link">${navIcon('sintaxe')}<span data-i18n="navSyntax"></span></a>
+  <a data-target="interface" class="nav-link">${navIcon('interface')}<span data-i18n="navInterface"></span></a>
+  <a data-target="servidor" class="nav-link">${navIcon('servidor')}<span data-i18n="navServer"></span></a>
 </nav>
 
 <main>
