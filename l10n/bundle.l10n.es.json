@@ -283,5 +283,14 @@
   "Windows-1255 (Hebraico)": "Windows-1255 (Hebreo)",
   "Windows-1256 (Árabe)": "Windows-1256 (Árabe)",
   "Windows-1257 (Báltico)": "Windows-1257 (Báltico)",
-  "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)"
+  "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
+  "Digite um comando do servidor e pressione Enter...": "Escribe un comando del servidor y pulsa Enter...",
+  "Enviar para o servidor": "Enviar al servidor",
+  "Dica: ↑/↓ percorrem o histórico • clique em um item para reutilizá-lo • ⭐ fixa nos favoritos": "Consejo: ↑/↓ recorren el historial • haz clic en un elemento para reutilizarlo • ⭐ lo fija en favoritos",
+  "Últimos comandos": "Comandos recientes",
+  "Favoritos": "Favoritos",
+  "Sem histórico ainda.": "Sin historial todavía.",
+  "Nenhum favorito.": "Sin favoritos.",
+  "Adicionar aos favoritos": "Añadir a favoritos",
+  "Remover dos favoritos": "Quitar de favoritos"
 }

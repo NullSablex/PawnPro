@@ -246,10 +246,16 @@ export function registerServerControls(
     srv.getTailer().setFollowMode(cfg.server.output.follow);
   });
 
-  const provider = new ServerViewProvider(state, (text: string) => { void srv.sendLine(text); });
+  const provider = new ServerViewProvider(context, config, state, (text: string) => {
+    void srv.sendLine(text);
+  });
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('pawnpro.serverView', provider),
   );
+
+  // `vscode.l10n` fixa o idioma pelo do editor; as WebViews seguem `ui.locale`,
+  // então precisam ser re-renderizadas quando ele muda.
+  config.onChange(() => provider.refresh());
   void vscode.commands.executeCommand('setContext', 'pawnpro.server.running', false);
 }

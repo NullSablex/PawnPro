@@ -283,5 +283,14 @@
   "Windows-1255 (Hebraico)": "Windows-1255 (Ebraică)",
   "Windows-1256 (Árabe)": "Windows-1256 (Arabă)",
   "Windows-1257 (Báltico)": "Windows-1257 (Baltic)",
-  "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)"
+  "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
+  "Digite um comando do servidor e pressione Enter...": "Scrie o comandă pentru server și apasă Enter...",
+  "Enviar para o servidor": "Trimite către server",
+  "Dica: ↑/↓ percorrem o histórico • clique em um item para reutilizá-lo • ⭐ fixa nos favoritos": "Sfat: ↑/↓ parcurg istoricul • dă clic pe un element ca să-l refolosești • ⭐ îl fixează la favorite",
+  "Últimos comandos": "Comenzi recente",
+  "Favoritos": "Favorite",
+  "Sem histórico ainda.": "Încă nu există istoric.",
+  "Nenhum favorito.": "Niciun favorit.",
+  "Adicionar aos favoritos": "Adaugă la favorite",
+  "Remover dos favoritos": "Elimină de la favorite"
 }

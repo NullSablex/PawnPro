@@ -1,13 +1,48 @@
 import * as vscode from 'vscode';
 import { PawnProStateManager } from '../core/state.js';
+import type { PawnProConfigManager } from '../core/config.js';
+import { createWebviewMsg } from './webviewNls.js';
+
+/**
+ * Ícone de envio, desenhado inline.
+ *
+ * A fonte de codicons do editor não chega à WebView (o CSP é
+ * `default-src 'none'`, sem `font-src`), então o traço vem no próprio HTML.
+ * `currentColor` faz o ícone acompanhar a cor do botão em qualquer tema.
+ */
+const ICON_SEND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="M1.7 1.2 14.8 7.6a.45.45 0 0 1 0 .8L1.7 14.8a.45.45 0 0 1-.64-.5l1.3-5.2L8.6 8 2.36 6.9l-1.3-5.2a.45.45 0 0 1 .64-.5Z"/>
+</svg>`;
+
+/**
+ * Escapa texto para interpolação em HTML.
+ *
+ * As strings vêm dos bundles de tradução e caem tanto em texto quanto dentro
+ * de atributos (`title`, `placeholder`), onde uma aspa fecharia o atributo.
+ */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export class ServerViewProvider implements vscode.WebviewViewProvider {
   private views = new Set<vscode.WebviewView>();
 
   constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly config: PawnProConfigManager,
     private readonly state: PawnProStateManager,
     private readonly onSend: (text: string) => void,
   ) {}
+
+  /** Re-renderiza as views abertas — usado quando `ui.locale` muda. */
+  refresh() {
+    for (const v of this.views) v.webview.html = this.getHtml(v.webview);
+  }
 
   private get favorites(): string[] { return this.state.get('server').favorites; }
   private get history(): string[] { return this.state.get('server').history; }
@@ -110,6 +145,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtml(webview: vscode.Webview) {
+    const msg = createWebviewMsg(this.context, this.config);
     const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src ${webview.cspSource}; script-src 'unsafe-inline';`;
     return `<!DOCTYPE html>
 <html lang="pt-br">
@@ -169,33 +205,68 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .ghost { background: transparent; border-color: var(--list-border); color: var(--fg); }
   .ghost:hover { background: rgba(255,255,255,.06); }
   .muted { color: var(--muted); }
+
+  /* Botão de enviar: só o ícone, quadrado, alinhado à altura do input. */
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; padding: 0; flex: 0 0 auto;
+  }
+  .icon-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+  /* Abas: Favoritos e Últimos comandos dividem o mesmo espaço. */
+  .tabs { display: flex; gap: 2px; margin-bottom: 6px; border-bottom: 1px solid var(--list-border); }
+  .tab {
+    padding: 5px 10px; border: none; border-bottom: 2px solid transparent;
+    border-radius: 0; background: transparent; color: var(--muted);
+    font-weight: 600; cursor: pointer;
+  }
+  .tab:hover { background: rgba(255,255,255,.04); color: var(--fg); }
+  .tab[aria-selected="true"] {
+    color: var(--fg);
+    border-bottom-color: var(--vscode-focusBorder, var(--btn-bg));
+  }
+  .tab-count { margin-left: 5px; opacity: .7; font-weight: 400; }
+  .tab-actions { margin-left: auto; display: flex; align-items: center; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
   <div class="row">
-    <input id="cmd" type="text" placeholder="Digite um comando do servidor e pressione Enter..." />
-    <button id="send" title="Enviar para o servidor">Enviar</button>
+    <input id="cmd" type="text" placeholder="${esc(msg.serverView.inputPlaceholder())}" />
+    <button id="send" class="icon-btn" title="${esc(msg.serverView.send())}" aria-label="${esc(msg.serverView.send())}">
+      ${ICON_SEND}
+    </button>
   </div>
-  <div class="hint">Dica: \u2191/\u2193 percorrem o historico \u2022 Clique em um item para reutilizar \u2022 \u2b50 fixa nos Favoritos</div>
-
-  <div class="section" id="fav-sec">
-    <div class="section-header">
-      <span>Favoritos</span>
-      <div><button id="favClear" class="mini ghost">Limpar</button></div>
-    </div>
-    <div id="favItems" class="items"><div class="empty">Nenhum favorito.</div></div>
-  </div>
+  <div class="hint">${esc(msg.serverView.hint())}</div>
 
   <div class="section">
-    <div class="section-header">
-      <span>Ultimos comandos</span>
-      <div><button id="histClear" class="mini ghost">Limpar</button></div>
+    <div class="tabs" role="tablist">
+      <button id="tabHist" class="tab" role="tab" aria-selected="true" aria-controls="histItems">
+        ${esc(msg.serverView.tabHistory())}<span id="histCount" class="tab-count"></span>
+      </button>
+      <button id="tabFav" class="tab" role="tab" aria-selected="false" aria-controls="favItems">
+        ${esc(msg.serverView.tabFavorites())}<span id="favCount" class="tab-count"></span>
+      </button>
+      <div class="tab-actions">
+        <button id="histClear" class="mini ghost">${esc(msg.serverView.clear())}</button>
+        <button id="favClear" class="mini ghost" hidden>${esc(msg.serverView.clear())}</button>
+      </div>
     </div>
-    <div id="histItems" class="items"><div class="empty">Sem historico ainda.</div></div>
+    <div id="histItems" class="items" role="tabpanel"><div class="empty">${esc(msg.serverView.emptyHistory())}</div></div>
+    <div id="favItems" class="items" role="tabpanel" hidden><div class="empty">${esc(msg.serverView.emptyFavorites())}</div></div>
   </div>
 
 <script>
   const vscode = acquireVsCodeApi();
+  // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
+  const ICON_MARKUP = ${JSON.stringify(ICON_SEND)};
+  const T = ${JSON.stringify({
+    send: msg.serverView.send(),
+    emptyHistory: msg.serverView.emptyHistory(),
+    emptyFavorites: msg.serverView.emptyFavorites(),
+    addFavorite: msg.serverView.addFavorite(),
+    removeFavorite: msg.serverView.removeFavorite(),
+  })};
   const $ = sel => document.querySelector(sel);
   const input = $('#cmd');
   const btn = $('#send');
@@ -203,6 +274,10 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   const favItems  = $('#favItems');
   const histClear = $('#histClear');
   const favClear  = $('#favClear');
+  const tabHist   = $('#tabHist');
+  const tabFav    = $('#tabFav');
+  const histCount = $('#histCount');
+  const favCount  = $('#favCount');
 
   let history = [];
   let favorites = [];
@@ -225,7 +300,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       const star = document.createElement('button');
       star.className = 'mini ghost';
       star.textContent = opts.star ? '\u2b50' : '\u2606';
-      star.title = opts.star ? 'Remover dos favoritos' : 'Adicionar aos favoritos';
+      star.title = opts.star ? T.removeFavorite : T.addFavorite;
       star.addEventListener('click', (e) => {
         e.stopPropagation();
         vscode.postMessage({ type: opts.star ? 'removeFavorite' : 'addFavorite', command: safeText });
@@ -236,8 +311,10 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     if (opts.send !== false) {
       const send = document.createElement('button');
       send.className = 'mini';
-      send.textContent = 'Enviar';
-      send.title = 'Enviar para o servidor';
+      send.innerHTML = ICON_MARKUP;
+      send.classList.add('icon-btn');
+      send.title = T.send;
+      send.setAttribute('aria-label', T.send);
       send.addEventListener('click', (e) => { e.stopPropagation(); sendCmd(safeText); });
       row.appendChild(send);
     }
@@ -255,7 +332,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     if (!favorites.length) {
       const div = document.createElement('div');
       div.className = 'empty';
-      div.textContent = 'Nenhum favorito.';
+      div.textContent = T.emptyFavorites;
       favItems.appendChild(div);
       return;
     }
@@ -267,11 +344,28 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     if (!history.length) {
       const div = document.createElement('div');
       div.className = 'empty';
-      div.textContent = 'Sem historico ainda.';
+      div.textContent = T.emptyHistory;
       histItems.appendChild(div);
       return;
     }
     history.forEach(cmd => histItems.appendChild(mkCmdRow(cmd, { star: favorites.includes(cmd) })));
+  }
+
+  // A aba escolhida sobrevive ao re-render; o botão "Limpar" segue a aba
+  // visível, para não haver dois com o mesmo rótulo e alvos diferentes.
+  function selectTab(which) {
+    const fav = which === 'fav';
+    tabFav.setAttribute('aria-selected', String(fav));
+    tabHist.setAttribute('aria-selected', String(!fav));
+    favItems.hidden = !fav;
+    histItems.hidden = fav;
+    favClear.hidden = !fav;
+    histClear.hidden = fav;
+  }
+
+  function renderCounts() {
+    histCount.textContent = history.length ? '(' + history.length + ')' : '';
+    favCount.textContent = favorites.length ? '(' + favorites.length + ')' : '';
   }
 
   function applyState(payload) {
@@ -281,6 +375,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     cursor = -1;
     renderFavorites();
     renderHistory();
+    renderCounts();
   }
 
   function sendCmd(text) {
@@ -310,6 +405,9 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
     }
   });
+
+  tabHist.addEventListener('click', () => selectTab('hist'));
+  tabFav.addEventListener('click', () => selectTab('fav'));
 
   histClear.addEventListener('click', () => { vscode.postMessage({ type: 'clearHistory' }); input.focus(); });
   favClear.addEventListener('click', () => { vscode.postMessage({ type: 'clearFavorites' }); input.focus(); });

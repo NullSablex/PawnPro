@@ -10,6 +10,8 @@
   [![CodeQL](https://img.shields.io/github/actions/workflow/status/NullSablex/PawnPro/codeql.yml?style=flat-square&logo=github&label=CodeQL)](https://github.com/NullSablex/PawnPro/actions/workflows/codeql.yml)
   [![Security](https://img.shields.io/github/actions/workflow/status/NullSablex/PawnPro/security.yml?style=flat-square&logo=github&label=Security)](https://github.com/NullSablex/PawnPro/actions/workflows/security.yml)
   [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/NullSablex/PawnPro/badge?style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/NullSablex/PawnPro)
+  [![Downloads](https://img.shields.io/github/downloads/NullSablex/PawnPro/total?style=flat-square&logo=github&label=downloads)](https://github.com/NullSablex/PawnPro/releases)
+  [![Stars](https://img.shields.io/github/stars/NullSablex/PawnPro?style=flat-square&logo=github&label=stars)](https://github.com/NullSablex/PawnPro/stargazers)
   [![License](https://img.shields.io/badge/licença-Source--Available-blue?style=flat-square)](LICENSE.md)
 
   ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11&logoColor=white)

@@ -278,6 +278,18 @@ export function createMsg(t: Translate) {
     fullGuide:       () => t('Guia completo do depurador'),
     reopenHint:      () => t('Use <code>PawnPro: Ajuda e informações</code> para reabrir.'),
   },
+  serverView: {
+    inputPlaceholder: () => t('Digite um comando do servidor e pressione Enter...'),
+    send:             () => t('Enviar para o servidor'),
+    hint:             () => t('Dica: ↑/↓ percorrem o histórico • clique em um item para reutilizá-lo • ⭐ fixa nos favoritos'),
+    tabHistory:       () => t('Últimos comandos'),
+    tabFavorites:     () => t('Favoritos'),
+    clear:            () => t('Limpar'),
+    emptyHistory:     () => t('Sem histórico ainda.'),
+    emptyFavorites:   () => t('Nenhum favorito.'),
+    addFavorite:      () => t('Adicionar aos favoritos'),
+    removeFavorite:   () => t('Remover dos favoritos'),
+  },
 
   store: {
     title:             () => t('Biblioteca de Recursos'),
