@@ -150,7 +150,9 @@ Como no compilador, não há forma na mesma linha da declaração.
 
 ## Depuração (DAP)
 
-- **Depurador visual** para servidor local: breakpoints, *step*, inspeção de variáveis e *call stack* (`F5` / `launch.json` tipo `pawn`).
+- **Depurador visual** para servidor local: breakpoints, *step*, inspeção de variáveis e *call stack* multi-frame navegável (`F5` / `launch.json` tipo `pawn`).
+- **Breakpoints além da linha** — condicionais, por contagem de acertos, logpoints, **data breakpoints** (pausa quando um valor muda, inclusive em `arr[3]`), **por função** e **pausa em erro de runtime** (divisão por zero, índice fora do limite, colisão pilha/heap, underflow de heap e acesso inválido à memória).
+- **Inspeção e edição** — arrays expansíveis, arrays de char mostrados como string, expressões no watch e no hover, autocomplete de variáveis em escopo, edição por expressão (`arr[i] = 10`) e leitura de memória em hex.
 - **Recompilação automática com debug info** — a extensão adiciona `-d3` ao compilar para depuração se você ainda não usa uma flag `-d` (sua configuração não é alterada).
 - **Preflight** — verifica se o plugin de depuração está instalado em `plugins/` e registrado (`server.cfg` ou `config.json`) antes de iniciar, avisando o que falta.
 - **Servidor iniciado automaticamente** com as variáveis de depuração; o adaptador conecta ao plugin via socket local.

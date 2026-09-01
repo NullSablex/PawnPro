@@ -42,7 +42,7 @@
   "icon": "images/logo.png",
   "engineVersion": "1.4.0",
   "engineRepository": "https://github.com/NullSablex/PawnPro-Engine",
-  "debuggerVersion": "0.1.0",
+  "debuggerVersion": "0.2.0",
   "debuggerRepository": "https://github.com/NullSablex/PawnPro-Debugger",
   "author": {
     "name": "NullSablex",
@@ -429,10 +429,10 @@
     "pawnpro-engine-darwin-arm64": "14b3452babc6c49f3f2ee5d0080ca02a0d39b640af582647406da280aa978316"
   },
   "debuggerChecksums": {
-    "pawnpro-dap-adapter-linux-x64": "b504e2abf410423538eba394b4c4ac3b1fc2e8ba475ea247d8f0471900d09eed",
-    "pawnpro-dap-adapter-linux-arm64": "f239f1319c0a6dad353978bf8a6f897f20b26ec8de9408a07baa2185b8066ec2",
-    "pawnpro-dap-adapter-win32-x64.exe": "04b4b2ea785b45b8b2ab7974f3689bf2e0b5c6edaf247ae2f975165bfcc76d10",
-    "pawnpro-dap-adapter-darwin-x64": "07d11df11a819e37cc2abbfd0a4d96318d398f4d5b064ff7aad7f3604b1adada",
-    "pawnpro-dap-adapter-darwin-arm64": "84bcc2376bdef1a1da8d57c9a4c1f284cd512bacb04fab818fb7adc954ed1ae7"
+    "pawnpro-dap-adapter-linux-x64": "494bfc9eb5e725f877ae956ba45912fb6bd2b151ece78b3299d25f1ec0723a7f",
+    "pawnpro-dap-adapter-linux-arm64": "a93b3cdd97015b8fec3d8d90bb64429a472566175c71e5dd69cb6b42acff2c19",
+    "pawnpro-dap-adapter-win32-x64.exe": "0d41d41dcc156d2f1dadba289e2eab6df8a31a7fc6135adc596d5e6a409dfadc",
+    "pawnpro-dap-adapter-darwin-x64": "4cacdbc45c286f03a77c70c4d9cbb988743d633d4e61c1af4658087c46dfc95f",
+    "pawnpro-dap-adapter-darwin-arm64": "d44963efc3efb56057e7fc79f1df0293be79657b7e06418a40883b48de527eac"
   }
 }

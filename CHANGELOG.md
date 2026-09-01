@@ -36,6 +36,18 @@ Ainda não lançada. Versão prevista: **3.5.0**.
   ```
 
   Como no compilador, a diretiva marca a **próxima** declaração e não tem forma na mesma linha. O que é coberto não mudou: `native`, `stock`, `public`, `forward`, `static`, `#define`, variáveis globais e `#include`. **Quem usava `// @DEPRECATED` precisa trocar pela diretiva** — o marcador antigo deixou de ser reconhecido, e o autocomplete do `@`, que existia só para inseri-lo, passou a oferecer as tags de documentação (`@param`, `@return`, `@remarks`) dentro de comentários
+- **Depurador (PawnPro Debugger) para 0.2.0** — a depuração deixa de ser "breakpoint e inspeção" e passa a cobrir:
+  - **Call stack multi-frame** — navegar entre os frames da chamada, com a inspeção seguindo o frame selecionado
+  - **Data breakpoints** — pausar quando um valor muda, em globais, locais e elementos de array (`arr[3]`)
+  - **Breakpoints de função** — parar ao entrar numa função pelo nome
+  - **Três novos erros de runtime** — colisão pilha/heap, underflow de heap e acesso inválido à memória, somando-se à divisão por zero e ao índice fora do limite; o painel de breakpoints liga e desliga a pausa em erros
+  - **Arrays e strings na inspeção** — arrays expansíveis elemento a elemento, e arrays de char mostrados como texto quando o conteúdo é uma string
+  - **Editar por expressão** — `x = 1` ou `arr[i] = 10` direto no watch ou no console
+  - **Expressões no watch e no hover** (aritmética e comparação) e **autocomplete** de variáveis em escopo
+  - **Leitura de memória** — hex view da memória de dados a partir de qualquer variável
+  - As mensagens do adaptador passam a seguir o idioma configurado (antes só os erros de runtime seguiam)
+
+  O plugin do servidor precisa ser atualizado junto: baixe o `pawnpro_debug.so`/`.dll` da versão 0.2.0 e substitua o antigo na pasta `plugins/` (ou `components/`) do servidor.
 - **Motor de análise (engine) para 1.4.0** — traz a interpretação dos comentários de documentação e a depreciação por `#pragma deprecated` descritas acima, além dos diagnósticos e hovers traduzidos para espanhol, romeno e russo
 - **Dependências** — `typescript` para `^7.0.2`, `@types/node` para `^26.4.0`, `@types/vscode` para `1.134.0`, `esbuild` para `^0.28.2` e `vscode-languageclient` para `^10.1.1`
 - **CI — GitHub Actions atualizadas** (pinadas por SHA): `github/codeql-action` 4.36.3 → 4.37.9 (passos `init`, `analyze` e `upload-sarif` mantidos alinhados na mesma versão), `actions/checkout` 7.0.0 → 7.0.1, `actions/setup-node` 6.4.0 → 7.0.0, `actions/stale` 10.3.0 → 11.0.0, `ossf/scorecard-action` 2.4.3 → 2.4.4 e `softprops/action-gh-release` 3.0.1 → 3.0.3
