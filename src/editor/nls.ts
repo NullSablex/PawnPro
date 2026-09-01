@@ -279,10 +279,10 @@ export function createMsg(t: Translate) {
     reopenHint:      () => t('Use <code>PawnPro: Ajuda e informações</code> para reabrir.'),
   },
   serverView: {
-    inputPlaceholder: () => t('Digite um comando do servidor e pressione Enter...'),
+    inputPlaceholder: () => t('Digite um comando'),
     send:             () => t('Enviar para o servidor'),
-    hint:             () => t('Dica: ↑/↓ percorrem o histórico • clique em um item para reutilizá-lo • ⭐ fixa nos favoritos'),
-    tabHistory:       () => t('Últimos comandos'),
+    hint:             () => t('Sem barra: `gmx`, `kick 0`'),
+    tabHistory:       () => t('Recentes'),
     tabFavorites:     () => t('Favoritos'),
     clear:            () => t('Limpar'),
     emptyHistory:     () => t('Sem histórico ainda.'),

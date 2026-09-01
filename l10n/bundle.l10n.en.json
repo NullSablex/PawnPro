@@ -284,13 +284,13 @@
   "Windows-1256 (Árabe)": "Windows-1256 (Arabic)",
   "Windows-1257 (Báltico)": "Windows-1257 (Baltic)",
   "Latin-1 (ISO-8859-1)": "Latin-1 (ISO-8859-1)",
-  "Digite um comando do servidor e pressione Enter...": "Type a server command and press Enter...",
   "Enviar para o servidor": "Send to the server",
-  "Dica: ↑/↓ percorrem o histórico • clique em um item para reutilizá-lo • ⭐ fixa nos favoritos": "Tip: ↑/↓ browse the history • click an item to reuse it • ⭐ pins it to favorites",
-  "Últimos comandos": "Recent commands",
   "Favoritos": "Favorites",
   "Sem histórico ainda.": "No history yet.",
   "Nenhum favorito.": "No favorites.",
   "Adicionar aos favoritos": "Add to favorites",
-  "Remover dos favoritos": "Remove from favorites"
+  "Remover dos favoritos": "Remove from favorites",
+  "Recentes": "Recent",
+  "Digite um comando": "Type a command",
+  "Sem barra: `gmx`, `kick 0`": "No slash: `gmx`, `kick 0`"
 }

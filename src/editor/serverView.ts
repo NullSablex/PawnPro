@@ -15,6 +15,22 @@ const ICON_SEND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"
 </svg>`;
 
 /**
+ * Estrela dos favoritos, em dois estados.
+ *
+ * O emoji `⭐`/`☆` traz cor própria (ignora o tema) e o contorno é fino a ponto
+ * de sumir no fundo do painel — daí o traço próprio, preenchido quando marcado
+ * e contornado quando não.
+ */
+const STAR_PATH =
+  'M8 1.6l1.9 4 4.3.6-3.1 3 .75 4.3L8 11.5l-3.85 2 .75-4.3-3.1-3 4.3-.6z';
+const ICON_STAR_ON = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="${STAR_PATH}"/>
+</svg>`;
+const ICON_STAR_OFF = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+</svg>`;
+
+/**
  * Escapa texto para interpolação em HTML.
  *
  * As strings vêm dos bundles de tradução e caem tanto em texto quanto dentro
@@ -172,9 +188,9 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
   * { box-sizing: border-box; }
   body { margin:0; padding: var(--pad); background: var(--bg); color: var(--fg); font: 12px/1.4 var(--vscode-font-family); }
-  .row { display: flex; gap: 6px; }
+  .row { display: flex; gap: 6px; align-items: stretch; }
   input[type="text"]{
-    flex: 1; padding: 6px 8px; border-radius: var(--radius);
+    flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg); outline: none;
   }
@@ -183,7 +199,11 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
   }
   button:hover { background: var(--btn-hover); }
-  .hint { margin-top: 6px; color: var(--hint); }
+  .hint {
+    margin-top: 6px; color: var(--hint);
+    font-size: clamp(10px, 2.4vw, 12px);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .section {
     margin-top: 10px; border: 1px solid var(--list-border); border-radius: var(--radius); background: var(--list-bg);
     padding: 6px;
@@ -206,28 +226,55 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .ghost:hover { background: rgba(255,255,255,.06); }
   .muted { color: var(--muted); }
 
-  /* Botão de enviar: só o ícone, quadrado, alinhado à altura do input. */
+  /* Botão de enviar: só o ícone, quadrado e alinhado à altura do input. */
   .icon-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; padding: 0; flex: 0 0 auto;
+    width: 30px; height: 28px; padding: 0; flex: 0 0 auto;
   }
-  .icon-btn svg { width: 16px; height: 16px; fill: currentColor; }
+  .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+  /* Nas linhas da lista os botões são menores, e o ícone acompanha — sem
+     isso o traço fica maior que o botão. */
+  .cmd-row .icon-btn { width: 24px; height: 22px; }
+  .cmd-row .icon-btn svg { width: 13px; height: 13px; }
 
-  /* Abas: Favoritos e Últimos comandos dividem o mesmo espaço. */
-  .tabs { display: flex; gap: 2px; margin-bottom: 6px; border-bottom: 1px solid var(--list-border); }
+  /* A estrela precisa se distinguir do fundo em ambos os estados: contorno
+     apagado quando não é favorito, cheia e destacada quando é. */
+  .star-btn { color: var(--muted); }
+  .star-btn:hover { color: var(--fg); }
+  .star-btn.is-on { color: var(--vscode-charts-yellow, #d7ba7d); }
+  .star-btn.is-on:hover { color: var(--vscode-charts-yellow, #d7ba7d); opacity: .8; }
+
+  /* Abas: Recentes e Favoritos dividem o mesmo espaço.
+     O painel lateral pode ficar bem estreito, então os rótulos encolhem
+     (clamp) e truncam antes de empurrar o "Limpar" para fora. */
+  .tabs {
+    display: flex; align-items: stretch; gap: 2px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--list-border);
+  }
   .tab {
-    padding: 5px 10px; border: none; border-bottom: 2px solid transparent;
-    border-radius: 0; background: transparent; color: var(--muted);
-    font-weight: 600; cursor: pointer;
+    min-width: 0; flex: 0 1 auto;
+    padding: 5px clamp(4px, 2vw, 10px);
+    border: none; border-bottom: 2px solid transparent; border-radius: 0;
+    background: transparent; color: var(--muted);
+    font-size: clamp(10px, 2.6vw, 12px); font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: pointer;
   }
   .tab:hover { background: rgba(255,255,255,.04); color: var(--fg); }
   .tab[aria-selected="true"] {
     color: var(--fg);
     border-bottom-color: var(--vscode-focusBorder, var(--btn-bg));
   }
-  .tab-count { margin-left: 5px; opacity: .7; font-weight: 400; }
-  .tab-actions { margin-left: auto; display: flex; align-items: center; }
+  .tab-count { margin-left: 4px; opacity: .7; font-weight: 400; }
+  .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
+  .tab-actions .mini { white-space: nowrap; }
   [hidden] { display: none !important; }
+
+  /* Painel bem estreito: a contagem sai antes do rótulo, que é o que
+     identifica a aba. */
+  @media (max-width: 220px) {
+    .tab-count { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -260,6 +307,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   const vscode = acquireVsCodeApi();
   // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
   const ICON_MARKUP = ${JSON.stringify(ICON_SEND)};
+  const ICON_STAR = { on: ${JSON.stringify(ICON_STAR_ON)}, off: ${JSON.stringify(ICON_STAR_OFF)} };
   const T = ${JSON.stringify({
     send: msg.serverView.send(),
     emptyHistory: msg.serverView.emptyHistory(),
@@ -298,9 +346,12 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
 
     if (opts.star !== undefined) {
       const star = document.createElement('button');
-      star.className = 'mini ghost';
-      star.textContent = opts.star ? '\u2b50' : '\u2606';
+      star.className = 'mini ghost icon-btn star-btn';
+      if (opts.star) star.classList.add('is-on');
+      star.innerHTML = opts.star ? ICON_STAR.on : ICON_STAR.off;
       star.title = opts.star ? T.removeFavorite : T.addFavorite;
+      star.setAttribute('aria-label', star.title);
+      star.setAttribute('aria-pressed', String(!!opts.star));
       star.addEventListener('click', (e) => {
         e.stopPropagation();
         vscode.postMessage({ type: opts.star ? 'removeFavorite' : 'addFavorite', command: safeText });
