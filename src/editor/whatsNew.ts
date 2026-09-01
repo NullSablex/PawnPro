@@ -278,8 +278,8 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
   }
   .logo { height: 72px; width: auto; display: block; }
   .badge {
-    background: var(--vscode-badge-background);
-    color: var(--vscode-badge-foreground);
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
     padding: .25rem .7rem;
     border-radius: 20px;
     font-size: .75rem;

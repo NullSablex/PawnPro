@@ -168,8 +168,8 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
   }
   .row + .row { border-top: 1px solid var(--vscode-panel-border, rgba(255,255,255,.08)); }
   .badge {
-    background: var(--vscode-badge-background);
-    color: var(--vscode-badge-foreground);
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
     padding: .15rem .6rem;
     border-radius: 20px;
     font-size: .75rem;
