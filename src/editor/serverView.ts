@@ -205,7 +205,6 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     /* Altura mínima de uma linha da lista, para todas ficarem iguais. */
     --row-h: 30px;
     --radius: 8px;
-    --icon-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z'/%3E%3C/svg%3E");
     --bg: var(--vscode-sideBar-background);
     --fg: var(--vscode-foreground);
     --border: var(--vscode-panel-border);
@@ -288,11 +287,18 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: var(--gap-sm);
     min-height: 96px; padding: var(--gap-md);
-    color: var(--muted); text-align: center;
+    text-align: center;
   }
-  .empty svg { width: 26px; height: 26px; fill: currentColor; opacity: .45; }
-  .empty-title { font-size: 12px; }
-  .empty-hint { font-size: 11px; opacity: .75; max-width: 26ch; line-height: 1.45; }
+  .empty svg { width: 28px; height: 28px; fill: var(--muted); opacity: .6; }
+  /* O título usa a cor normal do texto: é a resposta à pergunta "o que há
+     aqui?" e precisa ser lido primeiro. */
+  .empty-title { color: var(--fg); font-size: 12px; font-weight: 600; }
+  /* A dica é secundária, mas legível — antes somava a cor apagada com mais
+     opacidade por cima, e o texto quase sumia. */
+  .empty-hint {
+    color: var(--muted); font-size: 11px;
+    max-width: 28ch; line-height: 1.5;
+  }
   .cmd-row {
     display: flex; gap: var(--gap-sm); align-items: center;
     min-height: var(--row-h);
@@ -370,13 +376,15 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .search:focus { border-color: var(--vscode-focusBorder); }
   /* O botão de limpar nativo herda o azul de acento do sistema; redesenhado
      como um X na cor de erro do tema, que é o que a ação significa. */
+  /* O botão nativo herda o azul de acento do sistema, alheio ao tema. Aqui é
+     redesenhado como um X vermelho — a cor vai dentro do próprio SVG porque
+     este pseudo-elemento vive no shadow DOM do input, onde as variáveis
+     declaradas em :root não chegam. */
   .search::-webkit-search-cancel-button {
     -webkit-appearance: none; appearance: none;
-    width: 14px; height: 14px; cursor: pointer;
-    background-color: var(--vscode-errorForeground, #f14c4c);
-    mask: var(--icon-close) center / 11px 11px no-repeat;
-    -webkit-mask: var(--icon-close) center / 11px 11px no-repeat;
-    opacity: .75;
+    width: 16px; height: 16px; margin-left: 2px; cursor: pointer;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23f14c4c'%3E%3Cpath d='M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z'/%3E%3C/svg%3E") center / 12px 12px no-repeat;
+    opacity: .8;
   }
   .search::-webkit-search-cancel-button:hover { opacity: 1; }
 
