@@ -191,5 +191,6 @@ Observações:
 | `syntax.applyOnStartup` | `false` | Reaplicar o esquema ao iniciar (gerenciado automaticamente pelos comandos `applySyntaxScheme` e `resetSyntaxScheme`) |
 | `ui.showIncludePaths` | `false` | Exibe o caminho relativo de cada arquivo `.inc` na aba Includes da barra lateral |
 | `ui.animateTitle` | `false` | Anima as letras do título PawnPro no topo das páginas em sequência (teclado → bloco → cair), em loop com pausa |
+| `ui.accent` | `""` | Cor de destaque das páginas da extensão (botões, item ativo, foco, badges): `""` (automático, herda do tema do editor), `"blue"`, `"purple"`, `"green"`, `"amber"`, `"pink"` ou `"teal"`. Não altera o realce de sintaxe |
 | `ui.locale` | `""` | Idioma das **páginas da extensão** (Configurações, Ajuda, O que há de novo): `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"`. Independente de `locale` |
 | `locale` | `""` | Idioma dos **diagnósticos** do motor LSP e do debugger: `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"` |

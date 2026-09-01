@@ -78,11 +78,14 @@ Em `.pawnpro/config.json`, seção `naming` (genérica, sem domínio):
   "naming": {
     "enabled": true,
     "style": {
-      "functions": "camelCase",   // camelCase | snake_case | PascalCase | off
-      "globals":   "camelCase",
-      "locals":    "camelCase",
-      "constants": "UPPER_CASE",
-      "enums":     "PascalCase"
+      // Lista por categoria: o nome passa se casar com QUALQUER item.
+      // Lista vazia desliga a checagem daquela categoria.
+      "functions":  ["camelCase"],
+      "globals":    ["camelCase", "/^g_[a-z][a-zA-Z0-9]*$/"],
+      "locals":     ["camelCase"],
+      "constants":  ["UPPER_CASE"],
+      "macros":     ["UPPER_CASE"],
+      "parameters": ["camelCase"]
     },
     "minLength": 2,
     "allowShortInLoops": ["i", "j", "k"],
@@ -144,3 +147,9 @@ src/naming/
   `parameters`), cada um `camelCase`/`snake_case`/`PascalCase`/`UPPER_CASE`/`Capitalized_Snake`/`off`.
   Padrão `off` em todas — só checa o que o usuário pedir. Ordem das regras:
   placeholder → comprimento → estilo (a mais específica vence).
+- **Padrão próprio**: um item da lista entre barras (`/^g_[a-z][a-zA-Z0-9]*$/`) é
+  lido como expressão regular, e convive com os estilos embutidos — o nome passa
+  se casar com qualquer critério da categoria. O padrão é âncorado como
+  `^(?:…)$`: descreve o nome inteiro. Um padrão inválido é ignorado sem derrubar
+  os demais critérios. Não gera sugestão de renomeação: de um regex arbitrário
+  dá para saber se o nome passa, não como reescrevê-lo.

@@ -26,6 +26,7 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 | `PP0016` | Hint | Função sem keyword declarada mas nunca chamada |
 | `PP0017` | Aviso | Indentação inconsistente dentro de um bloco (equivale ao `warning 217` do compilador) |
 | `PP0018` | Hint | Nome de identificador pobre (assistente de nomes; desligado por padrão) |
+| `PP0019` | Aviso | `#pragma` com nome desconhecido (com sugestão do nome provável) ou `#pragma deprecated` com a mensagem entre aspas. Tem quick fix |
 
 > ¹ Marcados com `unnecessary` — o editor exibe o símbolo desbotado/riscado além do sublinhado de aviso.
 
@@ -94,7 +95,8 @@ Verificação de qualidade de nomes, **offline e determinística** (sem IA, sem 
 
 - Sinaliza nomes **curtos** (com tolerância a índices de loop), **genéricos** (`tmp`, `foo`, … — lista editável) e **fora do estilo** de caixa configurado.
 - **Estilo por categoria, multi-seleção** — funções, globais, locais, constantes, macros e parâmetros aceitam um ou mais estilos (`camelCase`/`snake_case`/`PascalCase`/`UPPER_CASE`/`Capitalized_Snake`); o nome é aceito se casar com qualquer um deles. A referência de cada convenção (o que casa e o que não casa) está em [Nomenclaturas aceitas](configuration.md#nomenclaturas-aceitas).
-- **Quick-fix** — code action que oferece converter o nome para o estilo configurado.
+- **Padrão próprio** — além dos estilos embutidos, a categoria aceita uma expressão regular escrita entre barras (`/^g_[a-z][a-zA-Z0-9]*$/`), para convenções que os cinco estilos não descrevem — prefixo de global, notação húngara. Convive com eles: o nome passa se casar com qualquer critério. O padrão é âncorado (descreve o nome inteiro) e um padrão inválido é ignorado sem afetar os demais.
+- **Quick-fix** — code action que oferece converter o nome para o estilo configurado. Não se aplica ao padrão próprio: de um regex arbitrário dá para saber se o nome passa, não como reescrevê-lo.
 - **Listas em arquivos** — nomes proibidos e índices de loop ficam em arquivos `.ban`/`.allow` editáveis (com realce próprio). Ver o [guia de listas](naming-lists.md).
 
 ## Idiomas
@@ -141,8 +143,10 @@ Como no compilador, não há forma na mesma linha da declaração.
 
 ## Servidor SA-MP / open.mp
 
+> Guia de uso completo em [Servidor](server.md).
+
 - **Start / Stop / Restart** via terminal integrado do editor.
-- **Painel lateral** com campo de entrada de comandos, histórico (até 200 entradas) navegável por seta, favoritos e botões de limpar histórico/favoritos.
+- **Painel lateral** com campo de entrada de comandos, histórico (até 200 entradas) navegável por seta e favoritos, divididos em duas abas com busca e paginação. Comandos que pareçam carregar senha são enviados mas não guardados; o registro pode ser desligado em `server.history.enabled`.
 - Envio via **RCON (UDP)** quando a senha está configurada (timeout 1500 ms); fallback para stdin do terminal. Bloqueado se a senha for vazia ou `changename`. Prefixos `rcon` e `rcon login ...` são removidos automaticamente antes do envio.
 - *Tail* do log do servidor com *follow* configurável — **exclusivo para Linux e macOS** (não disponível no Windows).
 - Detecção automática de executável do servidor nos subdiretórios: raiz do workspace, `server/`, `samp/`, `samp-server/`, `samp03/`, `open.mp/`.
@@ -166,6 +170,7 @@ Como no compilador, não há forma na mesma linha da declaração.
 - **Temas de sintaxe** — cinco esquemas nomeados: `auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark` (mais `none` para desativar). O esquema `auto` seleciona automaticamente entre Clássico Claro e Clássico Escuro conforme o tema ativo do editor. Ao escolher um esquema via comando, a reaplicação automática na inicialização é habilitada automaticamente. Reaplica automaticamente ao trocar o tema do editor quando `scheme` é `auto`.
 - **Templates** — cria Gamemode (open.mp ou SA-MP), Filterscript (open.mp ou SA-MP) e Include (open.mp); filtra automaticamente pela plataforma configurada (`analysis.sdk.platform`). Não há template de Include para SA-MP.
 - **Biblioteca de Recursos** — WebView para buscar plugins, filterscripts e includes, com modos de visualização em lista e grade, acessível via `pawnpro.openStore`. **Prévia:** atualmente exibe um catálogo de exemplo; a instalação ainda não está disponível. As fontes previstas são o catálogo próprio do PawnPro e `packages.open.mp`.
+- **Cor de destaque** — seis cores (azul, roxo, verde, âmbar, rosa e ciano) para botões, item ativo, foco e badges das páginas da extensão, mais o padrão **Automático**, que herda do tema do editor. Não altera o realce de sintaxe. Configurável em `ui.accent`.
 - **Internacionalização** — interface e diagnósticos em PT-BR, EN, ES, RO e RU; idioma da interface via `ui.locale` e idioma do motor LSP/debugger via `locale` (independentes).
 - **Sugestão do Material Icon Theme** — na ativação, se o tema não estiver instalado, a extensão sugere instalá-lo (melhora os ícones das pastas). Dispensável de vez; nunca reaparece quando já presente.
 

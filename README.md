@@ -24,11 +24,11 @@ Extensão para desenvolvimento em **Pawn** (SA-MP e open.mp) no Visual Studio Co
 ## Recursos
 
 - **IntelliSense** — auto-complete, hover, signature help, CodeLens (referências) e coloração semântica para Pawn, cobrindo os includes transitivos. Os comentários de documentação acima das funções são formatados no hover e no signature help, nos formatos Javadoc (`@param`) e XMLdoc (`<summary>`, usado pelo open.mp).
-- **Diagnósticos** — 18 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação, nomenclatura e mais (ver [docs/features.md](docs/features.md)).
+- **Diagnósticos** — 19 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação, nomenclatura e mais (ver [docs/features.md](docs/features.md)).
 - **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc` via `$PAWNCC`, `$PATH` e subdiretórios do workspace.
 - **Depuração** — sessão de depuração via DAP (`F5`): breakpoints (simples, condicionais, por contagem, logpoints), passo a passo, inspeção de variáveis e watch. Usa um plugin de servidor (SA-MP / open.mp); ver [docs/debugging.md](docs/debugging.md).
 - **Formatação** — formatação de documento e de seleção (`Ctrl+K Ctrl+F`), com estilos configuráveis (Allman, K&R, compacto ou personalizado).
-- **Assistente de nomenclatura** — avisos opcionais sobre nomes pobres e convenções de caixa por categoria de identificador.
+- **Assistente de nomenclatura** — avisos opcionais sobre nomes pobres e convenções de caixa por categoria de identificador, com padrão próprio por expressão regular.
 - **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON pelo terminal integrado; painel lateral com histórico e favoritos.
 - **Templates** — Gamemode e Filterscript (open.mp e SA-MP) e Include (open.mp), filtrados pela plataforma configurada.
 - **Biblioteca de recursos** — vitrine de plugins, filterscripts e includes (prévia).
