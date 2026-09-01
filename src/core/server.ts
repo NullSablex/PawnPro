@@ -88,11 +88,58 @@ export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
   return { rconPassword, port: Math.max(1, Number(rawPort) || 7777), host, cfgPath };
 }
 
+/**
+ * Decide se `cwd` é um servidor open.mp ou SA-MP.
+ *
+ * A presença de `config.json` sozinha não decide: o open.mp só o gera na
+ * primeira execução (antes disso o diretório parece SA-MP), e outras
+ * ferramentas usam esse nome para os próprios arquivos (fazendo um servidor
+ * SA-MP parecer open.mp). Daí a ordem abaixo, do sinal mais forte ao mais
+ * fraco — o executável é inequívoco, o `config.json` só conta quando tem a
+ * cara do arquivo do open.mp.
+ */
+export function detectServerType(cwd: string): 'samp' | 'omp' {
+  const dir = cwd || '';
+  const exe = process.platform === 'win32' ? '.exe' : '';
+
+  // 1. Executável: nomeia o servidor sem ambiguidade.
+  if (fs.existsSync(path.join(dir, `omp-server${exe}`))) return 'omp';
+  if (
+    fs.existsSync(path.join(dir, `samp03svr${exe}`))
+    || fs.existsSync(path.join(dir, `samp-server${exe}`))
+  ) {
+    return 'samp';
+  }
+
+  // 2. `components/`: diretório exclusivo do open.mp.
+  if (fs.existsSync(path.join(dir, 'components'))) return 'omp';
+
+  // 3. `config.json` com as chaves que só o open.mp escreve — um JSON
+  //    homônimo de outra ferramenta não passa por aqui.
+  if (isOmpConfigFile(path.join(dir, 'config.json'))) return 'omp';
+
+  // 4. `server.cfg`: o formato de configuração do SA-MP.
+  if (fs.existsSync(path.join(dir, 'server.cfg'))) return 'samp';
+
+  return 'samp';
+}
+
+/** `true` se o arquivo é mesmo o `config.json` do open.mp, e não um homônimo. */
+function isOmpConfigFile(filePath: string): boolean {
+  try {
+    const json = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    if (typeof json !== 'object' || json === null) return false;
+    // Chaves de topo do open.mp; `pawn.main_scripts` é a mais característica.
+    return ['pawn', 'rcon', 'network', 'logging', 'max_players'].some(k => k in json);
+  } catch {
+    return false;
+  }
+}
+
 export async function loadServerConfig(cwd: string, serverType: import('./types.js').ServerType = 'auto'): Promise<SampCfgData> {
   if (serverType === 'omp') return loadOmpConfig(cwd);
   if (serverType === 'samp') return loadSampConfig(cwd);
-  if (fs.existsSync(path.join(cwd || '', 'config.json'))) return loadOmpConfig(cwd);
-  return loadSampConfig(cwd);
+  return detectServerType(cwd) === 'omp' ? loadOmpConfig(cwd) : loadSampConfig(cwd);
 }
 
 async function readRange(filePath: string, start: number, end: number): Promise<Buffer> {
@@ -287,9 +334,9 @@ export function resolveServerConfig(config: PawnProConfig['server'], workspaceRo
 function resolveLogPath(cwd: string, serverType: import('./types.js').ServerType): string {
   if (serverType === 'omp') return path.join(cwd, ompLogFile(cwd));
   if (serverType === 'samp') return path.join(cwd, 'server_log.txt');
-  const ompCfg = path.join(cwd, 'config.json');
-  if (fs.existsSync(ompCfg)) return path.join(cwd, ompLogFile(cwd));
-  return path.join(cwd, 'server_log.txt');
+  return detectServerType(cwd) === 'omp'
+    ? path.join(cwd, ompLogFile(cwd))
+    : path.join(cwd, 'server_log.txt');
 }
 
 function ompLogFile(cwd: string): string {
@@ -375,8 +422,8 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
   const plugins = probePluginFile(cwd, 'plugins', file);
   const components = probePluginFile(cwd, 'components', file);
 
-  const isOmp = fs.existsSync(path.join(cwd, 'config.json'));
-  const serverType: 'samp' | 'omp' = isOmp ? 'omp' : 'samp';
+  const serverType = detectServerType(cwd);
+  const isOmp = serverType === 'omp';
 
   if (!isOmp) {
     // SA-MP: o binário OFICIAL em plugins/ E registro na linha `plugins`.
