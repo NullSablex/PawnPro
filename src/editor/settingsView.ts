@@ -535,13 +535,20 @@ function getHtml(logoUri: string): string {
     overflow: hidden;
     pointer-events: none;
   }
+  /* Cada exemplo em sua linha, mas o fundo do <code> acompanha o texto: como
+     bloco de largura total ele ia até a borda da coluna, e o exemplo do padrão
+     logo abaixo — mais curto — desenhava uma caixa visivelmente diferente. */
   .naming-preview {
     display: block;
+    width: fit-content;
+    max-width: 100%;
     white-space: pre;
     font-family: var(--vscode-editor-font-family, monospace);
     color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
     opacity: 0.85;
   }
+  /* Espaço entre os dois exemplos, sem margem que desloque o primeiro. */
+  .naming-preview + .naming-preview { margin-top: 3px; }
   .style-checks {
     display: grid;
     grid-template-columns: repeat(2, minmax(min(110px, 100%), 1fr));
