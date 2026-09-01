@@ -484,14 +484,16 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
      shadow DOM, onde nem a cor do tema nem uma máscara declarada aqui chegam
      — ficava azul do sistema ou invisível. */
   .search-box { position: relative; margin-bottom: var(--gap-sm); flex: 0 0 auto; }
-  .search {
+  /* Ancorado no elemento: 'search' também é o tipo do ícone do estado vazio
+     (empty-icon search), e o seletor solto vestia o ícone de input. */
+  input.search {
     width: 100%; height: 24px;
     padding: 0 25px 0 var(--control-pad); border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg);
     font-size: 11px; outline: none;
   }
-  .search:focus { border-color: var(--vscode-focusBorder); }
+  input.search:focus { border-color: var(--vscode-focusBorder); }
   .search-clear {
     position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
     display: inline-flex; align-items: center; justify-content: center;
