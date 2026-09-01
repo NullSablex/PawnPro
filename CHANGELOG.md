@@ -79,7 +79,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ### Documentação
 - **Guia do servidor** (`docs/server.md`) — página nova: iniciar, parar e reiniciar; envio de comandos por RCON com a senha lida do `server.cfg`/`config.json`; as abas de recentes e favoritos com busca; o que não é guardado no histórico e por quê; e o acompanhamento do log, com a limitação a Linux e macOS. A página de Ajuda já apontava para ela
-- **Documentação atualizada para a 3.5.0** — o padrão próprio de nomenclatura e a cor de destaque entram no guia de recursos e na referência de configuração; a descrição do painel do servidor deixa de citar botões que viraram abas; o `PP0019` entra na tabela de diagnósticos e a contagem passa de 18 para 19 códigos no README e na página inicial. No guia do assistente de nomes, o exemplo de configuração mostrava os estilos como texto e citava uma categoria `enums` inexistente — são listas, e as categorias são `constants` e `macros`
+- **Documentação atualizada para a 3.5.0** — o padrão próprio de nomenclatura e a cor de destaque entram no guia de recursos e na referência de configuração; as chaves `server.history.enabled` e `server.history.sensitiveCommands` entram na tabela, onde faltavam; a descrição do painel do servidor deixa de citar botões que viraram abas; o `PP0019` entra na tabela de diagnósticos e a contagem passa de 18 para 19 códigos no README e na página inicial. No guia do assistente de nomes, o exemplo de configuração mostrava os estilos como texto e citava uma categoria `enums` inexistente — são listas, e as categorias são `constants` e `macros`
 
 ## [3.4.2] - 04/07/2026
 
