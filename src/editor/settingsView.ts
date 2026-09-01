@@ -588,7 +588,10 @@ function getHtml(logoUri: string): string {
   /* O exemplo do padrão é o mesmo trecho de código Pawn dos estilos embutidos
      (.naming-preview, de onde herda a aparência): as duas respondem à mesma
      pergunta e ficam na mesma coluna, uma sob a outra. */
-  .regex-status { overflow-x: auto; }
+  /* Sem overflow próprio: overflow != visible cria um contexto que encolhe a
+     caixa até o conteúdo, e o fundo do <code> ficava mais curto que o do
+     exemplo dos estilos logo acima. Os dois são o mesmo tipo de informação e
+     têm de ter a mesma caixa; nomes de identificador cabem na coluna. */
   /* Aviso não é código: volta à fonte da interface para não ser lido como um
      nome de exemplo. */
   .regex-status.err,
