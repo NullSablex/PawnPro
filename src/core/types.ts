@@ -81,7 +81,19 @@ export interface AnalysisConfig {
 }
 
 /** Estilo de caixa. Cada categoria aceita uma lista; vazia = não checa. */
-export type NameCase = 'camelCase' | 'snake_case' | 'PascalCase' | 'UPPER_CASE' | 'Capitalized_Snake';
+export type NameCaseBuiltin =
+  | 'camelCase'
+  | 'snake_case'
+  | 'PascalCase'
+  | 'UPPER_CASE'
+  | 'Capitalized_Snake';
+
+/**
+ * Critério de nomenclatura: um dos estilos embutidos ou um regex do usuário no
+ * formato `/padrão/`. A engine âncora o padrão como `^(?:…)$` — ele descreve o
+ * nome inteiro. Um regex inválido é ignorado por lá, não invalida a config.
+ */
+export type NameCase = NameCaseBuiltin | `/${string}/`;
 
 /**
  * Estilos de caixa aceitos por categoria. Cada campo é uma lista: um nome é

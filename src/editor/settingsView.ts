@@ -267,6 +267,10 @@ function buildI18n(m: Msg) {
     serverArgsDesc:              s.serverArgsDesc(),
     serverClearOnStart:          s.serverClearOnStart(),
     serverClearOnStartDesc:      s.serverClearOnStartDesc(),
+    namingRegex:                 s.namingRegex(),
+    namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
+    namingRegexInvalid:          s.namingRegexInvalid(),
+    namingRegexMatchesNothing:   s.namingRegexMatchesNothing(),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -330,6 +334,19 @@ function namingStyleRow(category: string): string {
       </div>
     </div>
     <div class="row-control style-checks">${checks}</div>
+  </div>
+  <div class="row naming-opt naming-regex-row">
+    <div class="row-info">
+      <label class="regex-label" for="naming-regex-${category}" data-i18n="namingRegex"></label>
+      <div class="regex-status" id="naming-regex-status-${category}"></div>
+    </div>
+    <div class="row-control">
+      <input type="text" class="regex-input" id="naming-regex-${category}"
+        spellcheck="false" autocapitalize="off" autocomplete="off"
+        placeholder="/^g_[a-z][a-zA-Z0-9]*$/"
+        oninput="onNamingRegexInput('${category}')"
+        onchange="commitNamingRegex('${category}')" />
+    </div>
   </div>`;
 }
 
@@ -551,6 +568,28 @@ function getHtml(logoUri: string): string {
   .style-badge input:focus-visible + span {
     box-shadow: 0 0 0 2px var(--vscode-button-background, #007acc);
   }
+  /* O campo de padrão próprio fica sob as etiquetas da mesma categoria: é uma
+     alternativa a elas, não um ajuste de outra seção. */
+  .naming-regex-row { border-bottom: none; padding-top: 0; }
+  .naming-regex-row .row-control { min-width: 240px; }
+  .regex-label { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+  .regex-input {
+    width: 100%;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.85em;
+  }
+  /* Só colore quando há o que dizer: vazio é o estado normal, não um erro. */
+  .regex-input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
+  .regex-status { font-size: 0.85em; margin-top: 3px; min-height: 1.2em; }
+  .regex-status.err { color: var(--vscode-inputValidation-errorForeground, #f14c4c); }
+  .regex-status.ok  { color: var(--vscode-descriptionForeground); }
+  .regex-status code {
+    font-family: var(--vscode-editor-font-family, monospace);
+    opacity: .9;
+  }
+  .regex-status .hit  { color: var(--vscode-charts-green, #89d185); }
+  .regex-status .miss { color: var(--vscode-descriptionForeground); opacity: .7; }
+
   .naming-styles { padding: 10px 0; }
   .naming-styles > summary {
     cursor: pointer;
@@ -1288,6 +1327,9 @@ function applyState(cfg) {
     for (const st of STYLE_OPTIONS) {
       setCheck('naming-style-' + cat + '-' + st, accepted.includes(st));
     }
+    // O padrão próprio é o item entre barras; os demais são os embutidos.
+    setInput('naming-regex-' + cat, accepted.find(isRegexRule) ?? '');
+    updateRegexStatus(cat);
     updateNamingPreview(cat, accepted);
   }
   setSelect('syntax-scheme',        cfg.syntax?.scheme ?? 'none');
@@ -1384,12 +1426,18 @@ const NAMING_TEMPLATE = {
   parameters: 'foo({})',
 };
 
-// Lê os estilos marcados de uma categoria a partir dos checkboxes.
+// Lê os critérios de uma categoria: as etiquetas marcadas mais o padrão
+// próprio, quando houver um válido. A engine aceita o nome que casar com
+// QUALQUER item da lista, então os dois convivem.
 function readAcceptedStyles(category) {
-  return STYLE_OPTIONS.filter(st => {
+  const styles = STYLE_OPTIONS.filter(st => {
     const el = document.getElementById('naming-style-' + category + '-' + st);
     return el && el.checked;
   });
+  const input = document.getElementById('naming-regex-' + category);
+  const raw = input ? input.value.trim() : '';
+  if (raw && isRegexRule(raw) && compileRule(raw)) styles.push(raw);
+  return styles;
 }
 
 // Marca/desmarca um estilo aceito e persiste a lista resultante da categoria.
@@ -1397,6 +1445,101 @@ function toggleNamingStyle(category, style, checked) {
   const accepted = readAcceptedStyles(category);
   set('analysis.naming.style.' + category, accepted);
   updateNamingPreview(category, accepted);
+}
+
+// Um critério é regex quando vem entre barras — mesma convenção da engine.
+function isRegexRule(v) {
+  return typeof v === 'string' && v.length >= 2 && v.startsWith('/') && v.endsWith('/');
+}
+
+// Compila o padrão como a engine faz: âncora ^(?:...)$ para descrever o nome
+// inteiro, e o agrupamento impede que uma alternância ancore só os extremos.
+// Devolve null se o padrão for inválido.
+function compileRule(raw) {
+  const body = raw.slice(1, -1);
+  if (!body) return null;
+  try {
+    return new RegExp('^(?:' + body + ')$');
+  } catch {
+    return null;
+  }
+}
+
+// Nomes testados contra o padrão do usuário: os cinco estilos embutidos daquela
+// categoria, mais variantes com prefixo, que é o caso real mais comum.
+function regexProbes(category) {
+  const out = [];
+  for (const st of STYLE_OPTIONS) {
+    const sample = styleSample(category, st);
+    if (sample) out.push(sample);
+  }
+  const base = out[0];
+  if (base) out.push('g_' + base, '_' + base);
+  return out;
+}
+
+// Mostra se o padrão é válido e quais exemplos ele aceita — o usuário vê o
+// efeito da regra antes de salvá-la.
+function updateRegexStatus(category) {
+  const input = document.getElementById('naming-regex-' + category);
+  const status = document.getElementById('naming-regex-status-' + category);
+  if (!input || !status) return;
+  const raw = input.value.trim();
+
+  status.className = 'regex-status';
+  status.textContent = '';
+  input.classList.remove('invalid');
+  if (!raw) return;
+
+  if (!isRegexRule(raw)) {
+    status.classList.add('err');
+    status.textContent = T.namingRegexNeedsSlashes;
+    input.classList.add('invalid');
+    return;
+  }
+  const re = compileRule(raw);
+  if (!re) {
+    status.classList.add('err');
+    status.textContent = T.namingRegexInvalid;
+    input.classList.add('invalid');
+    return;
+  }
+
+  status.classList.add('ok');
+  const frag = document.createDocumentFragment();
+  let any = false;
+  for (const probe of regexProbes(category)) {
+    const el = document.createElement('code');
+    const hit = re.test(probe);
+    if (hit) any = true;
+    el.className = hit ? 'hit' : 'miss';
+    el.textContent = (hit ? '\u2713 ' : '\u00d7 ') + probe;
+    frag.appendChild(el);
+    frag.appendChild(document.createTextNode('  '));
+  }
+  if (!any) {
+    const warn = document.createElement('span');
+    warn.textContent = T.namingRegexMatchesNothing + ' ';
+    status.appendChild(warn);
+  }
+  status.appendChild(frag);
+}
+
+// Enquanto digita: só valida e mostra o efeito, sem gravar a cada tecla.
+function onNamingRegexInput(category) {
+  updateRegexStatus(category);
+}
+
+// Ao confirmar: grava junto dos estilos marcados. Um padrão inválido não é
+// persistido — gravá-lo faria a engine descartá-lo em silêncio, e o usuário
+// ficaria com uma regra que não existe.
+function commitNamingRegex(category) {
+  const input = document.getElementById('naming-regex-' + category);
+  if (!input) return;
+  const raw = input.value.trim();
+  if (raw && (!isRegexRule(raw) || !compileRule(raw))) return;
+  set('analysis.naming.style.' + category, readAcceptedStyles(category));
+  updateNamingPreview(category, readAcceptedStyles(category));
 }
 
 // Pede ao host para abrir o arquivo de lista (.ban / .allow), criando-o se
@@ -1411,6 +1554,10 @@ function updateNamingPreview(category, accepted) {
   if (!el) return;
   const tpl = NAMING_TEMPLATE[category] ?? '{}';
   const lines = (accepted ?? [])
+    // O padrão próprio não gera exemplo aqui: seu efeito aparece no campo
+    // dele, testado contra nomes reais. Inventar um nome a partir de um regex
+    // arbitrário não é possível.
+    .filter(st => !isRegexRule(st))
     .map(st => styleSample(category, st))
     .filter(Boolean)
     .map(ident => tpl.replace('{}', ident));

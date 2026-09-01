@@ -304,5 +304,9 @@
   "Guardar comandos enviados": "Сохранять отправленные команды",
   "O histórico e os favoritos ficam em .pawnpro/state.json, restrito ao seu usuário e fora do controle de versão. Comandos que pareçam trazer senha nunca são guardados.": "История и избранное хранятся в .pawnpro/state.json — доступ только у вашего пользователя, файл не попадает в систему контроля версий. Команды, похожие на содержащие пароль, не сохраняются.",
   "Comandos que não devem ser guardados": "Команды, которые не нужно сохранять",
-  "Comandos do seu gamemode que recebem senha ou token. A extensão já reconhece login, rcon_password e senhas passadas como argumento.": "Команды вашего gamemode, принимающие пароль или токен. Расширение уже распознаёт login, rcon_password и пароли, переданные аргументом."
+  "Comandos do seu gamemode que recebem senha ou token. A extensão já reconhece login, rcon_password e senhas passadas como argumento.": "Команды вашего gamemode, принимающие пароль или токен. Расширение уже распознаёт login, rcon_password и пароли, переданные аргументом.",
+  "Padrão próprio": "Свой шаблон",
+  "Escreva o padrão entre barras, como /^g_[a-z]+$/.": "Запишите шаблон между косыми чертами, например /^g_[a-z]+$/.",
+  "Expressão regular inválida.": "Недопустимое регулярное выражение.",
+  "Nenhum dos exemplos passa neste padrão.": "Ни один из примеров не подходит под этот шаблон."
 }
