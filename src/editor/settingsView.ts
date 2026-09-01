@@ -338,7 +338,6 @@ function namingStyleRow(category: string): string {
   <div class="row naming-opt naming-regex-row">
     <div class="row-info">
       <label class="regex-label" for="naming-regex-${category}" data-i18n="namingRegex"></label>
-      <div class="regex-status" id="naming-regex-status-${category}"></div>
     </div>
     <div class="row-control">
       <input type="text" class="regex-input" id="naming-regex-${category}"
@@ -347,7 +346,8 @@ function namingStyleRow(category: string): string {
         oninput="onNamingRegexInput('${category}')"
         onchange="commitNamingRegex('${category}')" />
     </div>
-  </div>`;
+  </div>
+  <div class="regex-status" id="naming-regex-status-${category}" hidden></div>`;
 }
 
 // Opções reutilizadas nos dois seletores de idioma (interface e diagnósticos) e
@@ -580,15 +580,37 @@ function getHtml(logoUri: string): string {
   }
   /* Só colore quando há o que dizer: vazio é o estado normal, não um erro. */
   .regex-input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
-  .regex-status { font-size: 0.85em; margin-top: 3px; min-height: 1.2em; }
-  .regex-status.err { color: var(--vscode-inputValidation-errorForeground, #f14c4c); }
-  .regex-status.ok  { color: var(--vscode-descriptionForeground); }
+  /* Os exemplos ocupam a linha inteira, abaixo do campo: na coluna estreita do
+     rótulo eles quebravam no meio das palavras e desalinhavam a página. */
+  .regex-status {
+    display: flex; flex-wrap: wrap; gap: 4px 6px;
+    align-items: center;
+    padding: 0 0 10px 0;
+    font-size: 0.85em;
+  }
+  .regex-status.err {
+    display: block;
+    color: var(--vscode-inputValidation-errorForeground, #f14c4c);
+  }
+  /* Cada exemplo é uma etiqueta inteira — nunca partida entre duas linhas. */
   .regex-status code {
     font-family: var(--vscode-editor-font-family, monospace);
-    opacity: .9;
+    white-space: nowrap;
+    padding: 1px 6px;
+    border-radius: 10px;
+    border: 1px solid transparent;
   }
-  .regex-status .hit  { color: var(--vscode-charts-green, #89d185); }
-  .regex-status .miss { color: var(--vscode-descriptionForeground); opacity: .7; }
+  .regex-status .hit {
+    color: var(--vscode-charts-green, #89d185);
+    border-color: var(--vscode-charts-green, #89d185);
+    opacity: .95;
+  }
+  .regex-status .miss {
+    color: var(--vscode-descriptionForeground);
+    border-color: var(--vscode-input-border, #555);
+    opacity: .6;
+  }
+  .regex-status .note { color: var(--vscode-descriptionForeground); }
 
   .naming-styles { padding: 10px 0; }
   .naming-styles > summary {
@@ -1516,6 +1538,7 @@ function updateRegexStatus(category, settled) {
 
   status.className = 'regex-status';
   status.textContent = '';
+  status.hidden = true;
   input.classList.remove('invalid');
   if (!raw) return;
 
@@ -1526,28 +1549,33 @@ function updateRegexStatus(category, settled) {
     if (!settled) return;
     status.classList.add('err');
     status.textContent = isRegexRule(raw) ? T.namingRegexInvalid : T.namingRegexNeedsSlashes;
+    status.hidden = false;
     input.classList.add('invalid');
     return;
   }
 
-  status.classList.add('ok');
   const frag = document.createDocumentFragment();
-  let any = false;
-  for (const probe of regexProbes(category, raw)) {
+  // Os aceitos primeiro: é a resposta que o usuário procura, e assim ela cabe
+  // na primeira linha mesmo quando a lista quebra.
+  const probes = regexProbes(category, raw);
+  const hits = probes.filter(p => re.test(p));
+  const misses = probes.filter(p => !re.test(p));
+  const any = hits.length > 0;
+  for (const probe of hits.concat(misses)) {
     const el = document.createElement('code');
     const hit = re.test(probe);
-    if (hit) any = true;
     el.className = hit ? 'hit' : 'miss';
     el.textContent = (hit ? '\u2713 ' : '\u00d7 ') + probe;
     frag.appendChild(el);
-    frag.appendChild(document.createTextNode('  '));
   }
   if (!any) {
     const warn = document.createElement('span');
-    warn.textContent = T.namingRegexMatchesNothing + ' ';
+    warn.className = 'note';
+    warn.textContent = T.namingRegexMatchesNothing;
     status.appendChild(warn);
   }
   status.appendChild(frag);
+  status.hidden = false;
 }
 
 // Enquanto digita: mostra o efeito do que já é um padrão completo, sem gravar
