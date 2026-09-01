@@ -99,8 +99,16 @@ function mdToHtml(md: string): string {
   // Indentação da cerca: num bloco aninhado numa lista, ela recua o conteúdo
   // todo e apareceria dentro do código.
   let fenceIndent = 0;
+  // Um item fica aberto enquanto puder receber continuação (um bloco de
+  // código indentado, um parágrafo); sem isso o conteúdo cairia dentro do
+  // <ul> e fora de qualquer <li>, o que é inválido.
+  let liOpen = false;
 
+  const closeLi = () => {
+    if (liOpen) { out.push('</li>'); liOpen = false; }
+  };
   const closeLists = (toIndent = -1) => {
+    if (listStack.length > 0) closeLi();
     while (listStack.length > 0 && listStack[listStack.length - 1] > toIndent) {
       out.push('</ul>');
       listStack.pop();
@@ -125,8 +133,11 @@ function mdToHtml(md: string): string {
     const fence = /^(\s*)```(\w*)\s*$/.exec(line);
     if (fence) {
       if (fenceLang === null) {
-        closeLists();
         fenceIndent = fence[1].length;
+        // Um bloco indentado pertence ao item de lista acima — fechar a lista
+        // aqui transformaria o texto seguinte num parágrafo solto, com outra
+        // cor. Só uma cerca na margem encerra a lista.
+        if (fenceIndent === 0) closeLists();
         fenceLang = fence[2] || '';
         fenceLines = [];
       } else {
@@ -139,7 +150,10 @@ function mdToHtml(md: string): string {
     }
     if (fenceLang !== null) { fenceLines.push(raw.slice(fenceIndent)); continue; }
 
-    if (!line.trim()) { closeLists(); continue; }
+    // Uma linha em branco não encerra a lista: em Markdown, só o conteúdo
+    // seguinte decide isso, quando volta à margem. Fechar aqui quebrava o
+    // vínculo entre um item e o bloco de código indentado abaixo dele.
+    if (!line.trim()) continue;
 
     if (/^[-*_]{3,}\s*$/.test(line.trim())) { closeCard(); continue; }
 
@@ -158,15 +172,25 @@ function mdToHtml(md: string): string {
     const m = /^(\s*)[-*]\s+(.*)$/.exec(line);
     if (m) {
       const indent = m[1].length;
-      closeLists(indent);
-      if (listStack.length === 0 || indent > listStack[listStack.length - 1]) {
+      const aninha = listStack.length > 0 && indent > listStack[listStack.length - 1];
+      if (!aninha) closeLists(indent);
+      if (listStack.length === 0 || aninha) {
         out.push('<ul>');
         listStack.push(indent);
       }
-      out.push(`<li>${inline(m[2])}</li>`);
+      closeLi();
+      out.push(`<li>${inline(m[2])}`);
+      liOpen = true;
       continue;
     }
 
+    // Texto indentado logo abaixo de um item continua aquele item; na margem,
+    // é um parágrafo do card.
+    const indent = line.length - line.trimStart().length;
+    if (listStack.length > 0 && indent > listStack[listStack.length - 1]) {
+      out.push(`<p class="cont">${inline(line.trim())}</p>`);
+      continue;
+    }
     closeLists();
     out.push(`<p>${inline(line.trim())}</p>`);
   }
@@ -273,6 +297,14 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
   }
   .card-section ul ul li { font-size: .86rem; opacity: .9; }
   p { color: var(--vscode-descriptionForeground); font-size: .88rem; margin-top: .5rem; }
+  /* Continuação de um item de lista: mesma cor e tamanho do item, para o
+     texto não parecer de outra natureza só por vir depois de um bloco. */
+  .card-section p.cont {
+    color: inherit;
+    font-size: .9rem;
+    margin: .5rem 0 0 1.15rem;
+  }
+  .card-section pre { margin-left: 1.15rem; }
   strong { color: var(--vscode-foreground); }
   code {
     font-family: var(--vscode-editor-font-family, monospace);
