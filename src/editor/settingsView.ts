@@ -1138,6 +1138,28 @@ ${LOCALE_OPTIONS}
   </div>
   <div class="row">
     <div class="row-info">
+      <div class="row-label" data-i18n="serverKeepHistory"></div>
+      <div class="row-desc" data-i18n="serverKeepHistoryDesc"></div>
+    </div>
+    <div class="row-control">
+      <label class="toggle">
+        <input type="checkbox" id="server-history-enabled" onchange="set('server.history.enabled', this.checked)">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="serverSensitiveCommands"></div>
+      <div class="row-desc" data-i18n="serverSensitiveCommandsDesc"></div>
+    </div>
+    <div class="row-control" style="min-width:220px">
+      <div id="server-sensitive-editor" class="array-editor"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
       <div class="row-label" data-i18n="serverFollowLog"></div>
       <div class="row-desc" data-i18n="serverFollowLogDesc"></div>
     </div>
@@ -1273,7 +1295,10 @@ function applyState(cfg) {
   setInput('server-path',           cfg.server?.path ?? '');
   setInput('server-cwd',            cfg.server?.cwd ?? '\${workspaceFolder}');
   setArray('server-args-editor',    'server.args', cfg.server?.args ?? []);
+  setArray('server-sensitive-editor', 'server.history.sensitiveCommands', cfg.server?.history?.sensitiveCommands ?? []);
+
   setCheck('server-clearOnStart',   cfg.server?.clearOnStart ?? true);
+  setCheck('server-history-enabled', cfg.server?.history?.enabled ?? true);
   setSelect('server-output-follow', cfg.server?.output?.follow ?? 'visible');
   setInput('server-logPath',        cfg.server?.logPath ?? '');
   setSelect('server-logEncoding',   cfg.server?.logEncoding ?? 'windows1252');

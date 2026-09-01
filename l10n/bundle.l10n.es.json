@@ -300,5 +300,9 @@
   "Nada encontrado": "No se encontró nada",
   "Tente outro trecho do comando.": "Prueba con otra parte del comando.",
   "Limpar a busca": "Limpiar la búsqueda",
-  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "El envío por RCON solo vale para el servidor local — la contraseña viaja en texto plano. Usa la terminal para un servidor remoto."
+  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "El envío por RCON solo vale para el servidor local — la contraseña viaja en texto plano. Usa la terminal para un servidor remoto.",
+  "Guardar comandos enviados": "Guardar los comandos enviados",
+  "O histórico e os favoritos ficam em .pawnpro/state.json, restrito ao seu usuário e fora do controle de versão. Comandos que pareçam trazer senha nunca são guardados.": "El historial y los favoritos están en .pawnpro/state.json, restringido a tu usuario y fuera del control de versiones. Los comandos que parezcan llevar una contraseña nunca se guardan.",
+  "Comandos que não devem ser guardados": "Comandos que no deben guardarse",
+  "Comandos do seu gamemode que recebem senha ou token. A extensão já reconhece login, rcon_password e senhas passadas como argumento.": "Comandos de tu gamemode que reciben contraseña o token. La extensión ya reconoce login, rcon_password y contraseñas pasadas como argumento."
 }

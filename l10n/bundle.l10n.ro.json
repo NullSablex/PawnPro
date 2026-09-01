@@ -300,5 +300,9 @@
   "Nada encontrado": "Nu s-a găsit nimic",
   "Tente outro trecho do comando.": "Încearcă altă parte a comenzii.",
   "Limpar a busca": "Golește căutarea",
-  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "Trimiterea prin RCON e limitată la serverul local — parola circulă în text clar. Folosește terminalul pentru un server la distanță."
+  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "Trimiterea prin RCON e limitată la serverul local — parola circulă în text clar. Folosește terminalul pentru un server la distanță.",
+  "Guardar comandos enviados": "Păstrează comenzile trimise",
+  "O histórico e os favoritos ficam em .pawnpro/state.json, restrito ao seu usuário e fora do controle de versão. Comandos que pareçam trazer senha nunca são guardados.": "Istoricul și favoritele stau în .pawnpro/state.json, restricționat la utilizatorul tău și în afara controlului versiunilor. Comenzile care par să conțină o parolă nu sunt niciodată păstrate.",
+  "Comandos que não devem ser guardados": "Comenzi care nu trebuie păstrate",
+  "Comandos do seu gamemode que recebem senha ou token. A extensão já reconhece login, rcon_password e senhas passadas como argumento.": "Comenzi din gamemode-ul tău care primesc parolă sau token. Extensia recunoaște deja login, rcon_password și parolele date ca argument."
 }
