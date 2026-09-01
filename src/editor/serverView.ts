@@ -72,11 +72,11 @@ function esc(value: string): string {
 }
 
 /**
- * Comandos que carregam credencial e não devem ser guardados.
+ * Comandos cujo nome já indica credencial.
  *
  * O histórico e os favoritos vão para `.pawnpro/state.json`, em texto claro e
- * dentro do projeto — um `login` ou uma troca de senha ali seria commitado
- * junto. O comando ainda é enviado; só não fica registrado.
+ * dentro do projeto — um `login` ali seria commitado junto. O comando ainda é
+ * enviado; só não fica registrado.
  */
 const COMANDOS_SENSIVEIS = [
   /^login(\s|$)/i,
@@ -86,10 +86,53 @@ const COMANDOS_SENSIVEIS = [
   /^setpass(word)?(\s|$)/i,
 ];
 
-/** `true` se o comando traz credencial e não deve ser guardado. */
-export function isSensitiveCommand(cmd: string): boolean {
+/**
+ * Palavras que, num argumento, anunciam que o próximo termo é credencial —
+ * `meucomando --senha 1234`, `auth token abc`.
+ */
+const ROTULOS_DE_SEGREDO =
+  /^-{0,2}(pass|passwd|password|senha|pwd|token|key|chave|secret|segredo|auth|apikey)$/i;
+
+/**
+ * `true` se o termo parece uma credencial solta.
+ *
+ * Deliberadamente conservador: só entra o que mistura letras e dígitos e é
+ * longo o suficiente. Um `kick 0`, um `weather 11` ou um `setpos 1.5 -2.0`
+ * são argumentos comuns e não podem sumir do histórico por engano — o custo
+ * de um falso positivo aqui é o recurso deixar de servir.
+ */
+function pareceSegredo(termo: string): boolean {
+  if (termo.length < 8) return false;
+  if (/^[\d.,:-]+$/.test(termo)) return false;          // números, ip, coordenada
+  if (!/[a-z]/i.test(termo) || !/\d/.test(termo)) return false;
+  return true;
+}
+
+/**
+ * `true` se o comando traz credencial e não deve ser guardado.
+ *
+ * Três camadas: o nome do comando, os comandos que o projeto declarou em
+ * `server.history.sensitiveCommands`, e um argumento que se anuncie como
+ * segredo ou pareça um.
+ */
+export function isSensitiveCommand(cmd: string, extras: string[] = []): boolean {
   const t = cmd.trim().replace(/^\/?rcon\s+/i, '');
-  return COMANDOS_SENSIVEIS.some(rx => rx.test(t));
+  if (!t) return false;
+  if (COMANDOS_SENSIVEIS.some(rx => rx.test(t))) return true;
+
+  const termos = t.split(/\s+/);
+  const nome = termos[0].toLowerCase();
+  if (extras.some(e => e.trim().toLowerCase() === nome)) return true;
+
+  for (let i = 1; i < termos.length; i++) {
+    // `--senha 1234`: o rótulo entrega o próximo termo.
+    if (ROTULOS_DE_SEGREDO.test(termos[i]) && i + 1 < termos.length) return true;
+    // `--senha=1234` num termo só.
+    const [chave, ...resto] = termos[i].split('=');
+    if (resto.length > 0 && ROTULOS_DE_SEGREDO.test(chave)) return true;
+    if (pareceSegredo(termos[i])) return true;
+  }
+  return false;
 }
 
 export class ServerViewProvider implements vscode.WebviewViewProvider {
@@ -126,8 +169,16 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
    * trás, no arquivo e à vista no painel.
    */
   private purgeSensitive() {
-    const favs = this.favorites.filter(c => !isSensitiveCommand(c));
-    const hist = this.history.filter(c => !isSensitiveCommand(c));
+    const cfg = this.historyCfg;
+    // Com o registro desligado, não basta parar de gravar: o que já está lá
+    // precisa sair.
+    if (!cfg.enabled) {
+      if (this.favorites.length || this.history.length) this.save([], []);
+      return;
+    }
+    const extras = cfg.sensitiveCommands;
+    const favs = this.favorites.filter(c => !isSensitiveCommand(c, extras));
+    const hist = this.history.filter(c => !isSensitiveCommand(c, extras));
     if (favs.length !== this.favorites.length || hist.length !== this.history.length) {
       this.save(favs, hist);
     }
@@ -152,15 +203,22 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     return filtered;
   }
 
+  /** Ajustes de histórico do projeto, com o padrão quando não configurados. */
+  private get historyCfg() {
+    return this.config.getAll().server.history ?? { enabled: true, sensitiveCommands: [] };
+  }
+
   private record(cmd: string) {
-    if (isSensitiveCommand(cmd)) return;
+    const cfg = this.historyCfg;
+    if (!cfg.enabled) return;
+    if (isSensitiveCommand(cmd, cfg.sensitiveCommands)) return;
     const newHistory = this.unshiftUnique([...this.history], cmd, 200);
     this.save(this.favorites, newHistory);
     this.broadcast();
   }
 
   private addFavorite(cmd: string) {
-    if (isSensitiveCommand(cmd)) return;
+    if (isSensitiveCommand(cmd, this.historyCfg.sensitiveCommands)) return;
     const newFavs = this.unshiftUnique([...this.favorites], cmd);
     this.save(newFavs, this.history);
     this.broadcast();

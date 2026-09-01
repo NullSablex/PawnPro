@@ -22,6 +22,7 @@ const DEFAULTS: PawnProConfig = {
     clearOnStart: true, logPath: '',
     logEncoding: 'windows1252',
     output: { follow: 'visible' },
+    history: { enabled: true, sensitiveCommands: [] },
   },
   analysis: {
     warnUnusedInInc: false,

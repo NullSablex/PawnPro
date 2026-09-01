@@ -43,8 +43,20 @@ export interface ServerOutputConfig {
 
 export type ServerType = 'auto' | 'samp' | 'omp';
 
+/** Como o painel guarda os comandos enviados. */
+export interface ServerHistoryConfig {
+  /** `false` desliga o registro: nada é gravado em `.pawnpro/state.json`. */
+  enabled: boolean;
+  /**
+   * Comandos do gamemode que não devem ser guardados, além dos que a extensão
+   * já reconhece. Comparados pelo primeiro termo, sem diferenciar maiúsculas.
+   */
+  sensitiveCommands: string[];
+}
+
 export interface ServerConfig {
   type: ServerType;
+  history: ServerHistoryConfig;
   path: string;
   cwd: string;
   args: string[];
