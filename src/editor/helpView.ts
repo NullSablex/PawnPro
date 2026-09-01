@@ -3,9 +3,11 @@ import * as path from 'path';
 import type { Msg } from './nls.js';
 import { createWebviewMsg } from './webviewNls.js';
 import type { PawnProConfigManager } from '../core/config.js';
+import { webviewThemeCss } from './webviewTheme.js';
 
 const DOCS_URL = 'https://pawnpro.nullsablex.com';
 const DEBUG_DOCS_URL = 'https://pawnpro.nullsablex.com/debugging/';
+const SERVER_DOCS_URL = 'https://pawnpro.nullsablex.com/server/';
 const EXTENSION_REPO = 'https://github.com/NullSablex/PawnPro';
 const ISSUES_URL = 'https://github.com/NullSablex/PawnPro/issues';
 const OPENMP_COMPILER_URL = 'https://github.com/openmultiplayer/compiler/releases';
@@ -42,7 +44,7 @@ function showPanel(context: vscode.ExtensionContext, config: PawnProConfigManage
   // Ícone da aba: webviews ignoram <link rel="icon"> no HTML — é `iconPath` que
   // define o ícone mostrado no título do painel.
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
-  panel.webview.html = buildHtml(context, panel.webview, msg);
+  panel.webview.html = buildHtml(context, panel.webview, msg, webviewThemeCss(config));
 }
 
 /** Escapa HTML e resolve **negrito**, `código` e [texto](url) para tags seguras. */
@@ -64,7 +66,7 @@ function link(label: string, url: string): string {
   return `<li><a href="${url}">${inline(label)}</a></li>`;
 }
 
-function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, msg: Msg): string {
+function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, msg: Msg, themeCss: string): string {
   const pkg = context.extension.packageJSON as PackageJson;
   const engineVersion = pkg.engineVersion ?? '—';
   const debuggerVersion = pkg.debuggerVersion ?? '—';
@@ -83,6 +85,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
 
   const links = [
     link(msg.help.linkDocs(), DOCS_URL),
+    link(msg.help.linkServerGuide(), SERVER_DOCS_URL),
     link(msg.help.linkExtension(), EXTENSION_REPO),
     link(msg.help.linkEngine(), engineRepo),
     link(msg.help.linkDebugger(), debuggerRepo),
@@ -104,7 +107,9 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
     font-size: var(--vscode-font-size);
     color: var(--vscode-foreground);
     background: var(--vscode-editor-background);
-    padding: 2.5rem 3rem;
+    /* Recuo fluido: em painel estreito 3rem de cada lado comiam 30% da
+       largura. Em tela larga o valor é o mesmo de antes. */
+    padding: 2.5rem clamp(14px, 5vw, 3rem);
     max-width: 820px;
     margin: 0 auto;
     line-height: 1.6;
@@ -131,7 +136,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
   .card-section {
     background: var(--vscode-sideBar-background, rgba(255,255,255,.04));
     border-radius: 8px;
-    border-left: 3px solid var(--vscode-activityBarBadge-background, #007acc);
+    border-left: 3px solid var(--pp-accent);
     padding: .9rem 1.1rem 1rem;
     margin: .9rem 0;
   }
@@ -163,8 +168,8 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
   }
   .row + .row { border-top: 1px solid var(--vscode-panel-border, rgba(255,255,255,.08)); }
   .badge {
-    background: var(--vscode-badge-background);
-    color: var(--vscode-badge-foreground);
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
     padding: .15rem .6rem;
     border-radius: 20px;
     font-size: .75rem;
@@ -197,6 +202,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
     flex-wrap: wrap;
     gap: .5rem;
   }
+${themeCss}
 </style>
 </head>
 <body>

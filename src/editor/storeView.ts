@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { PawnProConfigManager } from '../core/config.js';
+import { webviewThemeCss } from './webviewTheme.js';
 import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
 import { msg, type Msg } from './nls.js';
 import { createWebviewMsg } from './webviewNls.js';
@@ -212,7 +213,7 @@ export function registerStoreView(
       const logoUri = panel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg'),
       );
-      panel.webview.html = getHtml(logoUri.toString(), panel.webview.cspSource);
+      panel.webview.html = getHtml(logoUri.toString(), panel.webview.cspSource, cfgManager ? webviewThemeCss(cfgManager) : '');
       sendState(panel);
 
       panel.webview.onDidReceiveMessage((message: unknown) => {
@@ -334,7 +335,7 @@ function sendState(p: vscode.WebviewPanel): void {
   });
 }
 
-function getHtml(logoUri: string, cspSource: string): string {
+function getHtml(logoUri: string, cspSource: string, themeCss: string): string {
   return /* html */ `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -351,7 +352,7 @@ function getHtml(logoUri: string, cspSource: string): string {
   /* Foco coerente com a marca (não o focusBorder amarelo do tema): anel fino na
      cor de botão, em vez do outline nativo grosso. Acessível e discreto. */
   input:focus-visible, select:focus-visible, button:focus-visible {
-    outline: 1px solid var(--vscode-button-background);
+    outline: 1px solid var(--pp-accent);
     outline-offset: 1px;
   }
   body {
@@ -419,7 +420,7 @@ function getHtml(logoUri: string, cspSource: string): string {
   .chip:hover { opacity: 1; }
   .chip.active {
     opacity: 1; border-color: transparent;
-    background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+    background: var(--pp-accent); color: var(--pp-accent-fg);
   }
   .chip-sep { width: 1px; align-self: stretch; background: var(--vscode-panel-border, #333); margin: 2px 4px; }
 
@@ -455,7 +456,7 @@ function getHtml(logoUri: string, cspSource: string): string {
     padding: 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer;
     transition: border-color 0.1s, background 0.1s, transform 0.06s;
   }
-  .card:hover { border-color: var(--vscode-button-background, #07c); background: var(--vscode-list-hoverBackground); }
+  .card:hover { border-color: var(--pp-accent); background: var(--vscode-list-hoverBackground); }
   .card:active { transform: scale(0.995); }
   .card .name { font-weight: 600; font-size: 1.05em; }
   .card .short { font-size: 0.92em; opacity: 0.8; flex: 1; line-height: 1.45; }
@@ -477,10 +478,10 @@ function getHtml(logoUri: string, cspSource: string): string {
   .meta { font-size: 0.85em; opacity: 0.7; }
 
   .btn-install {
-    background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+    background: var(--pp-accent); color: var(--pp-accent-fg);
     border: none; border-radius: 4px; padding: 8px 18px; cursor: pointer; font-size: 0.9em;
   }
-  .btn-install:hover { background: var(--vscode-button-hoverBackground, var(--vscode-button-background)); }
+  .btn-install:hover { background: var(--pp-accent-hover); }
   /* Remover: botão secundário (não tão chamativo quanto o de adicionar). */
   .btn-remove {
     background: var(--vscode-button-secondaryBackground, transparent);
@@ -512,7 +513,7 @@ function getHtml(logoUri: string, cspSource: string): string {
     border-radius: clamp(12px, 3vw, 16px); flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     font-size: clamp(1.6em, 5vw, 2.1em); font-weight: 700;
-    background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+    background: var(--pp-accent); color: var(--pp-accent-fg);
   }
   /* min-width fluido evita estouro: o cabeçalho empilha sozinho quando aperta. */
   .detail-head .head-main { flex: 1; min-width: min(220px, 100%); display: flex; flex-direction: column; gap: 9px; }
@@ -536,7 +537,7 @@ function getHtml(logoUri: string, cspSource: string): string {
     border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border, #555));
     padding: 7px 10px; font-size: 0.85em;
   }
-  .install-split .ver-select:hover { border-color: var(--vscode-button-background); }
+  .install-split .ver-select:hover { border-color: var(--pp-accent); }
 
   /* Conteúdo (largo) + sidebar (estreita). Mantém a proporção ~2:1 e quebra para
      uma coluna só quando aperta — via flex-wrap, sem media query. O conteúdo tem
@@ -573,7 +574,7 @@ function getHtml(logoUri: string, cspSource: string): string {
     border: 1px solid var(--vscode-panel-border, #333);
     transition: border-color 0.1s, transform 0.06s;
   }
-  .shot:hover { border-color: var(--vscode-button-background, #07c); }
+  .shot:hover { border-color: var(--pp-accent); }
   .shot:active { transform: scale(0.99); }
   .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -601,6 +602,7 @@ function getHtml(logoUri: string, cspSource: string): string {
   .muted { opacity: 0.55; font-size: 0.85em; }
 
 ${brandAnimationCss()}
+${themeCss}
 </style>
 </head>
 <body>

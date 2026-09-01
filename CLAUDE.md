@@ -142,7 +142,7 @@ O que vai no VSIX: `out/editor/extension.js`, `engines/`, `syntaxes/`, `template
 
 ## Diagnósticos conhecidos do motor
 
-Ver [docs/features.md](docs/features.md) para a tabela completa de códigos PP0001–PP0013.
+Ver [docs/features.md](docs/features.md) para a tabela completa de códigos PP0001–PP0019.
 
 ---
 

@@ -14,8 +14,8 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 | `PP0004` | Aviso | `public`/`stock`/`static` sem corpo |
 | `PP0005` | Aviso¹ | Variável declarada e não utilizada |
 | `PP0006` | Aviso¹ | Função `stock`/`static` não utilizada |
-| `PP0007` | Aviso | Uso de símbolo marcado com `@DEPRECATED`, ou símbolo de include depreciado |
-| `PP0008` | Aviso | `#include` marcado com `@DEPRECATED` |
+| `PP0007` | Aviso | Uso de símbolo marcado com `#pragma deprecated`, ou símbolo de include depreciado |
+| `PP0008` | Aviso | `#include` precedido de `#pragma deprecated` |
 | `PP0009` | Hint | Parâmetro de função não utilizado |
 | `PP0010` | Aviso | Função chamada não declarada em nenhum include ativo |
 | `PP0011` | Hint | `#define` declarado mas não utilizado |
@@ -26,6 +26,7 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 | `PP0016` | Hint | Função sem keyword declarada mas nunca chamada |
 | `PP0017` | Aviso | Indentação inconsistente dentro de um bloco (equivale ao `warning 217` do compilador) |
 | `PP0018` | Hint | Nome de identificador pobre (assistente de nomes; desligado por padrão) |
+| `PP0019` | Aviso | `#pragma` com nome desconhecido (com sugestão do nome provável) ou `#pragma deprecated` com a mensagem entre aspas. Tem quick fix |
 
 > ¹ Marcados com `unnecessary` — o editor exibe o símbolo desbotado/riscado além do sublinhado de aviso.
 
@@ -36,13 +37,49 @@ A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](htt
 ## IntelliSense
 
 - **Auto-complete** — funções (`native`, `stock`, `public`, `forward`, `static`), macros (`#define`) e variáveis de todos os includes transitivos; parâmetros com snippets; itens depreciados marcados visivelmente.
-- **Hover** — assinatura e comentário de documentação; em `#include` exibe o caminho resolvido e o doc do topo do arquivo.
-- **Signature Help** — parâmetro ativo destacado ao digitar `(` e `,`.
+- **Hover** — assinatura e comentário de documentação formatado (ver [Comentários de documentação](#comentários-de-documentação)); em `#include` exibe o caminho resolvido e o doc do topo do arquivo.
+- **Signature Help** — parâmetro ativo destacado ao digitar `(` e `,`, com a descrição daquele parâmetro quando a função está documentada.
 - **CodeLens** — contagem de referências acima de cada função; clique para listar todas no painel.
-- **Semantic Tokens** — coloração semântica para funções, incluindo chamadas multiline.
 - **Semantic Tokens** — coloração semântica para funções, incluindo chamadas multiline.
 - **Renomeação (`F2`)** — renomeia o símbolo sob o cursor em todas as ocorrências do projeto aberto.
 - **Snippets** — estruturas prontas para controle de fluxo, funções, variáveis, includes, callbacks SA-MP/open.mp e utilitários como `CMD`, `SetTimer` e `fmsg`. Lista completa em [docs/snippets.md](snippets.md).
+
+## Comentários de documentação
+
+O comentário escrito imediatamente acima de uma declaração alimenta o hover, o *signature help* e o autocomplete. Dois formatos são reconhecidos, detectados pelo próprio conteúdo.
+
+**Javadoc** — `@param`, `@return`, `@remarks` (ou `@note`):
+
+```pawn
+/**
+ * Bane o endereço de um jogador conectado, com um motivo.
+ *
+ * @param playerid  o jogador a ser banido
+ * @param reason[]  o motivo, mostrado a ele e guardado no registro
+ * @return          1 sempre
+ */
+native BanEx(playerid, const reason[]);
+```
+
+**XMLdoc** — o formato usado pelo `omp-stdlib` do open.mp:
+
+```pawn
+/**
+ * <library>omp_actor</library>
+ * <summary>Verifica se um ator está transmitido para um jogador.</summary>
+ * <param name="actorid">O ID do ator</param>
+ * <param name="playerid">O ID do jogador</param>
+ * <seealso name="CreateActor" />
+ * <returns><b><c>1</c></b> se estiver, <b><c>0</c></b> caso contrário.</returns>
+ */
+native bool:IsActorStreamedIn(actorid, playerid);
+```
+
+No XMLdoc, a formatação embutida vira texto formatado (`<b>` negrito, `<c>` código, `<br />` quebra de linha), e `<library>`, `<seealso>` e os links `<a href="#Função">` — que servem ao gerador da wiki do open.mp — não aparecem no hover.
+
+Em ambos os formatos, cada parâmetro é casado **pelo nome** (o `[]` de array é ignorado) e não pela posição, então o comentário pode omitir parâmetros ou listá-los fora de ordem. O hover mostra o bloco inteiro com os títulos das seções no idioma configurado; o *signature help*, a descrição do parâmetro sob o cursor; o autocomplete, apenas o resumo.
+
+Um comentário comum, sem nenhuma tag, continua aparecendo como descrição.
 
 ## Formatação de código
 
@@ -58,7 +95,8 @@ Verificação de qualidade de nomes, **offline e determinística** (sem IA, sem 
 
 - Sinaliza nomes **curtos** (com tolerância a índices de loop), **genéricos** (`tmp`, `foo`, … — lista editável) e **fora do estilo** de caixa configurado.
 - **Estilo por categoria, multi-seleção** — funções, globais, locais, constantes, macros e parâmetros aceitam um ou mais estilos (`camelCase`/`snake_case`/`PascalCase`/`UPPER_CASE`/`Capitalized_Snake`); o nome é aceito se casar com qualquer um deles. A referência de cada convenção (o que casa e o que não casa) está em [Nomenclaturas aceitas](configuration.md#nomenclaturas-aceitas).
-- **Quick-fix** — code action que oferece converter o nome para o estilo configurado.
+- **Padrão próprio** — além dos estilos embutidos, a categoria aceita uma expressão regular escrita entre barras (`/^g_[a-z][a-zA-Z0-9]*$/`), para convenções que os cinco estilos não descrevem — prefixo de global, notação húngara. Convive com eles: o nome passa se casar com qualquer critério. O padrão é âncorado (descreve o nome inteiro) e um padrão inválido é ignorado sem afetar os demais.
+- **Quick-fix** — code action que oferece converter o nome para o estilo configurado. Não se aplica ao padrão próprio: de um regex arbitrário dá para saber se o nome passa, não como reescrevê-lo.
 - **Listas em arquivos** — nomes proibidos e índices de loop ficam em arquivos `.ban`/`.allow` editáveis (com realce próprio). Ver o [guia de listas](naming-lists.md).
 
 ## Idiomas
@@ -75,19 +113,22 @@ Vitrine para encontrar plugins, filterscripts e includes, aberta pelo comando **
 
 > Nesta versão é uma **prévia** com catálogo de exemplo — a instalação ainda não está disponível. Fontes previstas: catálogo próprio + `packages.open.mp`.
 
-## Depreciação com `@DEPRECATED`
+## Depreciação com `#pragma deprecated`
 
-O marcador `@DEPRECATED` (case-insensitive) pode ser usado de três formas:
+A diretiva do compilador Pawn marca a **próxima** declaração. O texto que a segue é opcional e, quando presente, aparece junto do aviso — normalmente é onde se diz o que usar no lugar:
 
 ```pawn
-// @DEPRECATED
+#pragma deprecated
 stock MinhaFuncaoAntiga() { ... }
 
-stock OutraFuncao() { ... } // @deprecated
+#pragma deprecated Use BanPlayerFor em vez desta
+stock BanTemporario(playerid, seconds) { ... }
 
-/* @DEPRECATED */
+#pragma deprecated
 #include <include_legado>
 ```
+
+Como no compilador, não há forma na mesma linha da declaração.
 
 - **Símbolo** (`native`, `stock`, `public`, `forward`, `static`, `#define`, variável global) → a declaração recebe PP0007 (hint visual) e qualquer uso também exibe **PP0007**.
 - **Par `forward`/`public`** — depreciar o `forward` marca automaticamente o `public` correspondente, e vice-versa.
@@ -102,8 +143,10 @@ stock OutraFuncao() { ... } // @deprecated
 
 ## Servidor SA-MP / open.mp
 
+> Guia de uso completo em [Servidor](server.md).
+
 - **Start / Stop / Restart** via terminal integrado do editor.
-- **Painel lateral** com campo de entrada de comandos, histórico (até 200 entradas) navegável por seta, favoritos e botões de limpar histórico/favoritos.
+- **Painel lateral** com campo de entrada de comandos, histórico (até 200 entradas) navegável por seta e favoritos, divididos em duas abas com busca e paginação. Comandos que pareçam carregar senha são enviados mas não guardados; o registro pode ser desligado em `server.history.enabled`.
 - Envio via **RCON (UDP)** quando a senha está configurada (timeout 1500 ms); fallback para stdin do terminal. Bloqueado se a senha for vazia ou `changename`. Prefixos `rcon` e `rcon login ...` são removidos automaticamente antes do envio.
 - *Tail* do log do servidor com *follow* configurável — **exclusivo para Linux e macOS** (não disponível no Windows).
 - Detecção automática de executável do servidor nos subdiretórios: raiz do workspace, `server/`, `samp/`, `samp-server/`, `samp03/`, `open.mp/`.
@@ -111,7 +154,9 @@ stock OutraFuncao() { ... } // @deprecated
 
 ## Depuração (DAP)
 
-- **Depurador visual** para servidor local: breakpoints, *step*, inspeção de variáveis e *call stack* (`F5` / `launch.json` tipo `pawn`).
+- **Depurador visual** para servidor local: breakpoints, *step*, inspeção de variáveis e *call stack* multi-frame navegável (`F5` / `launch.json` tipo `pawn`).
+- **Breakpoints além da linha** — condicionais, por contagem de acertos, logpoints, **data breakpoints** (pausa quando um valor muda, inclusive em `arr[3]`), **por função** e **pausa em erro de runtime** (divisão por zero, índice fora do limite, colisão pilha/heap, underflow de heap e acesso inválido à memória).
+- **Inspeção e edição** — arrays expansíveis, arrays de char mostrados como string, expressões no watch e no hover, autocomplete de variáveis em escopo, edição por expressão (`arr[i] = 10`) e leitura de memória em hex.
 - **Recompilação automática com debug info** — a extensão adiciona `-d3` ao compilar para depuração se você ainda não usa uma flag `-d` (sua configuração não é alterada).
 - **Preflight** — verifica se o plugin de depuração está instalado em `plugins/` e registrado (`server.cfg` ou `config.json`) antes de iniciar, avisando o que falta.
 - **Servidor iniciado automaticamente** com as variáveis de depuração; o adaptador conecta ao plugin via socket local.
@@ -125,6 +170,7 @@ stock OutraFuncao() { ... } // @deprecated
 - **Temas de sintaxe** — cinco esquemas nomeados: `auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark` (mais `none` para desativar). O esquema `auto` seleciona automaticamente entre Clássico Claro e Clássico Escuro conforme o tema ativo do editor. Ao escolher um esquema via comando, a reaplicação automática na inicialização é habilitada automaticamente. Reaplica automaticamente ao trocar o tema do editor quando `scheme` é `auto`.
 - **Templates** — cria Gamemode (open.mp ou SA-MP), Filterscript (open.mp ou SA-MP) e Include (open.mp); filtra automaticamente pela plataforma configurada (`analysis.sdk.platform`). Não há template de Include para SA-MP.
 - **Biblioteca de Recursos** — WebView para buscar plugins, filterscripts e includes, com modos de visualização em lista e grade, acessível via `pawnpro.openStore`. **Prévia:** atualmente exibe um catálogo de exemplo; a instalação ainda não está disponível. As fontes previstas são o catálogo próprio do PawnPro e `packages.open.mp`.
+- **Cor de destaque** — seis cores (azul, roxo, verde, âmbar, rosa e ciano) para botões, item ativo, foco e badges das páginas da extensão, mais o padrão **Automático**, que herda do tema do editor. Não altera o realce de sintaxe. Configurável em `ui.accent`.
 - **Internacionalização** — interface e diagnósticos em PT-BR, EN, ES, RO e RU; idioma da interface via `ui.locale` e idioma do motor LSP/debugger via `locale` (independentes).
 - **Sugestão do Material Icon Theme** — na ativação, se o tema não estiver instalado, a extensão sugere instalá-lo (melhora os ícones das pastas). Dispensável de vez; nunca reaparece quando já presente.
 

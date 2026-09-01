@@ -13,6 +13,7 @@ nav:
       - Recursos: features.md
       - Configuração: configuration.md
       - Comandos: commands.md
+      - Servidor: server.md
       - Depuração: debugging.md
       - Snippets: snippets.md
       - Idiomas (i18n): i18n.md

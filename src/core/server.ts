@@ -88,11 +88,58 @@ export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
   return { rconPassword, port: Math.max(1, Number(rawPort) || 7777), host, cfgPath };
 }
 
+/**
+ * Decide se `cwd` é um servidor open.mp ou SA-MP.
+ *
+ * A presença de `config.json` sozinha não decide: o open.mp só o gera na
+ * primeira execução (antes disso o diretório parece SA-MP), e outras
+ * ferramentas usam esse nome para os próprios arquivos (fazendo um servidor
+ * SA-MP parecer open.mp). Daí a ordem abaixo, do sinal mais forte ao mais
+ * fraco — o executável é inequívoco, o `config.json` só conta quando tem a
+ * cara do arquivo do open.mp.
+ */
+export function detectServerType(cwd: string): 'samp' | 'omp' {
+  const dir = cwd || '';
+  const exe = process.platform === 'win32' ? '.exe' : '';
+
+  // 1. Executável: nomeia o servidor sem ambiguidade.
+  if (fs.existsSync(path.join(dir, `omp-server${exe}`))) return 'omp';
+  if (
+    fs.existsSync(path.join(dir, `samp03svr${exe}`))
+    || fs.existsSync(path.join(dir, `samp-server${exe}`))
+  ) {
+    return 'samp';
+  }
+
+  // 2. `components/`: diretório exclusivo do open.mp.
+  if (fs.existsSync(path.join(dir, 'components'))) return 'omp';
+
+  // 3. `config.json` com as chaves que só o open.mp escreve — um JSON
+  //    homônimo de outra ferramenta não passa por aqui.
+  if (isOmpConfigFile(path.join(dir, 'config.json'))) return 'omp';
+
+  // 4. `server.cfg`: o formato de configuração do SA-MP.
+  if (fs.existsSync(path.join(dir, 'server.cfg'))) return 'samp';
+
+  return 'samp';
+}
+
+/** `true` se o arquivo é mesmo o `config.json` do open.mp, e não um homônimo. */
+function isOmpConfigFile(filePath: string): boolean {
+  try {
+    const json = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    if (typeof json !== 'object' || json === null) return false;
+    // Chaves de topo do open.mp; `pawn.main_scripts` é a mais característica.
+    return ['pawn', 'rcon', 'network', 'logging', 'max_players'].some(k => k in json);
+  } catch {
+    return false;
+  }
+}
+
 export async function loadServerConfig(cwd: string, serverType: import('./types.js').ServerType = 'auto'): Promise<SampCfgData> {
   if (serverType === 'omp') return loadOmpConfig(cwd);
   if (serverType === 'samp') return loadSampConfig(cwd);
-  if (fs.existsSync(path.join(cwd || '', 'config.json'))) return loadOmpConfig(cwd);
-  return loadSampConfig(cwd);
+  return detectServerType(cwd) === 'omp' ? loadOmpConfig(cwd) : loadSampConfig(cwd);
 }
 
 async function readRange(filePath: string, start: number, end: number): Promise<Buffer> {
@@ -191,13 +238,37 @@ export class LogTailer {
   }
 }
 
+/** Limite de cada campo do pacote: o protocolo escreve o tamanho em 16 bits. */
+const RCON_FIELD_MAX = 0xFFFF;
+
+/**
+ * `true` se o endereço é a própria máquina.
+ *
+ * O RCON do SA-MP envia a senha **em texto claro** por UDP — o protocolo é de
+ * 2005 e não tem cifra nem desafio. Enviá-la para fora da máquina expõe a
+ * credencial a quem estiver no caminho, então o painel só fala com o servidor
+ * local (que é o caso de uso: depurar o gamemode que se está escrevendo).
+ */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.trim().toLowerCase();
+  if (h === 'localhost' || h === '::1' || h === '0.0.0.0') return true;
+  // Toda a faixa 127.0.0.0/8 é loopback.
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  return m !== null && Number(m[1]) === 127;
+}
+
 export class SampRconClient {
   constructor(private host: string, private port: number, private password: string) {}
 
   private buildPacket(cmd: string): Buffer {
     const ipOctets = this.host.split('.').map(n => Math.max(0, Math.min(255, parseInt(n, 10) || 0)));
-    const passBuf = Buffer.from(this.password, 'ascii');
-    const cmdBuf = Buffer.from(cmd, 'ascii');
+    // `latin1` preserva os bytes; `ascii` truncava silenciosamente um `ç` para
+    // outro caractere, e a senha ia errada sem aviso.
+    const passBuf = Buffer.from(this.password, 'latin1');
+    const cmdBuf = Buffer.from(cmd, 'latin1');
+    if (passBuf.length > RCON_FIELD_MAX || cmdBuf.length > RCON_FIELD_MAX) {
+      throw new Error('RCON: senha ou comando excede o limite do protocolo');
+    }
     const buf = Buffer.allocUnsafe(11 + 2 + passBuf.length + 2 + cmdBuf.length);
     let o = 0;
     buf.write('SAMP', o, 4, 'ascii'); o += 4;
@@ -233,13 +304,21 @@ export class SampRconClient {
         resolve('');
       }, timeoutMs);
 
-      socket.once('message', (msg) => {
+      // `on` e não `once`: um datagrama alheio na porta não pode encerrar a
+      // espera pela resposta legítima.
+      socket.on('message', (msg, rinfo) => {
         if (done) return;
+        // Só aceita o que veio do servidor consultado e tem a assinatura do
+        // protocolo. Sem isso, qualquer pacote UDP que chegasse à porta efêmera
+        // apareceria no painel como se fosse resposta do servidor.
+        const doServidor = rinfo.address === this.host || isLoopbackHost(rinfo.address);
+        if (!doServidor || msg.length < 11 || msg.subarray(0, 4).toString('ascii') !== 'SAMP') {
+          return;
+        }
         done = true;
         clearTimeout(to);
         socket.close();
-        const payload = msg.subarray(11);
-        resolve(payload.toString('utf8'));
+        resolve(msg.subarray(11).toString('utf8'));
       });
 
       socket.once('error', (e) => {
@@ -287,9 +366,9 @@ export function resolveServerConfig(config: PawnProConfig['server'], workspaceRo
 function resolveLogPath(cwd: string, serverType: import('./types.js').ServerType): string {
   if (serverType === 'omp') return path.join(cwd, ompLogFile(cwd));
   if (serverType === 'samp') return path.join(cwd, 'server_log.txt');
-  const ompCfg = path.join(cwd, 'config.json');
-  if (fs.existsSync(ompCfg)) return path.join(cwd, ompLogFile(cwd));
-  return path.join(cwd, 'server_log.txt');
+  return detectServerType(cwd) === 'omp'
+    ? path.join(cwd, ompLogFile(cwd))
+    : path.join(cwd, 'server_log.txt');
 }
 
 function ompLogFile(cwd: string): string {
@@ -375,8 +454,8 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
   const plugins = probePluginFile(cwd, 'plugins', file);
   const components = probePluginFile(cwd, 'components', file);
 
-  const isOmp = fs.existsSync(path.join(cwd, 'config.json'));
-  const serverType: 'samp' | 'omp' = isOmp ? 'omp' : 'samp';
+  const serverType = detectServerType(cwd);
+  const isOmp = serverType === 'omp';
 
   if (!isOmp) {
     // SA-MP: o binário OFICIAL em plugins/ E registro na linha `plugins`.

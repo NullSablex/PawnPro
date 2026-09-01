@@ -152,6 +152,10 @@ Observações:
     "clearOnStart": true,
     "output": {
       "follow": "visible"
+    },
+    "history": {
+      "enabled": true,
+      "sensitiveCommands": []
     }
   }
 }
@@ -167,6 +171,8 @@ Observações:
 | `server.logEncoding` | `"windows1252"` | Codificação do arquivo de log: `utf8`, `windows1250`–`windows1257` ou `latin1` |
 | `server.clearOnStart` | `true` | Limpa o painel de saída ao (re)iniciar o servidor |
 | `server.output.follow` | `"visible"` | Rola automaticamente o painel de log: `"visible"` (quando visível), `"always"` ou `"off"` |
+| `server.history.enabled` | `true` | Guarda em `.pawnpro/state.json` os comandos enviados ao servidor. `false` não registra nada. O arquivo é criado com permissão restrita ao seu usuário e não deve entrar no controle de versão |
+| `server.history.sensitiveCommands` | `[]` | Comandos do seu gamemode que recebem senha ou token e não devem ser guardados, além dos que a extensão já reconhece (`login`, `rcon_password`, `password`, `changepassword`, `setpassword`, e senha anunciada por rótulo como `--senha abc`). Comparados pelo primeiro termo, sem diferenciar maiúsculas |
 
 ## Interface e idioma
 
@@ -191,5 +197,6 @@ Observações:
 | `syntax.applyOnStartup` | `false` | Reaplicar o esquema ao iniciar (gerenciado automaticamente pelos comandos `applySyntaxScheme` e `resetSyntaxScheme`) |
 | `ui.showIncludePaths` | `false` | Exibe o caminho relativo de cada arquivo `.inc` na aba Includes da barra lateral |
 | `ui.animateTitle` | `false` | Anima as letras do título PawnPro no topo das páginas em sequência (teclado → bloco → cair), em loop com pausa |
+| `ui.accent` | `""` | Cor de destaque das páginas da extensão (botões, item ativo, foco, badges): `""` (automático, herda do tema do editor), `"blue"`, `"purple"`, `"green"`, `"amber"`, `"pink"` ou `"teal"`. Não altera o realce de sintaxe |
 | `ui.locale` | `""` | Idioma das **páginas da extensão** (Configurações, Ajuda, O que há de novo): `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"`. Independente de `locale` |
 | `locale` | `""` | Idioma dos **diagnósticos** do motor LSP e do debugger: `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"` |

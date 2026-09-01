@@ -22,7 +22,7 @@ Extensão moderna para desenvolver **Pawn** — com motor IntelliSense em Rust, 
 ## Recursos
 
 - **IntelliSense completo** — auto-complete, hover, signature help, CodeLens e coloração semântica para Pawn, incluindo todos os includes transitivos.
-- **Diagnósticos** — 18 códigos `PP####` cobrindo erros de estrutura, símbolos não declarados, código morto, depreciação e nomenclatura (ver [Recursos](features.md)).
+- **Diagnósticos** — 19 códigos `PP####` cobrindo erros de estrutura, símbolos não declarados, código morto, depreciação e nomenclatura (ver [Recursos](features.md)).
 - **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc`.
 - **Depuração** — sessão via DAP (`F5`) com breakpoints, passo a passo e inspeção de variáveis (ver [Depuração](debugging.md)).
 - **Formatação** — documento e seleção (`Ctrl+K Ctrl+F`), com estilos configuráveis.

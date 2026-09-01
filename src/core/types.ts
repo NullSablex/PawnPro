@@ -35,7 +35,17 @@ export interface UiConfig {
    * Vazio = segue o idioma do editor. Tags aceitas: "pt-BR", "en", "es", "ro", "ru".
    */
   locale: string;
+  /**
+   * Cor de destaque das páginas da extensão (botões, item ativo, foco). Vazio =
+   * automático: herda do tema do editor, como sempre foi. Paleta fechada porque
+   * o valor entra em CSS e precisa ter contraste garantido nos dois temas.
+   * Não afeta o realce de sintaxe, que tem seu próprio esquema.
+   */
+  accent: AccentColor;
 }
+
+/** Vazio = segue o tema do editor. */
+export type AccentColor = '' | 'blue' | 'purple' | 'green' | 'amber' | 'pink' | 'teal';
 
 export interface ServerOutputConfig {
   follow: 'visible' | 'always' | 'off';
@@ -43,8 +53,20 @@ export interface ServerOutputConfig {
 
 export type ServerType = 'auto' | 'samp' | 'omp';
 
+/** Como o painel guarda os comandos enviados. */
+export interface ServerHistoryConfig {
+  /** `false` desliga o registro: nada é gravado em `.pawnpro/state.json`. */
+  enabled: boolean;
+  /**
+   * Comandos do gamemode que não devem ser guardados, além dos que a extensão
+   * já reconhece. Comparados pelo primeiro termo, sem diferenciar maiúsculas.
+   */
+  sensitiveCommands: string[];
+}
+
 export interface ServerConfig {
   type: ServerType;
+  history: ServerHistoryConfig;
   path: string;
   cwd: string;
   args: string[];
@@ -69,7 +91,19 @@ export interface AnalysisConfig {
 }
 
 /** Estilo de caixa. Cada categoria aceita uma lista; vazia = não checa. */
-export type NameCase = 'camelCase' | 'snake_case' | 'PascalCase' | 'UPPER_CASE' | 'Capitalized_Snake';
+export type NameCaseBuiltin =
+  | 'camelCase'
+  | 'snake_case'
+  | 'PascalCase'
+  | 'UPPER_CASE'
+  | 'Capitalized_Snake';
+
+/**
+ * Critério de nomenclatura: um dos estilos embutidos ou um regex do usuário no
+ * formato `/padrão/`. A engine âncora o padrão como `^(?:…)$` — ele descreve o
+ * nome inteiro. Um regex inválido é ignorado por lá, não invalida a config.
+ */
+export type NameCase = NameCaseBuiltin | `/${string}/`;
 
 /**
  * Estilos de caixa aceitos por categoria. Cada campo é uma lista: um nome é

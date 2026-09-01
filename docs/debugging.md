@@ -101,6 +101,32 @@ Pronto — isso é feito **uma única vez** por servidor.
 A extensão recompila com `-d3`, verifica o plugin, sobe o servidor e conecta.
 Ao atingir um breakpoint, a execução pausa e você vê as **variáveis** em escopo.
 
+### O que dá para fazer na pausa
+
+- **Percorrer a pilha de chamadas** — a lista de frames mostra quem chamou quem;
+  clicar em um frame faz a inspeção seguir para ele.
+- **Inspecionar arrays e strings** — arrays expandem elemento a elemento, e um
+  array de char é mostrado como texto quando o conteúdo é uma string.
+- **Avaliar expressões** no watch e no hover: aritmética (`+ - * / %`, com o
+  truncamento do Pawn) e comparação (`== != < > <= >=`) sobre literais,
+  variáveis e `arr[i]`. O console e o watch sugerem as variáveis em escopo.
+- **Editar valores** — `x = 1` ou `arr[i] = 10`. O array inteiro não é editável,
+  só os elementos.
+- **Ler a memória** — hex view da memória de dados a partir de qualquer variável.
+
+### Tipos de breakpoint
+
+Além do breakpoint de linha (**condicional**, por **contagem de acertos** e
+**logpoint**):
+
+- **Data breakpoint** — pausa quando um valor muda, seja global, local ou um
+  elemento de array (`arr[3]`). Watches de variáveis locais expiram quando a
+  função dona retorna.
+- **Breakpoint de função** — para ao entrar numa função pelo nome.
+- **Pausa em erro de runtime** — divisão por zero, índice de array fora do
+  limite, colisão entre pilha e heap, underflow de heap e acesso inválido à
+  memória. Liga e desliga pelo painel de breakpoints.
+
 A **saída do servidor** (incluindo `print` e logs do gamemode) aparece no painel
 **Console de Depuração** do editor — não é preciso abrir um terminal à parte.
 
@@ -134,9 +160,10 @@ Mesmo que você escolha iniciar assim mesmo, a depuração só funciona com o pl
 correto: um plugin homônimo não abre o canal de depuração, então o adaptador
 falha ao conectar com uma mensagem explicando as causas prováveis.
 
-## Limitações (v1)
+## Limitações
 
 - **Alvo é desenvolvimento local.** Não é para servidor de produção com jogadores.
 - O `.amx` precisa ter sido compilado com `-d3` (a extensão cuida disso).
 - Sem *hot-reload* / *edit-and-continue*.
-- **Call stack ainda mostra só o frame atual** (não percorre a cadeia de chamadas).
+- Nas expressões do watch e do hover, um operador de topo por vez — sem
+  encadear várias operações na mesma expressão.
