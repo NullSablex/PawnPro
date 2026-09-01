@@ -154,7 +154,6 @@ export function createMsg(t: Translate) {
     namingRegexNeedsSlashes: () => t('Escreva o padrão entre barras, como /^g_[a-z]+$/.'),
     namingRegexInvalid:    () => t('Expressão regular inválida.'),
     namingRegexMatchesNothing: () => t('Nenhum dos exemplos passa neste padrão.'),
-    namingRegexTooSlow:    () => t('Padrão lento demais para pré-visualizar. A análise ainda funciona.'),
     namingMinLength:       () => t('Comprimento mínimo'),
     namingMinLengthDesc:   () => t('Sinaliza identificadores mais curtos que isto (índices de loop são tolerados).'),
     namingMaxFile:         () => t('Limite dos arquivos (MB)'),

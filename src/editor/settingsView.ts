@@ -271,7 +271,6 @@ function buildI18n(m: Msg) {
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
     namingRegexMatchesNothing:   s.namingRegexMatchesNothing(),
-    namingRegexTooSlow:          s.namingRegexTooSlow(),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -335,7 +334,6 @@ function namingStyleRow(category: string): string {
       <div class="row-label" data-i18n="namingStyle.${category}"></div>
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
-        <code class="naming-preview regex-status" id="naming-regex-status-${category}" hidden></code>
       </div>
     </div>
     <div class="row-control style-checks">
@@ -547,8 +545,6 @@ function getHtml(logoUri: string): string {
     color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
     opacity: 0.85;
   }
-  /* Espaço entre os dois exemplos, sem margem que desloque o primeiro. */
-  .naming-preview + .naming-preview { margin-top: 3px; }
   .style-checks {
     display: grid;
     grid-template-columns: repeat(2, minmax(min(110px, 100%), 1fr));
@@ -604,16 +600,6 @@ function getHtml(logoUri: string): string {
      caixa até o conteúdo, e o fundo do <code> ficava mais curto que o do
      exemplo dos estilos logo acima. Os dois são o mesmo tipo de informação e
      têm de ter a mesma caixa; nomes de identificador cabem na coluna. */
-  /* Aviso não é código: volta à fonte da interface para não ser lido como um
-     nome de exemplo. */
-  .regex-status.err,
-  .regex-status.note {
-    white-space: normal;
-    font-family: inherit;
-    opacity: 1;
-  }
-  .regex-status.err  { color: var(--vscode-inputValidation-errorForeground, #f14c4c); }
-  .regex-status.note { color: var(--vscode-descriptionForeground); }
 
   .naming-styles { padding: 10px 0; }
   .naming-styles > summary {
@@ -1574,61 +1560,29 @@ function literalPrefix(raw) {
 // padrão diferente do que está no campo.
 function updateRegexStatus(category, settled) {
   const input = document.getElementById('naming-regex-' + category);
-  const status = document.getElementById('naming-regex-status-' + category);
-  if (!input || !status) return;
+  if (!input) return;
   const raw = input.value.trim();
 
-  status.className = 'regex-status';
-  status.textContent = '';
-  status.hidden = true;
-  input.classList.remove('invalid');
-  if (!raw) return;
-
-  const re = isRegexRule(raw) ? compileRule(raw) : null;
-  if (!re) {
-    // Sem padrão utilizável não há exemplos a mostrar: o campo fica sem
-    // resposta em vez de manter a do padrão anterior.
-    if (!settled) return;
-    status.classList.add('err');
-    status.textContent = isRegexRule(raw) ? T.namingRegexInvalid : T.namingRegexNeedsSlashes;
-    status.hidden = false;
-    input.classList.add('invalid');
-    return;
+  // A validação marca o CAMPO; o exemplo do padrão sai junto dos demais, no
+  // preview da categoria. Enquanto se digita não há erro a apontar: o texto
+  // passa por estados incompletos até a barra final.
+  let erro = '';
+  if (raw && settled) {
+    if (!isRegexRule(raw)) erro = T.namingRegexNeedsSlashes;
+    else if (!compileRule(raw)) erro = T.namingRegexInvalid;
+    else if (regexSample(category, raw) === null) erro = T.namingRegexMatchesNothing;
   }
-
-  // Mostra UM nome aceito, no mesmo trecho de código Pawn que as etiquetas de
-  // estilo usam logo acima. A pergunta do usuário é "o que este padrão aceita?",
-  // e uma lista de aceitos e rejeitados lado a lado obriga a decodificar sete
-  // itens para responder a isso.
-  const budget = { left: 50 };
-  let accepted = null;
-  for (const probe of regexProbes(category, raw)) {
-    const hit = testWithBudget(re, probe, budget);
-    if (hit === null) {
-      status.classList.add('err');
-      status.textContent = T.namingRegexTooSlow;
-      status.hidden = false;
-      return;
-    }
-    if (hit) { accepted = probe; break; }
-  }
-
-  if (accepted === null) {
-    status.classList.add('note');
-    status.textContent = T.namingRegexMatchesNothing;
-    status.hidden = false;
-    return;
-  }
-
-  const tpl = NAMING_TEMPLATE[category] ?? '{}';
-  status.textContent = tpl.replace('{}', accepted);
-  status.hidden = false;
+  input.classList.toggle('invalid', erro !== '');
+  input.title = erro;
 }
 
 // Enquanto digita: mostra o efeito do que já é um padrão completo, sem gravar
 // a cada tecla e sem acusar como erro o que ainda está pela metade.
 function onNamingRegexInput(category) {
   updateRegexStatus(category, false);
+  // O exemplo acompanha a digitação: readAcceptedStyles só inclui o padrão
+  // quando ele já é válido, então enquanto está pela metade a linha some.
+  updateNamingPreview(category, readAcceptedStyles(category));
 }
 
 // Ao confirmar: grava junto dos estilos marcados. Um padrão inválido não é
@@ -1657,21 +1611,29 @@ function updateNamingPreview(category, accepted) {
   const el = document.getElementById('naming-preview-' + category);
   if (!el) return;
   const tpl = NAMING_TEMPLATE[category] ?? '{}';
+  // Uma linha por critério aceito, embutido ou padrão próprio: são a mesma
+  // configuração e saem na mesma caixa. Para o regex o nome não se deriva do
+  // estilo — vem do primeiro exemplo que o padrão aceita.
   const lines = (accepted ?? [])
-    // O padrão próprio não gera exemplo aqui: seu efeito aparece no campo
-    // dele, testado contra nomes reais. Inventar um nome a partir de um regex
-    // arbitrário não é possível.
-    .filter(st => !isRegexRule(st))
-    .map(st => styleSample(category, st))
+    .map(st => (isRegexRule(st) ? regexSample(category, st) : styleSample(category, st)))
     .filter(Boolean)
     .map(ident => tpl.replace('{}', ident));
-  if (lines.length === 0) {
-    el.style.display = 'none';
-    el.textContent = '';
-    return;
-  }
-  el.style.display = '';
+  el.hidden = lines.length === 0;
   el.textContent = lines.join('\\n');
+}
+
+// Primeiro nome de exemplo que o padrão aceita, ou null se nenhum passa (ou se
+// o padrão é caro demais para testar aqui — a análise real é da engine).
+function regexSample(category, raw) {
+  const re = compileRule(raw);
+  if (!re) return null;
+  const budget = { left: 50 };
+  for (const probe of regexProbes(category, raw)) {
+    const hit = testWithBudget(re, probe, budget);
+    if (hit === null) return null;
+    if (hit) return probe;
+  }
+  return null;
 }
 
 const arrayState = {};
