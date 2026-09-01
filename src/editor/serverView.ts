@@ -45,6 +45,16 @@ function esc(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Escapa e converte os trechos entre crases em `<code>`.
+ *
+ * A ordem importa: escapar primeiro e marcar depois garante que só as tags
+ * geradas aqui cheguem ao HTML — um `<` vindo da tradução já virou `&lt;`.
+ */
+function escWithCode(value: string): string {
+  return esc(value).replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
 export class ServerViewProvider implements vscode.WebviewViewProvider {
   private views = new Set<vscode.WebviewView>();
 
@@ -172,6 +182,11 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
 <style>
   :root {
     --pad: 8px;
+    /* Escala de espaçamento: os valores eram avulsos (6, 10, 4...) e o
+       ritmo vertical saía irregular. */
+    --gap-xs: 4px;
+    --gap-sm: 6px;
+    --gap-md: 10px;
     --radius: 8px;
     --bg: var(--vscode-sideBar-background);
     --fg: var(--vscode-foreground);
@@ -197,7 +212,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
   .row { display: flex; gap: 6px; align-items: stretch; }
   input[type="text"]{
-    flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: var(--radius);
+    flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 9px;
+    border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg); outline: none;
   }
@@ -206,20 +222,32 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
   }
   button:hover { background: var(--btn-hover); }
-  .hint { margin-top: 6px; color: var(--hint); font-size: 11px; }
+  /* Legenda do campo: colada nele e alinhada ao texto do input, para ser
+     lida como parte do campo e não como um aviso solto. */
+  .hint {
+    margin: var(--gap-xs) 0 0; padding-left: 9px;
+    color: var(--hint); font-size: 11px;
+  }
+  .hint code {
+    padding: 0 3px; border-radius: 3px;
+    background: var(--vscode-textCodeBlock-background, rgba(255,255,255,.07));
+    font-family: var(--vscode-editor-font-family, monospace); font-size: 10px;
+  }
   .section {
-    margin-top: 10px; border: 1px solid var(--list-border); border-radius: var(--radius); background: var(--list-bg);
-    padding: 6px;
+    margin-top: var(--gap-md); border: 1px solid var(--list-border);
+    border-radius: var(--radius); background: var(--list-bg);
+    padding: var(--gap-sm);
   }
   .section-header{
     display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;
     font-weight: 600; opacity:.9;
   }
-  .items { display: grid; gap: 4px; max-height: 180px; overflow: auto; }
+  .items { display: grid; gap: var(--gap-xs); max-height: 180px; overflow: auto; }
   .empty { opacity:.7; font-style: italic; }
   .cmd-row {
     display:flex; gap:6px; align-items:center;
-    padding: 4px 6px; border-radius: 6px; border: 1px solid transparent;
+    padding: var(--gap-xs) var(--gap-sm); border-radius: 6px;
+    border: 1px solid transparent;
     background: transparent;
   }
   .cmd-row:hover { border-color: var(--border); background: rgba(255,255,255,.04); }
@@ -251,7 +279,11 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
      O painel lateral pode ficar bem estreito, então os rótulos encolhem
      truncam antes de empurrar o "Limpar" para fora. */
   .tabs {
-    display: flex; align-items: stretch; gap: 2px; margin-bottom: 6px;
+    display: flex; align-items: stretch; gap: 2px;
+    /* Puxa a régua até as bordas do bloco: a aba ativa passa a sentar sobre
+       uma linha que atravessa o painel, em vez de flutuar num traço curto. */
+    margin: calc(var(--gap-sm) * -1) calc(var(--gap-sm) * -1) var(--gap-sm);
+    padding: 0 var(--gap-sm);
     border-bottom: 1px solid var(--list-border);
   }
   .tab {
@@ -292,7 +324,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       ${ICON_SEND}
     </button>
   </div>
-  <div class="hint">${esc(msg.serverView.hint())}</div>
+  <div class="hint">${escWithCode(msg.serverView.hint())}</div>
 
   <div class="section">
     <div class="tabs" role="tablist">
