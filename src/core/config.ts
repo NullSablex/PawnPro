@@ -16,7 +16,7 @@ const DEFAULTS: PawnProConfig = {
   output: { encoding: 'windows1252' },
   build: { showCommand: false },
   syntax: { scheme: 'none', applyOnStartup: false },
-  ui: { showIncludePaths: false, animateTitle: false, locale: '' },
+  ui: { showIncludePaths: false, animateTitle: false, locale: '', accent: '' },
   server: {
     type: 'auto', path: '', cwd: '${workspaceFolder}', args: [],
     clearOnStart: true, logPath: '',

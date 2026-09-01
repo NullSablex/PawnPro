@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { Msg } from './nls.js';
 import { createWebviewMsg } from './webviewNls.js';
 import type { PawnProConfigManager } from '../core/config.js';
+import { webviewThemeCss } from './webviewTheme.js';
 
 const DOCS_URL = 'https://pawnpro.nullsablex.com';
 const DEBUG_DOCS_URL = 'https://pawnpro.nullsablex.com/debugging/';
@@ -43,7 +44,7 @@ function showPanel(context: vscode.ExtensionContext, config: PawnProConfigManage
   // Ícone da aba: webviews ignoram <link rel="icon"> no HTML — é `iconPath` que
   // define o ícone mostrado no título do painel.
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
-  panel.webview.html = buildHtml(context, panel.webview, msg);
+  panel.webview.html = buildHtml(context, panel.webview, msg, webviewThemeCss(config));
 }
 
 /** Escapa HTML e resolve **negrito**, `código` e [texto](url) para tags seguras. */
@@ -65,7 +66,7 @@ function link(label: string, url: string): string {
   return `<li><a href="${url}">${inline(label)}</a></li>`;
 }
 
-function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, msg: Msg): string {
+function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, msg: Msg, themeCss: string): string {
   const pkg = context.extension.packageJSON as PackageJson;
   const engineVersion = pkg.engineVersion ?? '—';
   const debuggerVersion = pkg.debuggerVersion ?? '—';
@@ -201,6 +202,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
     flex-wrap: wrap;
     gap: .5rem;
   }
+${themeCss}
 </style>
 </head>
 <body>

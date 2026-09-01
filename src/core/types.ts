@@ -35,7 +35,17 @@ export interface UiConfig {
    * Vazio = segue o idioma do editor. Tags aceitas: "pt-BR", "en", "es", "ro", "ru".
    */
   locale: string;
+  /**
+   * Cor de destaque das páginas da extensão (botões, item ativo, foco). Vazio =
+   * automático: herda do tema do editor, como sempre foi. Paleta fechada porque
+   * o valor entra em CSS e precisa ter contraste garantido nos dois temas.
+   * Não afeta o realce de sintaxe, que tem seu próprio esquema.
+   */
+  accent: AccentColor;
 }
+
+/** Vazio = segue o tema do editor. */
+export type AccentColor = '' | 'blue' | 'purple' | 'green' | 'amber' | 'pink' | 'teal';
 
 export interface ServerOutputConfig {
   follow: 'visible' | 'always' | 'off';

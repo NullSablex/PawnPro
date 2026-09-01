@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { PawnProConfigManager } from '../core/config.js';
+import { ACCENTS } from '../core/accent.js';
+import { webviewThemeCss } from './webviewTheme.js';
 import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
 import {
   backupNamingLists,
@@ -57,12 +59,25 @@ export function registerSettingsView(
       const logoUri = panel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg'),
       );
-      panel.webview.html = getHtml(logoUri.toString());
+      panel.webview.html = getHtml(logoUri.toString(), webviewThemeCss(config));
       sendState(panel, config, context);
 
       // Re-envia o estado (e re-traduz via ui.locale) sempre que a config muda —
       // inclusive quando o próprio idioma da interface é alterado.
-      const unsub = config.onChange(() => sendState(panel!, config, context));
+      //
+      // A cor de destaque é a exceção: ela vive no <style>, que só muda com um
+      // HTML novo. Regerar a página inteira a cada tecla digitada em qualquer
+      // campo seria desperdício, então só quando a cor de fato mudou.
+      let lastAccent = config.getAll().ui?.accent ?? '';
+      const unsub = config.onChange(() => {
+        if (!panel) return;
+        const accent = config.getAll().ui?.accent ?? '';
+        if (accent !== lastAccent) {
+          lastAccent = accent;
+          panel.webview.html = getHtml(logoUri.toString(), webviewThemeCss(config));
+        }
+        sendState(panel, config, context);
+      });
 
       panel.webview.onDidReceiveMessage((message: unknown) => {
         if (!message || typeof message !== 'object') return;
@@ -268,6 +283,9 @@ function buildI18n(m: Msg) {
     serverClearOnStart:          s.serverClearOnStart(),
     serverClearOnStartDesc:      s.serverClearOnStartDesc(),
     namingRegex:                 s.namingRegex(),
+    uiAccent:                    s.uiAccent(),
+    uiAccentDesc:                s.uiAccentDesc(),
+    uiAccentAuto:                s.uiAccentAuto(),
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
     namingRegexMatchesNothing:   s.namingRegexMatchesNothing(),
@@ -404,7 +422,7 @@ const ENCODING_OPTIONS = /* html */`
         <option value="windows1257" data-i18n="encodingWin1257"></option>
         <option value="latin1"      data-i18n="encodingLatin1"></option>`;
 
-function getHtml(logoUri: string): string {
+function getHtml(logoUri: string, themeCss: string): string {
   return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -653,6 +671,36 @@ function getHtml(logoUri: string): string {
      exemplo dos estilos logo acima. Os dois são o mesmo tipo de informação e
      têm de ter a mesma caixa; nomes de identificador cabem na coluna. */
 
+  /* Seletor de cor: as amostras mostram a própria cor, e o "Automático" é
+     texto porque não tem cor própria — ele segue o tema do editor. */
+  .accent-picker { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .accent-swatch { cursor: pointer; }
+  .accent-swatch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .accent-swatch > span {
+    display: block;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--sw);
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--vscode-input-border, #555);
+    transition: box-shadow 0.12s;
+  }
+  .accent-swatch.auto > span {
+    width: auto; height: auto;
+    border-radius: 11px;
+    background: transparent;
+    padding: 3px 10px;
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+  .accent-swatch:hover > span { box-shadow: 0 0 0 2px var(--vscode-descriptionForeground); }
+  /* A marca de escolhido é um anel, não um preenchimento: a cor da amostra
+     precisa continuar visível. */
+  .accent-swatch input:checked + span,
+  .accent-swatch input:focus-visible + span {
+    box-shadow: 0 0 0 2px var(--vscode-foreground);
+  }
+
   .naming-styles { padding: 10px 0; }
   .naming-styles > summary {
     cursor: pointer;
@@ -791,6 +839,7 @@ function getHtml(logoUri: string): string {
   }
 
 ${brandAnimationCss()}
+${themeCss}
 </style>
 </head>
 <body>
@@ -1137,6 +1186,42 @@ baz();</pre>
   <h2 data-i18n="navInterface"></h2>
   <div class="row">
     <div class="row-info">
+      <div class="row-label" data-i18n="uiAccent"></div>
+      <div class="row-desc" data-i18n="uiAccentDesc"></div>
+    </div>
+    <div class="row-control accent-picker">
+      <label class="accent-swatch auto" title="">
+        <input type="radio" name="accent" value="" onchange="set('ui.accent', '')">
+        <span data-i18n="uiAccentAuto"></span>
+      </label>
+        <label class="accent-swatch" title="blue">
+          <input type="radio" name="accent" value="blue" onchange="set('ui.accent', 'blue')">
+          <span style="--sw: ${ACCENTS.blue.base}"></span>
+        </label>
+        <label class="accent-swatch" title="purple">
+          <input type="radio" name="accent" value="purple" onchange="set('ui.accent', 'purple')">
+          <span style="--sw: ${ACCENTS.purple.base}"></span>
+        </label>
+        <label class="accent-swatch" title="green">
+          <input type="radio" name="accent" value="green" onchange="set('ui.accent', 'green')">
+          <span style="--sw: ${ACCENTS.green.base}"></span>
+        </label>
+        <label class="accent-swatch" title="amber">
+          <input type="radio" name="accent" value="amber" onchange="set('ui.accent', 'amber')">
+          <span style="--sw: ${ACCENTS.amber.base}"></span>
+        </label>
+        <label class="accent-swatch" title="pink">
+          <input type="radio" name="accent" value="pink" onchange="set('ui.accent', 'pink')">
+          <span style="--sw: ${ACCENTS.pink.base}"></span>
+        </label>
+        <label class="accent-swatch" title="teal">
+          <input type="radio" name="accent" value="teal" onchange="set('ui.accent', 'teal')">
+          <span style="--sw: ${ACCENTS.teal.base}"></span>
+        </label>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
       <div class="row-label" data-i18n="uiShowIncludePaths"></div>
       <div class="row-desc" data-i18n="uiShowIncludePathsDesc"></div>
     </div>
@@ -1403,6 +1488,9 @@ function applyState(cfg) {
   }
   setSelect('syntax-scheme',        cfg.syntax?.scheme ?? 'none');
   setCheck('syntax-applyOnStartup', cfg.syntax?.applyOnStartup ?? false);
+  const accent = cfg.ui?.accent ?? '';
+  const accentRadio = document.querySelector('input[name="accent"][value="' + accent + '"]');
+  if (accentRadio) accentRadio.checked = true;
   setCheck('ui-showIncludePaths',   cfg.ui?.showIncludePaths ?? false);
   setSelect('ui-locale',            cfg.ui?.locale ?? '');
   setSelect('locale',               cfg.locale ?? '');

@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { Msg } from './nls.js';
 import { createWebviewMsg } from './webviewNls.js';
 import type { PawnProConfigManager } from '../core/config.js';
+import { webviewThemeCss } from './webviewTheme.js';
 
 const VERSION_KEY = 'pawnpro.lastSeenVersion';
 
@@ -41,7 +42,7 @@ function showPanel(context: vscode.ExtensionContext, config: PawnProConfigManage
     },
   );
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
-  panel.webview.html = buildHtml(context, panel.webview, version, msg);
+  panel.webview.html = buildHtml(context, panel.webview, version, msg, webviewThemeCss(config));
 }
 
 function extractSection(changelogPath: string, version: string): string {
@@ -231,7 +232,7 @@ function mdToHtml(md: string): string {
   return out.join('\n');
 }
 
-function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, version: string, msg: Msg): string {
+function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, version: string, msg: Msg, themeCss: string): string {
   // vsce may lowercase the filename
   const changelogPath = [
     path.join(context.extensionPath, 'CHANGELOG.md'),
@@ -373,6 +374,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
     flex-wrap: wrap;
     gap: .5rem;
   }
+${themeCss}
 </style>
 </head>
 <body>

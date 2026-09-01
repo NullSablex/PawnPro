@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PawnProStateManager } from '../core/state.js';
 import type { PawnProConfigManager } from '../core/config.js';
+import { webviewThemeCss } from './webviewTheme.js';
 import { createWebviewMsg } from './webviewNls.js';
 
 /**
@@ -533,6 +534,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   @container (max-width: 190px) {
     .tab-count { display: none; }
   }
+${webviewThemeCss(this.config)}
 </style>
 </head>
 <body>

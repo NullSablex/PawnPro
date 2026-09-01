@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { PawnProConfigManager } from '../core/config.js';
+import { webviewThemeCss } from './webviewTheme.js';
 import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
 import { msg, type Msg } from './nls.js';
 import { createWebviewMsg } from './webviewNls.js';
@@ -212,7 +213,7 @@ export function registerStoreView(
       const logoUri = panel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg'),
       );
-      panel.webview.html = getHtml(logoUri.toString(), panel.webview.cspSource);
+      panel.webview.html = getHtml(logoUri.toString(), panel.webview.cspSource, cfgManager ? webviewThemeCss(cfgManager) : '');
       sendState(panel);
 
       panel.webview.onDidReceiveMessage((message: unknown) => {
@@ -334,7 +335,7 @@ function sendState(p: vscode.WebviewPanel): void {
   });
 }
 
-function getHtml(logoUri: string, cspSource: string): string {
+function getHtml(logoUri: string, cspSource: string, themeCss: string): string {
   return /* html */ `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -601,6 +602,7 @@ function getHtml(logoUri: string, cspSource: string): string {
   .muted { opacity: 0.55; font-size: 0.85em; }
 
 ${brandAnimationCss()}
+${themeCss}
 </style>
 </head>
 <body>
