@@ -112,6 +112,9 @@ function mdToHtml(md: string): string {
     while (listStack.length > 0 && listStack[listStack.length - 1] > toIndent) {
       out.push('</ul>');
       listStack.pop();
+      // Ao sair de uma sub-lista, o item que a continha ainda está aberto:
+      // ele só termina agora, depois do </ul> que estava dentro dele.
+      if (listStack.length > 0) out.push('</li>');
     }
   };
   // Cada seção (### / ####) é um card; fecha o anterior antes de abrir o próximo.
@@ -173,12 +176,19 @@ function mdToHtml(md: string): string {
     if (m) {
       const indent = m[1].length;
       const aninha = listStack.length > 0 && indent > listStack[listStack.length - 1];
-      if (!aninha) closeLists(indent);
-      if (listStack.length === 0 || aninha) {
+      if (aninha) {
+        // A sub-lista pertence ao item acima, então ele continua aberto: o
+        // <ul> aninhado entra dentro dele, como no Markdown de referência.
         out.push('<ul>');
         listStack.push(indent);
+      } else {
+        closeLists(indent);
+        if (listStack.length === 0) {
+          out.push('<ul>');
+          listStack.push(indent);
+        }
+        closeLi();
       }
-      closeLi();
       out.push(`<li>${inline(m[2])}`);
       liOpen = true;
       continue;
@@ -297,14 +307,14 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
   }
   .card-section ul ul li { font-size: .86rem; opacity: .9; }
   p { color: var(--vscode-descriptionForeground); font-size: .88rem; margin-top: .5rem; }
-  /* Continuação de um item de lista: mesma cor e tamanho do item, para o
-     texto não parecer de outra natureza só por vir depois de um bloco. */
+  /* Continuação de um item: mesma cor e tamanho do item. O recuo já vem do
+     próprio <li>, então nada é somado aqui — um margin extra afastaria o
+     texto além do que o Markdown pede. */
   .card-section p.cont {
     color: inherit;
     font-size: .9rem;
-    margin: .5rem 0 0 1.15rem;
+    margin: .5rem 0 0;
   }
-  .card-section pre { margin-left: 1.15rem; }
   strong { color: var(--vscode-foreground); }
   code {
     font-family: var(--vscode-editor-font-family, monospace);
