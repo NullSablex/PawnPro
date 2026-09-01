@@ -258,7 +258,9 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ve
     font-size: var(--vscode-font-size);
     color: var(--vscode-foreground);
     background: var(--vscode-editor-background);
-    padding: 2.5rem 3rem;
+    /* Recuo fluido: em painel estreito 3rem de cada lado comiam 30% da
+       largura. Em tela larga o valor é o mesmo de antes. */
+    padding: 2.5rem clamp(14px, 5vw, 3rem);
     max-width: 820px;
     margin: 0 auto;
     line-height: 1.6;
