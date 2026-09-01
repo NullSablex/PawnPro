@@ -72,8 +72,12 @@ function extractSection(changelogPath: string, version: string): string {
 function mdToHtml(md: string): string {
   const lines = md.split(/\r?\n/);
   const out: string[] = [];
-  // Pilha de níveis de lista abertos, pela indentação (espaços) que os abriu.
-  const listStack: number[] = [];
+  // Uma entrada por lista aberta, do nível externo ao interno. `indent` é a
+  // indentação que abriu a lista; `liOpen` diz se o item corrente daquele
+  // nível ainda está aberto — cada nível tem o seu, e um booleano único não
+  // dava conta de uma sub-lista dentro de um item que ainda vai receber texto.
+  const listStack: { indent: number; liOpen: boolean }[] = [];
+  const topo = () => listStack[listStack.length - 1];
 
   const escape = (s: string) =>
     s
@@ -102,19 +106,29 @@ function mdToHtml(md: string): string {
   // Um item fica aberto enquanto puder receber continuação (um bloco de
   // código indentado, um parágrafo); sem isso o conteúdo cairia dentro do
   // <ul> e fora de qualquer <li>, o que é inválido.
-  let liOpen = false;
 
+  /** Fecha o item corrente do nível mais interno, se houver um aberto. */
   const closeLi = () => {
-    if (liOpen) { out.push('</li>'); liOpen = false; }
+    const t = topo();
+    if (t?.liOpen) { out.push('</li>'); t.liOpen = false; }
   };
+
+  /**
+   * Fecha as listas mais internas que `toIndent`, deixando o conteúdo
+   * seguinte no nível certo.
+   *
+   * O item de cada nível fechado sai depois do `</ul>` que estava dentro
+   * dele; o item do nível de destino permanece aberto, porque é ele que vai
+   * receber o que vem a seguir.
+   */
   const closeLists = (toIndent = -1) => {
-    if (listStack.length > 0) closeLi();
-    while (listStack.length > 0 && listStack[listStack.length - 1] > toIndent) {
+    while (listStack.length > 0 && topo()!.indent > toIndent) {
+      // Fecha o item corrente desta lista e a própria lista. O item do nível
+      // que resta é o dono do que vem a seguir, então continua aberto — quem
+      // precisar fechá-lo (um item irmão, por exemplo) chama `closeLi`.
+      closeLi();
       out.push('</ul>');
       listStack.pop();
-      // Ao sair de uma sub-lista, o item que a continha ainda está aberto:
-      // ele só termina agora, depois do </ul> que estava dentro dele.
-      if (listStack.length > 0) out.push('</li>');
     }
   };
   // Cada seção (### / ####) é um card; fecha o anterior antes de abrir o próximo.
@@ -175,29 +189,32 @@ function mdToHtml(md: string): string {
     const m = /^(\s*)[-*]\s+(.*)$/.exec(line);
     if (m) {
       const indent = m[1].length;
-      const aninha = listStack.length > 0 && indent > listStack[listStack.length - 1];
-      if (aninha) {
-        // A sub-lista pertence ao item acima, então ele continua aberto: o
-        // <ul> aninhado entra dentro dele, como no Markdown de referência.
+      if (listStack.length > 0 && indent > topo()!.indent) {
+        // Sub-lista: pertence ao item acima, que segue aberto e a contém.
         out.push('<ul>');
-        listStack.push(indent);
+        listStack.push({ indent, liOpen: false });
       } else {
+        // Mesmo nível ou acima: fecha o que for mais interno e o item irmão.
         closeLists(indent);
         if (listStack.length === 0) {
           out.push('<ul>');
-          listStack.push(indent);
+          listStack.push({ indent, liOpen: false });
+        } else {
+          closeLi();
         }
-        closeLi();
       }
       out.push(`<li>${inline(m[2])}`);
-      liOpen = true;
+      topo()!.liOpen = true;
       continue;
     }
 
-    // Texto indentado logo abaixo de um item continua aquele item; na margem,
-    // é um parágrafo do card.
+    // Texto indentado continua o item do nível que ele excede — não
+    // necessariamente o mais interno: depois de uma sub-lista, um parágrafo
+    // recuado em 2 espaços pertence ao item de nível 0, e a sub-lista fecha.
     const indent = line.length - line.trimStart().length;
-    if (listStack.length > 0 && indent > listStack[listStack.length - 1]) {
+    const dono = [...listStack].reverse().find(l => indent > l.indent);
+    if (dono) {
+      closeLists(dono.indent);
       out.push(`<p class="cont">${inline(line.trim())}</p>`);
       continue;
     }

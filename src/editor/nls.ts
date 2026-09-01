@@ -286,6 +286,7 @@ export function createMsg(t: Translate) {
     tabFavorites:     () => t('Favoritos'),
     clear:            () => t('Limpar'),
     search:           () => t('Buscar comando'),
+    clearSearch:      () => t('Limpar a busca'),
     noMatches:        () => t('Nada encontrado'),
     loadMore:         () => t('Mostrar mais'),
     emptyHistory:     () => t('Nenhum comando ainda'),

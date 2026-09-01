@@ -46,6 +46,11 @@ const ICON_EMPTY_SEARCH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable
   <path d="M6.75 1.5a5.25 5.25 0 1 0 3.2 9.41l3.42 3.42a.75.75 0 0 0 1.06-1.06l-3.42-3.42A5.25 5.25 0 0 0 6.75 1.5Zm-3.75 5.25a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z"/>
 </svg>`;
 
+/** X: limpar o texto da busca. */
+const ICON_CLOSE = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+  <path d="M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z"/>
+</svg>`;
+
 /** Lixeira: limpar a lista da aba visível. */
 const ICON_TRASH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
   <path d="M6.5 1a.5.5 0 0 0-.5.5V2H3a.5.5 0 0 0 0 1h.44l.63 10.06A1.5 1.5 0 0 0 5.57 14.5h4.86a1.5 1.5 0 0 0 1.5-1.44L12.56 3H13a.5.5 0 0 0 0-1h-3v-.5a.5.5 0 0 0-.5-.5h-3ZM7 2h2v-.5H7V2Zm-.44 3a.5.5 0 0 1 .5.47l.3 6a.5.5 0 1 1-1 .06l-.3-6a.5.5 0 0 1 .5-.53Zm2.88 0a.5.5 0 0 1 .5.53l-.3 6a.5.5 0 1 1-1-.06l.3-6a.5.5 0 0 1 .5-.47Z"/>
@@ -366,27 +371,30 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   /* Cabe até 3 dígitos (o histórico vai a 200) sem empurrar o rótulo. */
   .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
 
+  /* O X é um botão nosso, e não o nativo do input de busca: aquele vive no
+     shadow DOM, onde nem a cor do tema nem uma máscara declarada aqui chegam
+     — ficava azul do sistema ou invisível. */
+  .search-box { position: relative; margin-bottom: var(--gap-sm); flex: 0 0 auto; }
   .search {
-    width: 100%; margin-bottom: var(--gap-sm); height: 24px; flex: 0 0 auto;
-    padding: 0 var(--control-pad); border-radius: var(--radius);
+    width: 100%; height: 24px;
+    padding: 0 26px 0 var(--control-pad); border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg);
     font-size: 11px; outline: none;
   }
   .search:focus { border-color: var(--vscode-focusBorder); }
+  .search-clear {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; padding: 0;
+    border: none; border-radius: 4px; background: transparent;
+    color: var(--vscode-errorForeground, #f14c4c);
+    cursor: pointer; opacity: .85;
+  }
+  .search-clear:hover { opacity: 1; background: rgba(255,255,255,.08); }
+  .search-clear svg { width: 11px; height: 11px; fill: currentColor; }
   /* O botão de limpar nativo herda o azul de acento do sistema; redesenhado
      como um X na cor de erro do tema, que é o que a ação significa. */
-  /* O botão nativo herda o azul de acento do sistema, alheio ao tema. Aqui é
-     redesenhado como um X vermelho — a cor vai dentro do próprio SVG porque
-     este pseudo-elemento vive no shadow DOM do input, onde as variáveis
-     declaradas em :root não chegam. */
-  .search::-webkit-search-cancel-button {
-    -webkit-appearance: none; appearance: none;
-    width: 16px; height: 16px; margin-left: 2px; cursor: pointer;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23f14c4c'%3E%3Cpath d='M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z'/%3E%3C/svg%3E") center / 12px 12px no-repeat;
-    opacity: .8;
-  }
-  .search::-webkit-search-cancel-button:hover { opacity: 1; }
 
   .load-more { width: 100%; margin-top: var(--gap-sm); flex: 0 0 auto; }
   .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
@@ -440,7 +448,10 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
         <button id="favClear" class="tab-action" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}" hidden>${ICON_TRASH}</button>
       </div>
     </div>
-    <input id="search" class="search" type="search" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" hidden />
+    <div id="searchBox" class="search-box" hidden>
+      <input id="search" class="search" type="text" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" />
+      <button id="searchClear" class="search-clear" title="${esc(msg.serverView.clearSearch())}" aria-label="${esc(msg.serverView.clearSearch())}" hidden>${ICON_CLOSE}</button>
+    </div>
     <div id="histItems" class="items" role="tabpanel"></div>
     <div id="favItems" class="items" role="tabpanel" hidden></div>
     <button id="loadMore" class="mini ghost load-more" hidden>${esc(msg.serverView.loadMore())}</button>
@@ -475,6 +486,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   const histClear = $('#histClear');
   const favClear  = $('#favClear');
   const search    = $('#search');
+  const searchBox = $('#searchBox');
+  const searchClear = $('#searchClear');
   const loadMore  = $('#loadMore');
   const tabHist   = $('#tabHist');
   const tabFav    = $('#tabFav');
@@ -601,6 +614,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     shown = PAGE;
     query = '';
     search.value = '';
+    searchClear.hidden = true;
     tabFav.setAttribute('aria-selected', String(fav));
     tabHist.setAttribute('aria-selected', String(!fav));
     favItems.hidden = !fav;
@@ -614,7 +628,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   // A busca só aparece quando há o que buscar.
   function updateSearchVisibility() {
     const list = tab === 'fav' ? favorites : history;
-    search.hidden = list.length <= PAGE / 2;
+    searchBox.hidden = list.length <= PAGE / 2;
   }
 
   // Acima de 99 o número deixa de informar e só rouba espaço do rótulo.
@@ -664,7 +678,20 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     }
   });
 
-  search.addEventListener('input', () => { query = search.value; shown = PAGE; render(); });
+  search.addEventListener('input', () => {
+    query = search.value;
+    searchClear.hidden = !query;
+    shown = PAGE;
+    render();
+  });
+  searchClear.addEventListener('click', () => {
+    search.value = '';
+    query = '';
+    searchClear.hidden = true;
+    shown = PAGE;
+    render();
+    search.focus();
+  });
   loadMore.addEventListener('click', () => { shown += PAGE; render(); });
 
   tabHist.addEventListener('click', () => selectTab('hist'));
