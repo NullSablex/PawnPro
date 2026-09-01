@@ -19,46 +19,143 @@
   ![macOS x64](https://img.shields.io/badge/macOS-x64%20·%20arm64-000000?style=flat-square&logo=apple&logoColor=white)
 </div>
 
-Extensão para desenvolvimento em **Pawn** (SA-MP e open.mp) no Visual Studio Code e VSCodium: IntelliSense e diagnósticos por um motor LSP em Rust, com ferramentas integradas para edição, compilação, depuração e gerenciamento de servidor.
+**Uma IDE completa para Pawn dentro do seu editor.** O PawnPro é uma extensão para
+VS Code e VSCodium que traz para o desenvolvimento SA-MP / open.mp o que outras
+linguagens têm há anos: um motor de análise que entende o seu código de verdade,
+compilação e depuração com um atalho, e o servidor sob controle sem sair do editor.
 
-## Recursos
+> Escrever gamemode não precisa ser editor de texto, terminal e ALT+TAB.
 
-- **IntelliSense** — auto-complete, hover, signature help, CodeLens (referências) e coloração semântica para Pawn, cobrindo os includes transitivos. Os comentários de documentação acima das funções são formatados no hover e no signature help, nos formatos Javadoc (`@param`) e XMLdoc (`<summary>`, usado pelo open.mp).
-- **Diagnósticos** — 19 códigos `PP####` para includes não encontrados, erros estruturais, código morto, depreciação, nomenclatura e mais (ver [docs/features.md](docs/features.md)).
-- **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc` via `$PAWNCC`, `$PATH` e subdiretórios do workspace.
-- **Depuração** — sessão de depuração via DAP (`F5`): breakpoints (simples, condicionais, por contagem, logpoints), passo a passo, inspeção de variáveis e watch. Usa um plugin de servidor (SA-MP / open.mp); ver [docs/debugging.md](docs/debugging.md).
-- **Formatação** — formatação de documento e de seleção (`Ctrl+K Ctrl+F`), com estilos configuráveis (Allman, K&R, compacto ou personalizado).
-- **Assistente de nomenclatura** — avisos opcionais sobre nomes pobres e convenções de caixa por categoria de identificador, com padrão próprio por expressão regular.
-- **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON pelo terminal integrado; painel lateral com histórico e favoritos.
-- **Templates** — Gamemode e Filterscript (open.mp e SA-MP) e Include (open.mp), filtrados pela plataforma configurada.
-- **Biblioteca de recursos** — vitrine de plugins, filterscripts e includes (prévia).
-- **Painel de configurações** — interface gráfica (`PawnPro: Configurações`) com todas as opções editáveis sem tocar em JSON.
-- **Temas de sintaxe** — esquemas claro/escuro (clássico e moderno) com reaplicação automática ao trocar o tema do editor.
-- **Multi-idioma** — interface e diagnósticos em português, inglês, espanhol, romeno e russo, configuráveis de forma independente.
-- **Realce de sintaxe adicional** — `.toml`/`package.lock` e prévia de cor (`swatch`) em literais `0xRRGGBBAA`.
-- **Motor Rust LSP** — análise nativa via [pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine); iniciado automaticamente se o binário estiver presente em `engines/`.
-- **Arquivos Pawn** — `.pwn`, `.inc`, `.p` e `.pawn` recebem IntelliSense e diagnósticos.
+## Por que existe
+
+Quem desenvolve em Pawn conhece o ciclo: salvar, trocar de janela, compilar,
+ler um erro sem contexto, voltar, procurar a linha. Erro de digitação num nome de
+função? Só se descobre no compilador. Quer saber o que aquele native faz? Abre o
+`.inc` e lê o código.
+
+O PawnPro corta esse ciclo. O código é analisado enquanto você escreve — por um
+**motor próprio escrito em Rust**, não por expressões regulares — então o erro
+aparece na linha onde está, o autocomplete conhece os seus includes, e a
+documentação da função aparece ao passar o mouse.
+
+## O que você ganha
+
+### Enquanto escreve
+
+- **Autocomplete que conhece o seu projeto** — funções, natives, constantes e
+  macros de todos os `.inc` que você inclui, transitivamente. Ordenado por
+  proximidade: o que está perto do cursor vem primeiro.
+- **Documentação no hover e no signature help** — o comentário acima da função
+  vira texto formatado, nos formatos **Javadoc** (`@param`) e **XMLdoc**
+  (`<summary>`, o que o `omp-stdlib` do open.mp usa). Ao digitar a chamada, a
+  descrição do parâmetro em que você está aparece sozinha.
+- **19 diagnósticos** com código próprio (`PP####`) — include que não existe,
+  chave sem fechar, código inalcançável, função depreciada, variável não usada.
+  Vários com **correção automática** (`Ctrl+.`).
+- **Ir para a definição, referências e renomear** em todo o projeto.
+- **Prévia de cor** nos literais `0xRRGGBBAA` e `{RRGGBB}`, com seletor de cores.
+
+### Na hora de compilar e testar
+
+- **`Ctrl+Alt+B` compila** — o `pawncc` é encontrado sozinho (via `$PAWNCC`,
+  `PATH` ou dentro do projeto). Os erros voltam clicáveis no painel de problemas.
+- **`F5` depura de verdade** — breakpoints (simples, condicionais, por contagem e
+  logpoints), passo a passo, inspeção de variáveis, watch, call stack e
+  data breakpoints. Depuração real de gamemode, não `print()` espalhado.
+- **Servidor no painel lateral** — iniciar, parar, reiniciar e enviar comandos
+  RCON sem abrir terminal. Histórico e favoritos com busca, e o log acompanhado
+  em tempo real.
+
+### Para o projeto não virar bagunça
+
+- **Formatação** com estilos configuráveis (Allman, K&R, compacto ou seu próprio).
+- **Assistente de nomenclatura** — convenções de caixa por categoria de
+  identificador, e um **padrão próprio por expressão regular** quando os estilos
+  prontos não descrevem a convenção da casa (`g_` nas globais, por exemplo).
+- **Templates** de gamemode, filterscript e include, já no formato certo da
+  plataforma que você usa.
+
+### E porque ninguém programa igual
+
+- **Cinco idiomas** — português, inglês, espanhol, romeno e russo. A interface e
+  os diagnósticos são configuráveis **de forma independente**: dá para ter o
+  editor em português e os erros em inglês.
+- **Painel de configurações visual** — todas as opções sem tocar em JSON.
+- **Temas de sintaxe** claro e escuro, que acompanham o tema do editor.
+- **Cor de destaque** — seis cores para a interface da extensão, ou o padrão que
+  herda do seu tema.
+
+## Instalação
+
+Procure por **PawnPro** no marketplace do seu editor, ou:
+
+```
+ext install NullSablex.pawnpro
+```
+
+Também disponível no [Open VSX](https://open-vsx.org/extension/NullSablex/pawnpro)
+para VSCodium e editores derivados.
+
+**Funciona em Windows, Linux e macOS** (x64 e arm64). O motor de análise é um
+binário nativo que acompanha a extensão — não precisa instalar Rust, Node nem
+nada além do editor.
+
+## Primeiros passos
+
+1. Abra a **pasta** do seu gamemode (não o arquivo solto — a extensão precisa da
+   pasta para achar os includes).
+2. Abra um `.pwn`. O motor inicia sozinho e começa a analisar.
+3. `Ctrl+Alt+B` para compilar, `F5` para depurar.
+
+Se os includes não forem encontrados, abra **PawnPro: Configurações** pela barra
+de status e aponte o caminho do `pawno/include` — ou deixe a detecção automática
+procurar nos lugares usuais.
 
 ## Configuração
 
-As configurações são gerenciadas por arquivos JSON independentes do editor:
+Independente do editor, em JSON simples:
 
 | Arquivo | Escopo |
 |---------|--------|
 | `~/.pawnpro/config.json` | Global (todos os projetos) |
-| `.pawnpro/config.json` | Projeto (sobrescreve global) |
-| `.pawnpro/state.json` | Estado local (favoritos, histórico do servidor) |
+| `.pawnpro/config.json` | Projeto (sobrescreve o global) |
+| `.pawnpro/state.json` | Estado local (favoritos e histórico do servidor) |
 
-Acesse o painel de configurações pelo item **PawnPro** na barra de status → **Configurações**, ou pelo comando `PawnPro: Configurações` na paleta de comandos.
+Nada disso precisa ser editado à mão: o painel de configurações cobre todas as
+chaves. A referência completa está em
+[docs/configuration.md](docs/configuration.md), e os comandos em
+[docs/commands.md](docs/commands.md).
 
-Para a referência completa de chaves, consulte [docs/configuration.md](docs/configuration.md).  
-Para a lista de comandos, consulte [docs/commands.md](docs/commands.md).
+## Documentação
 
-## Notas
+| | |
+|---|---|
+| [Recursos](docs/features.md) | O que a extensão faz, em detalhe |
+| [Configuração](docs/configuration.md) | Todas as chaves |
+| [Comandos](docs/commands.md) | Paleta e atalhos |
+| [Servidor](docs/server.md) | Iniciar, RCON, favoritos e log |
+| [Depuração](docs/debugging.md) | Como configurar o depurador |
+| [Assistente de nomes](docs/naming-assistant.md) | Convenções e padrões próprios |
 
-- O monitoramento de log do servidor funciona apenas em **Linux e macOS**.
-- Firewalls/antivírus podem bloquear tráfego RCON (UDP) — libere a porta local se necessário.
-- `${workspaceFolder}` é substituído automaticamente em caminhos de configuração.
+Site completo: **[pawnpro.nullsablex.com](https://pawnpro.nullsablex.com)**
+
+## Como funciona por dentro
+
+A análise não roda em JavaScript. É um processo separado —
+[**pawnpro-engine**](https://github.com/NullSablex/PawnPro-Engine), escrito em
+**Rust** — que conversa com o editor pelo protocolo LSP. Isso é o que permite
+analisar um gamemode grande com todos os seus includes sem travar a digitação.
+
+A depuração segue o mesmo princípio: um adaptador DAP na extensão e um plugin
+dentro do servidor.
+
+## Bom saber
+
+- O acompanhamento de log do servidor funciona em **Linux e macOS**.
+- O RCON do SA-MP é um protocolo antigo, que trafega a senha em texto claro. Por
+  isso o envio direto vale só para servidor **local**; para um remoto, a extensão
+  usa o terminal. Firewalls podem bloquear a porta UDP local.
+- Comandos que pareçam carregar senha nunca são guardados no histórico.
 
 ## Contribuindo
 
