@@ -51,7 +51,7 @@ documentação da função aparece ao passar o mouse.
   descrição do parâmetro em que você está aparece sozinha.
 - **19 diagnósticos** com código próprio (`PP####`) — include que não existe,
   chave sem fechar, código inalcançável, função depreciada, variável não usada.
-  Vários com **correção automática** (`Ctrl+.`).
+  **13 deles têm correção automática** (`Ctrl+.`).
 - **Ir para a definição, referências e renomear** em todo o projeto.
 - **Prévia de cor** nos literais `0xRRGGBBAA` e `{RRGGBB}`, com seletor de cores.
 
