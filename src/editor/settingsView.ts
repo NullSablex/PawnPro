@@ -271,6 +271,7 @@ function buildI18n(m: Msg) {
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
     namingRegexMatchesNothing:   s.namingRegexMatchesNothing(),
+    namingRegexTooSlow:          s.namingRegexTooSlow(),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -1477,14 +1478,45 @@ function isRegexRule(v) {
 // Compila o padrão como a engine faz: âncora ^(?:...)$ para descrever o nome
 // inteiro, e o agrupamento impede que uma alternância ancore só os extremos.
 // Devolve null se o padrão for inválido.
+//
+// Limite de tamanho: o motor de regex do JS faz backtracking, então um padrão
+// como (a+)+ leva tempo exponencial no comprimento da entrada. A engine (crate
+// regex do Rust) tem tempo linear garantido e não se importa; quem precisa se
+// defender é esta pré-visualização. Um padrão de nome de identificador não
+// precisa ser longo.
+const MAX_PATTERN_LEN = 200;
+
 function compileRule(raw) {
   const body = raw.slice(1, -1);
-  if (!body) return null;
+  if (!body || body.length > MAX_PATTERN_LEN) return null;
   try {
     return new RegExp('^(?:' + body + ')$');
   } catch {
     return null;
   }
+}
+
+// Comprimento máximo do nome testado. É o limite que de fato protege: uma vez
+// iniciado, re.test roda até o fim — não há como interromper JS de fora —, e
+// o custo do backtracking cresce com o tamanho da ENTRADA. Cortá-la é o que
+// impede o congelamento; o orçamento abaixo só evita somar muitos testes caros.
+// Nome de identificador não passa disto.
+const MAX_PROBE_LEN = 40;
+
+// Testa um nome contra o padrão. Só a pré-visualização passa por aqui: um
+// padrão patológico deixa de responder em vez de travar a página. O resultado
+// que vale é sempre o da engine, cujo motor tem tempo linear garantido.
+function testWithBudget(re, name, budget) {
+  if (budget.left <= 0 || name.length > MAX_PROBE_LEN) return null;
+  const t0 = Date.now();
+  let hit;
+  try {
+    hit = re.test(name);
+  } catch {
+    return null;
+  }
+  budget.left -= Date.now() - t0;
+  return hit;
 }
 
 // Nomes testados contra o padrão do usuário: os cinco estilos embutidos daquela
@@ -1500,7 +1532,9 @@ function regexProbes(category, raw) {
   // O prefixo sai do próprio padrão quando ele começa por um literal (o caso
   // comum: /^g_[a-z].../). Sem isso o exemplo prefixado usaria uma letra fixa
   // e não casaria com o padrão que o usuário acabou de escrever.
-  const prefix = literalPrefix(raw);
+  // Teto no prefixo: é por ele que o padrão do usuário alonga o nome testado,
+  // e entrada longa é o que torna caro um padrão com backtracking.
+  const prefix = literalPrefix(raw).slice(0, 12);
   if (prefix && !out.includes(prefix + base)) out.push(prefix + base);
   out.push('_' + base);
   return out;
@@ -1554,21 +1588,39 @@ function updateRegexStatus(category, settled) {
     return;
   }
 
-  const frag = document.createDocumentFragment();
   // Os aceitos primeiro: é a resposta que o usuário procura, e assim ela cabe
   // na primeira linha mesmo quando a lista quebra.
-  const probes = regexProbes(category, raw);
-  const hits = probes.filter(p => re.test(p));
-  const misses = probes.filter(p => !re.test(p));
-  const any = hits.length > 0;
-  for (const probe of hits.concat(misses)) {
+  const budget = { left: 50 };
+  const hits = [];
+  const misses = [];
+  let slow = false;
+  for (const probe of regexProbes(category, raw)) {
+    const hit = testWithBudget(re, probe, budget);
+    if (hit === null) { slow = true; break; }
+    (hit ? hits : misses).push(probe);
+  }
+
+  if (slow) {
+    status.classList.add('err');
+    status.textContent = T.namingRegexTooSlow;
+    status.hidden = false;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const probe of hits) {
     const el = document.createElement('code');
-    const hit = re.test(probe);
-    el.className = hit ? 'hit' : 'miss';
-    el.textContent = (hit ? '\u2713 ' : '\u00d7 ') + probe;
+    el.className = 'hit';
+    el.textContent = '\u2713 ' + probe;
     frag.appendChild(el);
   }
-  if (!any) {
+  for (const probe of misses) {
+    const el = document.createElement('code');
+    el.className = 'miss';
+    el.textContent = '\u00d7 ' + probe;
+    frag.appendChild(el);
+  }
+  if (hits.length === 0) {
     const warn = document.createElement('span');
     warn.className = 'note';
     warn.textContent = T.namingRegexMatchesNothing;
