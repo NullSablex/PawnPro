@@ -186,7 +186,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
        a legenda alinha por este mesmo valor. */
     --control-h: 28px;
     --control-pad: 9px;
-    /* Altura de uma linha da lista, base para o recorte do scroll. */
+    /* Altura mínima de uma linha da lista, para todas ficarem iguais. */
     --row-h: 30px;
     --radius: 8px;
     --bg: var(--vscode-sideBar-background);
@@ -202,15 +202,20 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     --muted: var(--vscode-descriptionForeground);
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin:0; padding: var(--pad); background: var(--bg); color: var(--fg);
     font: 12px/1.4 var(--vscode-font-family);
+    /* O painel inteiro é uma coluna: a lista fica com a altura que sobra, e
+       só ela rola. Sem isso o body rolava por fora enquanto a lista rolava
+       por dentro — dois scrolls concorrendo no mesmo gesto. */
+    display: flex; flex-direction: column; overflow: hidden;
     /* A unidade vw mede a janela inteira, não este painel: numa janela
        estreita as fontes encolhiam mesmo havendo espaço aqui. Declarar o
        container faz as consultas abaixo medirem o painel. */
     container-type: inline-size;
   }
-  .row { display: flex; gap: var(--gap-sm); align-items: stretch; }
+  .row { display: flex; gap: var(--gap-sm); align-items: stretch; flex: 0 0 auto; }
   input[type="text"]{
     flex: 1 1 auto; min-width: 0; height: var(--control-h);
     padding: 0 var(--control-pad);
@@ -231,13 +236,17 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     margin-top: var(--gap-md); border: 1px solid var(--list-border);
     border-radius: var(--radius); background: var(--list-bg);
     padding: var(--section-pad);
+    /* Ocupa a altura restante e não deixa o conteúdo empurrá-lo além dela. */
+    display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 0;
   }
-  /* A altura vem do número de linhas visíveis, para a lista não cortar um
-     item ao meio; a barra usa as cores do tema, em vez da barra padrão larga
-     e clara que destoava do painel. */
+  /* A barra usa as cores do tema, em vez da padrão do navegador — larga e
+     clara, destoando do painel. */
   .items {
-    display: grid; gap: var(--gap-xs);
-    max-height: calc(var(--row-h) * 6 + var(--gap-xs) * 5);
+    display: grid; gap: var(--gap-xs); align-content: start;
+    /* A altura vem do espaço disponível, não de um número fixo de linhas:
+       alargar o painel faz o scroll sumir sozinho. */
+    flex: 1 1 auto; min-height: 0;
     overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
@@ -298,6 +307,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
        uma linha que atravessa o painel, em vez de flutuar num traço curto. */
     margin: calc(var(--section-pad) * -1) calc(var(--section-pad) * -1) var(--gap-sm);
     padding: 0 var(--section-pad);
+    flex: 0 0 auto;
     border-bottom: 1px solid var(--list-border);
   }
   .tab {
@@ -318,7 +328,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
 
   .search {
-    width: 100%; margin-bottom: var(--gap-sm); height: 24px;
+    width: 100%; margin-bottom: var(--gap-sm); height: 24px; flex: 0 0 auto;
     padding: 0 var(--control-pad); border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg);
@@ -326,9 +336,23 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
   .search:focus { border-color: var(--vscode-focusBorder); }
 
-  .load-more { width: 100%; margin-top: var(--gap-sm); }
+  .load-more { width: 100%; margin-top: var(--gap-sm); flex: 0 0 auto; }
   .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
-  .tab-actions .mini { white-space: nowrap; }
+  /* Antes o botão acumulava as classes mini (recuo próprio) e icon-btn
+     (medida fixa) ao mesmo tempo, e as duas brigavam. Aqui tem medida única,
+     discreta como as abas e destacando-se só ao passar o mouse. */
+  .tab-action {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 24px; padding: 0;
+    border: none; border-radius: 5px;
+    background: transparent; color: var(--muted);
+    cursor: pointer;
+  }
+  .tab-action:hover {
+    background: rgba(255,255,255,.07);
+    color: var(--vscode-errorForeground, var(--fg));
+  }
+  .tab-action svg { width: 13px; height: 13px; fill: currentColor; }
   [hidden] { display: none !important; }
 
   /* Só quando o painel em si aperta é que algo cede — primeiro o respiro
@@ -336,7 +360,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
      tamanho: é ele que identifica a aba. */
   @container (max-width: 230px) {
     .tab { padding: 5px var(--gap-sm); }
-    .tab-actions .mini { padding: 3px 5px; }
+    .tab-action { width: 22px; }
   }
   @container (max-width: 190px) {
     .tab-count { display: none; }
@@ -360,8 +384,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
         ${esc(msg.serverView.tabFavorites())}<span id="favCount" class="tab-count"></span>
       </button>
       <div class="tab-actions">
-        <button id="histClear" class="mini ghost icon-btn" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}">${ICON_TRASH}</button>
-        <button id="favClear" class="mini ghost icon-btn" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}" hidden>${ICON_TRASH}</button>
+        <button id="histClear" class="tab-action" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}">${ICON_TRASH}</button>
+        <button id="favClear" class="tab-action" title="${esc(msg.serverView.clear())}" aria-label="${esc(msg.serverView.clear())}" hidden>${ICON_TRASH}</button>
       </div>
     </div>
     <input id="search" class="search" type="search" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" hidden />
