@@ -27,7 +27,7 @@ export function brandAnimationCss(): string {
   .brand.fx-bloco .ch { opacity: 0; animation: fx-bloco-show .01s linear .55s forwards; }
   .brand.fx-bloco::after {
     content: ''; position: absolute; inset: 0;
-    background: var(--vscode-focusBorder, #007acc);
+    background: var(--pp-accent);
     transform-origin: left;
     animation: fx-bloco-bar 1s ease-in-out forwards;
   }

@@ -508,7 +508,7 @@ function getHtml(logoUri: string, themeCss: string): string {
     white-space: nowrap;
   }
   nav a:hover { opacity: 1; background: var(--vscode-list-hoverBackground, #ffffff10); }
-  nav a.active { opacity: 1; border-left-color: var(--vscode-button-background, #007acc); font-weight: 600; }
+  nav a.active { opacity: 1; border-left-color: var(--pp-accent); font-weight: 600; }
 
   main {
     flex: 1;
@@ -586,8 +586,8 @@ function getHtml(logoUri: string, themeCss: string): string {
   }
   .preset-card:hover { background: var(--vscode-list-hoverBackground, #ffffff10); }
   .preset-card.selected {
-    border-color: var(--vscode-button-background, #007acc);
-    box-shadow: 0 0 0 1px var(--vscode-button-background, #007acc);
+    border-color: var(--pp-accent);
+    box-shadow: 0 0 0 1px var(--pp-accent);
   }
   .preset-preview {
     margin: 0;
@@ -639,12 +639,12 @@ function getHtml(logoUri: string, themeCss: string): string {
   .style-badge:hover span { opacity: 0.9; }
   .style-badge input:checked + span {
     opacity: 1;
-    border-color: var(--vscode-button-background, #007acc);
-    background: var(--vscode-button-background, #007acc);
-    color: var(--vscode-button-foreground, #fff);
+    border-color: var(--pp-accent);
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
   }
   .style-badge input:focus-visible + span {
-    box-shadow: 0 0 0 2px var(--vscode-button-background, #007acc);
+    box-shadow: 0 0 0 2px var(--pp-accent);
   }
   /* O campo de padrão próprio fica sob as etiquetas da mesma categoria: é uma
      alternativa a elas, não um ajuste de outra seção. */
@@ -718,10 +718,10 @@ function getHtml(logoUri: string, themeCss: string): string {
      dos ícones da página, que são traços SVG de peso uniforme. */
   .naming-styles .disclosure {
     grid-row: 1 / 3;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     fill: currentColor;
-    opacity: 0.85;
+    opacity: 1;
     transition: transform 0.15s;
   }
   .naming-styles[open] .disclosure { transform: rotate(90deg); }
@@ -747,7 +747,7 @@ function getHtml(logoUri: string, themeCss: string): string {
     transition: border-color 0.1s;
   }
   input[type="text"]:focus, input[type="number"]:focus, select:focus {
-    border-color: var(--vscode-button-background, #007acc);
+    border-color: var(--pp-accent);
   }
 
   code {
@@ -774,7 +774,7 @@ function getHtml(logoUri: string, themeCss: string): string {
     flex-shrink: 0;
   }
   .toggle input:checked + .toggle-track {
-    background: var(--vscode-button-background, #007acc);
+    background: var(--pp-accent);
   }
   .toggle-thumb {
     position: absolute;
@@ -822,8 +822,8 @@ function getHtml(logoUri: string, themeCss: string): string {
   }
   .migrate-banner span { flex: 1; }
   .btn-add, .btn-file {
-    background: var(--vscode-button-background, #007acc);
-    color: var(--vscode-button-foreground, #fff);
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
     border: none;
     border-radius: 3px;
     padding: 5px 12px;
@@ -832,7 +832,7 @@ function getHtml(logoUri: string, themeCss: string): string {
     font-family: inherit;
     transition: background 0.1s;
   }
-  .btn-add:hover { background: var(--vscode-button-hoverBackground, #0062a3); }
+  .btn-add:hover { background: var(--pp-accent-hover); }
 
   .wide .row-control { min-width: 100%; margin-top: 8px; flex-direction: column; align-items: stretch; }
   .wide { flex-wrap: wrap; }
@@ -842,7 +842,7 @@ function getHtml(logoUri: string, themeCss: string): string {
     color: var(--vscode-descriptionForeground);
     margin-bottom: 24px;
     padding: 8px 12px;
-    border-left: 2px solid var(--vscode-button-background, #007acc);
+    border-left: 2px solid var(--pp-accent);
     background: var(--vscode-textBlockQuote-background, #ffffff08);
     border-radius: 0 3px 3px 0;
   }
@@ -1150,7 +1150,7 @@ baz();</pre>
   <details class="naming-styles naming-opt">
     <summary>
       <svg class="disclosure" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-        <path d="M5.8 3.6 11.6 7.5a.6.6 0 0 1 0 1L5.8 12.4A.6.6 0 0 1 4.9 11.9V4.1a.6.6 0 0 1 .9-.5Z"/>
+        <path d="M5.2 2.5 12.4 7.4a.7.7 0 0 1 0 1.2L5.2 13.5A.7.7 0 0 1 4.1 12.9V3.1a.7.7 0 0 1 1.1-.6Z"/>
       </svg>
       <span class="naming-styles-title" data-i18n="namingStyleGroup"></span>
       <span class="naming-styles-desc" data-i18n="namingStyleGroupDesc"></span>

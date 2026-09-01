@@ -312,9 +312,9 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     --bg: var(--vscode-sideBar-background);
     --fg: var(--vscode-foreground);
     --border: var(--vscode-panel-border);
-    --btn-bg: var(--vscode-button-background);
+    --btn-bg: var(--pp-accent);
     --btn-fg: var(--vscode-button-foreground);
-    --btn-hover: var(--vscode-button-hoverBackground);
+    --btn-hover: var(--pp-accent-hover);
     --input-bg: var(--vscode-input-background);
     --input-fg: var(--vscode-input-foreground);
     --list-bg: var(--vscode-editorWidget-background);
@@ -476,7 +476,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .tab:hover { background: rgba(255,255,255,.04); color: var(--fg); }
   .tab[aria-selected="true"] {
     color: var(--fg);
-    border-bottom-color: var(--vscode-focusBorder, var(--btn-bg));
+    border-bottom-color: var(--pp-accent);
   }
   /* Cabe até 3 dígitos (o histórico vai a 200) sem empurrar o rótulo. */
   .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
@@ -494,7 +494,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     background: var(--input-bg); color: var(--input-fg);
     font-size: 11px; outline: none;
   }
-  input.search:focus { border-color: var(--vscode-focusBorder); }
+  input.search:focus { border-color: var(--pp-accent); }
   .search-clear {
     position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
     display: inline-flex; align-items: center; justify-content: center;

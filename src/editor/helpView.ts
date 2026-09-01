@@ -136,7 +136,7 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
   .card-section {
     background: var(--vscode-sideBar-background, rgba(255,255,255,.04));
     border-radius: 8px;
-    border-left: 3px solid var(--vscode-activityBarBadge-background, #007acc);
+    border-left: 3px solid var(--pp-accent);
     padding: .9rem 1.1rem 1rem;
     margin: .9rem 0;
   }

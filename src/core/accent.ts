@@ -52,16 +52,18 @@ export const ACCENT_ORDER: Exclude<AccentColor, ''>[] = [
  */
 export function accentCss(accent: AccentColor): string {
   const p = accent ? ACCENTS[accent] : undefined;
-  if (!p) return '';
-  // Sobrescreve as próprias variáveis do editor: as páginas já consomem
-  // --vscode-button-background e afins, então nada mais precisa mudar.
+  // Sem cor escolhida as variáveis apontam para as do editor: é o modo
+  // automático, e as páginas seguem o tema como sempre.
+  const base = p ? p.base : 'var(--vscode-button-background, #007acc)';
+  const hover = p ? p.hover : 'var(--vscode-button-hoverBackground, #0062a3)';
+  const on = p ? p.on : 'var(--vscode-button-foreground, #fff)';
+  // Variáveis PRÓPRIAS, não as do editor: o editor injeta as dele no atributo
+  // style do <html>, e declaração inline vence qualquer seletor — redefinir
+  // --vscode-* num :root não teria efeito nenhum.
   return `
   :root {
-    --vscode-button-background: ${p.base};
-    --vscode-button-hoverBackground: ${p.hover};
-    --vscode-button-foreground: ${p.on};
-    --vscode-focusBorder: ${p.hover};
-    --vscode-activityBarBadge-background: ${p.base};
-    --vscode-textLink-foreground: ${p.hover};
+    --pp-accent: ${base};
+    --pp-accent-hover: ${hover};
+    --pp-accent-fg: ${on};
   }`;
 }
