@@ -706,18 +706,27 @@ function getHtml(logoUri: string, themeCss: string): string {
     cursor: pointer;
     list-style: none;
     padding: 2px 0;
+    /* Grade de duas colunas: o chevron ocupa a primeira nas duas linhas, e a
+       descrição alinha com o título sem depender de um recuo fixo. */
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 6px;
+    align-items: center;
   }
   .naming-styles > summary::-webkit-details-marker { display: none; }
-  .naming-styles-title { font-weight: 600; }
-  .naming-styles-title::before {
-    content: '▸';
-    margin-right: 6px;
+  /* Antes era o caractere '▸': o desenho vinha da fonte do sistema e destoava
+     dos ícones da página, que são traços SVG de peso uniforme. */
+  .naming-styles .disclosure {
+    grid-row: 1 / 3;
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
     opacity: 0.6;
-    display: inline-block;
     transition: transform 0.15s;
   }
-  .naming-styles[open] .naming-styles-title::before { transform: rotate(90deg); }
-  .naming-styles-desc { display: block; opacity: 0.7; font-size: 0.85em; padding-left: 18px; }
+  .naming-styles[open] .disclosure { transform: rotate(90deg); }
+  .naming-styles-title { font-weight: 600; }
+  .naming-styles-desc { opacity: 0.7; font-size: 0.85em; }
   .naming-styles[open] > .naming-style-row:last-child { border-bottom: none; }
   .preset-name {
     font-size: 0.9em;
@@ -1140,6 +1149,9 @@ baz();</pre>
   </div>
   <details class="naming-styles naming-opt">
     <summary>
+      <svg class="disclosure" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path d="M6.2 3.3a.75.75 0 0 1 1.06 0l4.2 4.17a.75.75 0 0 1 0 1.06l-4.2 4.17a.75.75 0 1 1-1.06-1.06L9.87 8 6.2 4.36a.75.75 0 0 1 0-1.06Z"/>
+      </svg>
       <span class="naming-styles-title" data-i18n="namingStyleGroup"></span>
       <span class="naming-styles-desc" data-i18n="namingStyleGroupDesc"></span>
     </summary>
