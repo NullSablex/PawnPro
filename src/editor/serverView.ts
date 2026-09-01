@@ -187,6 +187,10 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     --gap-xs: 4px;
     --gap-sm: 6px;
     --gap-md: 10px;
+    /* Altura dos controles da primeira linha e recuo do texto dentro deles —
+       a legenda alinha por este mesmo valor. */
+    --control-h: 28px;
+    --control-pad: 9px;
     --radius: 8px;
     --bg: var(--vscode-sideBar-background);
     --fg: var(--vscode-foreground);
@@ -210,22 +214,24 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
        container faz as consultas abaixo medirem o painel. */
     container-type: inline-size;
   }
-  .row { display: flex; gap: 6px; align-items: stretch; }
+  .row { display: flex; gap: var(--gap-sm); align-items: stretch; }
   input[type="text"]{
-    flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 9px;
+    flex: 1 1 auto; min-width: 0; height: var(--control-h);
+    padding: 0 var(--control-pad);
     border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg); outline: none;
   }
   button {
-    padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+    padding: var(--gap-sm) var(--gap-md); border-radius: var(--radius);
+    border: 1px solid var(--border);
     background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
   }
   button:hover { background: var(--btn-hover); }
   /* Legenda do campo: colada nele e alinhada ao texto do input, para ser
      lida como parte do campo e não como um aviso solto. */
   .hint {
-    margin: var(--gap-xs) 0 0; padding-left: 9px;
+    margin: var(--gap-xs) 0 0; padding-left: var(--control-pad);
     color: var(--hint); font-size: 11px;
   }
   .hint code {
@@ -234,25 +240,24 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     font-family: var(--vscode-editor-font-family, monospace); font-size: 10px;
   }
   .section {
+    /* O recuo interno vive numa variável própria porque as abas se estendem
+       até a borda cancelando-o; mudar um sem o outro desalinharia a régua. */
+    --section-pad: var(--gap-sm);
     margin-top: var(--gap-md); border: 1px solid var(--list-border);
     border-radius: var(--radius); background: var(--list-bg);
-    padding: var(--gap-sm);
-  }
-  .section-header{
-    display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;
-    font-weight: 600; opacity:.9;
+    padding: var(--section-pad);
   }
   .items { display: grid; gap: var(--gap-xs); max-height: 180px; overflow: auto; }
   .empty { opacity:.7; font-style: italic; }
   .cmd-row {
-    display:flex; gap:6px; align-items:center;
+    display: flex; gap: var(--gap-sm); align-items: center;
     padding: var(--gap-xs) var(--gap-sm); border-radius: 6px;
     border: 1px solid transparent;
     background: transparent;
   }
   .cmd-row:hover { border-color: var(--border); background: rgba(255,255,255,.04); }
   .cmd-text { flex:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mini { padding: 3px 6px; font-size: 11px; border-radius: 6px; }
+  .mini { padding: 3px var(--gap-sm); font-size: 11px; border-radius: 6px; }
   .ghost { background: transparent; border-color: var(--list-border); color: var(--fg); }
   .ghost:hover { background: rgba(255,255,255,.06); }
   .muted { color: var(--muted); }
@@ -260,7 +265,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   /* Botão de enviar: só o ícone, quadrado e alinhado à altura do input. */
   .icon-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: 28px; padding: 0; flex: 0 0 auto;
+    width: 30px; height: var(--control-h); padding: 0; flex: 0 0 auto;
   }
   .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
   /* Nas linhas da lista os botões são menores, e o ícone acompanha — sem
@@ -282,13 +287,13 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     display: flex; align-items: stretch; gap: 2px;
     /* Puxa a régua até as bordas do bloco: a aba ativa passa a sentar sobre
        uma linha que atravessa o painel, em vez de flutuar num traço curto. */
-    margin: calc(var(--gap-sm) * -1) calc(var(--gap-sm) * -1) var(--gap-sm);
-    padding: 0 var(--gap-sm);
+    margin: calc(var(--section-pad) * -1) calc(var(--section-pad) * -1) var(--gap-sm);
+    padding: 0 var(--section-pad);
     border-bottom: 1px solid var(--list-border);
   }
   .tab {
     min-width: 0; flex: 0 1 auto;
-    padding: 5px 10px;
+    padding: 5px var(--gap-md);
     border: none; border-bottom: 2px solid transparent; border-radius: 0;
     background: transparent; color: var(--muted);
     font-size: 12px; font-weight: 600;
@@ -300,7 +305,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     color: var(--fg);
     border-bottom-color: var(--vscode-focusBorder, var(--btn-bg));
   }
-  .tab-count { margin-left: 4px; opacity: .7; font-weight: 400; }
+  .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; }
   .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
   .tab-actions .mini { white-space: nowrap; }
   [hidden] { display: none !important; }
@@ -309,7 +314,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
      lateral, depois a contagem, que é o menos essencial. O rótulo mantém o
      tamanho: é ele que identifica a aba. */
   @container (max-width: 230px) {
-    .tab { padding: 5px 6px; }
+    .tab { padding: 5px var(--gap-sm); }
     .tab-actions .mini { padding: 3px 5px; }
   }
   @container (max-width: 190px) {
