@@ -256,7 +256,7 @@ export function createMsg(t: Translate) {
     panelTitle:      () => t('PawnPro — Ajuda e informações'),
     subtitle:        () => t('Componentes, links e guia do depurador'),
     compilerTitle:   () => t('Compilador recomendado'),
-    compilerBody:    () => t('Compile seus scripts com o **compilador do open.mp** — versão **3.10.11**, a única existente e a testada no momento. É o **único compilador testado** e o **recomendado**, tanto para a análise da engine quanto para a depuração. Outros compiladores podem gerar código ou informação de depuração incompatíveis.'),
+    compilerBody:    () => t('Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.'),
     compilerLink:    () => t('Baixar o compilador do open.mp'),
     componentsTitle: () => t('Componentes'),
     extensionLabel:  () => t('Extensão PawnPro'),

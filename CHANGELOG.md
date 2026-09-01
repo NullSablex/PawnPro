@@ -36,6 +36,7 @@ Ainda não lançada. Versão prevista: **3.5.0**.
   ```
 
   Como no compilador, a diretiva marca a **próxima** declaração e não tem forma na mesma linha. O que é coberto não mudou: `native`, `stock`, `public`, `forward`, `static`, `#define`, variáveis globais e `#include`. **Quem usava `// @DEPRECATED` precisa trocar pela diretiva** — o marcador antigo deixou de ser reconhecido, e o autocomplete do `@`, que existia só para inseri-lo, passou a oferecer as tags de documentação (`@param`, `@return`, `@remarks`) dentro de comentários
+- **Compilador: a 3.10.10 também foi testada** — a página de Ajuda afirmava que a 3.10.11 era "a única existente e a testada". A 3.10.10 do compilador do open.mp também funciona, incluindo a depuração; no Windows a depuração ainda não foi verificada. A 3.10.11 segue sendo a recomendada
 - **Depurador (PawnPro Debugger) para 0.2.0** — a depuração deixa de ser "breakpoint e inspeção" e passa a cobrir:
   - **Call stack multi-frame** — navegar entre os frames da chamada, com a inspeção seguindo o frame selecionado
   - **Data breakpoints** — pausar quando um valor muda, em globais, locais e elementos de array (`arr[3]`)

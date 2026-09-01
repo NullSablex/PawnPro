@@ -175,7 +175,7 @@
   "PawnPro — Ajuda e informações": "PawnPro — Ayuda e información",
   "Componentes, links e guia do depurador": "Componentes, enlaces y guía del depurador",
   "Compilador recomendado": "Compilador recomendado",
-  "Compile seus scripts com o **compilador do open.mp** — versão **3.10.11**, a única existente e a testada no momento. É o **único compilador testado** e o **recomendado**, tanto para a análise da engine quanto para a depuração. Outros compiladores podem gerar código ou informação de depuração incompatíveis.": "Compila tus scripts con el **compilador de open.mp** — versión **3.10.11**, la única existente y la probada por el momento. Es el **único compilador probado** y el **recomendado**, tanto para el análisis del engine como para la depuración. Otros compiladores pueden generar código o información de depuración incompatibles.",
+  "Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.": "Compila tus scripts con el **compilador de open.mp** — la versión **3.10.11** es la recomendada, y la **3.10.10** también ha sido probada (en Windows, la depuración aún no se ha verificado). Es el compilador recomendado tanto para el análisis del engine como para la depuración; otros pueden generar código o información de depuración incompatibles.",
   "Baixar o compilador do open.mp": "Descargar el compilador de open.mp",
   "Componentes": "Componentes",
   "Extensão PawnPro": "Extensión PawnPro",

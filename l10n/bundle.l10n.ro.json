@@ -175,7 +175,7 @@
   "PawnPro — Ajuda e informações": "PawnPro — Ajutor și informații",
   "Componentes, links e guia do depurador": "Componente, linkuri și ghidul debugger-ului",
   "Compilador recomendado": "Compilator recomandat",
-  "Compile seus scripts com o **compilador do open.mp** — versão **3.10.11**, a única existente e a testada no momento. É o **único compilador testado** e o **recomendado**, tanto para a análise da engine quanto para a depuração. Outros compiladores podem gerar código ou informação de depuração incompatíveis.": "Compilează-ți scripturile cu **compilatorul open.mp** — versiunea **3.10.11**, singura existentă și cea testată momentan. Este **singurul compilator testat** și cel **recomandat**, atât pentru analiza engine-ului, cât și pentru depanare. Alte compilatoare pot genera cod sau informații de depanare incompatibile.",
+  "Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.": "Compilează-ți scripturile cu **compilatorul open.mp** — versiunea **3.10.11** este cea recomandată, iar **3.10.10** a fost de asemenea testată (pe Windows, depanarea nu a fost încă verificată). Este compilatorul recomandat atât pentru analiza engine-ului, cât și pentru depanare; altele pot genera cod sau informații de depanare incompatibile.",
   "Baixar o compilador do open.mp": "Descarcă compilatorul open.mp",
   "Componentes": "Componente",
   "Extensão PawnPro": "Extensia PawnPro",
