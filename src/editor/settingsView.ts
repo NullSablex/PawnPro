@@ -1157,7 +1157,7 @@ ${LOCALE_OPTIONS}
       </label>
     </div>
   </div>
-  <div class="row">
+  <div class="row wide">
     <div class="row-info">
       <div class="row-label" data-i18n="serverSensitiveCommands"></div>
       <div class="row-desc" data-i18n="serverSensitiveCommandsDesc"></div>
