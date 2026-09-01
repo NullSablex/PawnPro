@@ -299,5 +299,6 @@
   "Marque um comando com a estrela para tê-lo sempre à mão.": "Отметьте команду звёздочкой, чтобы держать её под рукой.",
   "Nada encontrado": "Ничего не найдено",
   "Tente outro trecho do comando.": "Попробуйте другую часть команды.",
-  "Limpar a busca": "Очистить поиск"
+  "Limpar a busca": "Очистить поиск",
+  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "Отправка через RCON доступна только для локального сервера — пароль передаётся открытым текстом. Для удалённого сервера используйте терминал."
 }

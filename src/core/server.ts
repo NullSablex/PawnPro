@@ -238,13 +238,37 @@ export class LogTailer {
   }
 }
 
+/** Limite de cada campo do pacote: o protocolo escreve o tamanho em 16 bits. */
+const RCON_FIELD_MAX = 0xFFFF;
+
+/**
+ * `true` se o endereço é a própria máquina.
+ *
+ * O RCON do SA-MP envia a senha **em texto claro** por UDP — o protocolo é de
+ * 2005 e não tem cifra nem desafio. Enviá-la para fora da máquina expõe a
+ * credencial a quem estiver no caminho, então o painel só fala com o servidor
+ * local (que é o caso de uso: depurar o gamemode que se está escrevendo).
+ */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.trim().toLowerCase();
+  if (h === 'localhost' || h === '::1' || h === '0.0.0.0') return true;
+  // Toda a faixa 127.0.0.0/8 é loopback.
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  return m !== null && Number(m[1]) === 127;
+}
+
 export class SampRconClient {
   constructor(private host: string, private port: number, private password: string) {}
 
   private buildPacket(cmd: string): Buffer {
     const ipOctets = this.host.split('.').map(n => Math.max(0, Math.min(255, parseInt(n, 10) || 0)));
-    const passBuf = Buffer.from(this.password, 'ascii');
-    const cmdBuf = Buffer.from(cmd, 'ascii');
+    // `latin1` preserva os bytes; `ascii` truncava silenciosamente um `ç` para
+    // outro caractere, e a senha ia errada sem aviso.
+    const passBuf = Buffer.from(this.password, 'latin1');
+    const cmdBuf = Buffer.from(cmd, 'latin1');
+    if (passBuf.length > RCON_FIELD_MAX || cmdBuf.length > RCON_FIELD_MAX) {
+      throw new Error('RCON: senha ou comando excede o limite do protocolo');
+    }
     const buf = Buffer.allocUnsafe(11 + 2 + passBuf.length + 2 + cmdBuf.length);
     let o = 0;
     buf.write('SAMP', o, 4, 'ascii'); o += 4;
@@ -280,13 +304,21 @@ export class SampRconClient {
         resolve('');
       }, timeoutMs);
 
-      socket.once('message', (msg) => {
+      // `on` e não `once`: um datagrama alheio na porta não pode encerrar a
+      // espera pela resposta legítima.
+      socket.on('message', (msg, rinfo) => {
         if (done) return;
+        // Só aceita o que veio do servidor consultado e tem a assinatura do
+        // protocolo. Sem isso, qualquer pacote UDP que chegasse à porta efêmera
+        // apareceria no painel como se fosse resposta do servidor.
+        const doServidor = rinfo.address === this.host || isLoopbackHost(rinfo.address);
+        if (!doServidor || msg.length < 11 || msg.subarray(0, 4).toString('ascii') !== 'SAMP') {
+          return;
+        }
         done = true;
         clearTimeout(to);
         socket.close();
-        const payload = msg.subarray(11);
-        resolve(payload.toString('utf8'));
+        resolve(msg.subarray(11).toString('utf8'));
       });
 
       socket.once('error', (e) => {

@@ -71,6 +71,27 @@ function esc(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Comandos que carregam credencial e não devem ser guardados.
+ *
+ * O histórico e os favoritos vão para `.pawnpro/state.json`, em texto claro e
+ * dentro do projeto — um `login` ou uma troca de senha ali seria commitado
+ * junto. O comando ainda é enviado; só não fica registrado.
+ */
+const COMANDOS_SENSIVEIS = [
+  /^login(\s|$)/i,
+  /^rcon_password(\s|$)/i,
+  /^password(\s|$)/i,
+  /^changepass(word)?(\s|$)/i,
+  /^setpass(word)?(\s|$)/i,
+];
+
+/** `true` se o comando traz credencial e não deve ser guardado. */
+export function isSensitiveCommand(cmd: string): boolean {
+  const t = cmd.trim().replace(/^\/?rcon\s+/i, '');
+  return COMANDOS_SENSIVEIS.some(rx => rx.test(t));
+}
+
 export class ServerViewProvider implements vscode.WebviewViewProvider {
   private views = new Set<vscode.WebviewView>();
 
@@ -97,6 +118,21 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     return { favorites: [...this.favorites], history: [...this.history] };
   }
 
+  /**
+   * Remove do estado gravado o que hoje seria recusado.
+   *
+   * Antes da filtragem, um `login <senha>` podia ter sido guardado em
+   * `.pawnpro/state.json`; limpar só na escrita deixaria esses registros para
+   * trás, no arquivo e à vista no painel.
+   */
+  private purgeSensitive() {
+    const favs = this.favorites.filter(c => !isSensitiveCommand(c));
+    const hist = this.history.filter(c => !isSensitiveCommand(c));
+    if (favs.length !== this.favorites.length || hist.length !== this.history.length) {
+      this.save(favs, hist);
+    }
+  }
+
   private broadcast() {
     for (const v of this.views) this.postState(v);
   }
@@ -117,12 +153,14 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
 
   private record(cmd: string) {
+    if (isSensitiveCommand(cmd)) return;
     const newHistory = this.unshiftUnique([...this.history], cmd, 200);
     this.save(this.favorites, newHistory);
     this.broadcast();
   }
 
   private addFavorite(cmd: string) {
+    if (isSensitiveCommand(cmd)) return;
     const newFavs = this.unshiftUnique([...this.favorites], cmd);
     this.save(newFavs, this.history);
     this.broadcast();
@@ -145,6 +183,8 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
 
   resolveWebviewView(view: vscode.WebviewView) {
+    // Limpa o que foi gravado antes desta filtragem existir.
+    this.purgeSensitive();
     this.views.add(view);
     view.onDidDispose(() => this.views.delete(view));
 
@@ -385,25 +425,22 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   .search-box { position: relative; margin-bottom: var(--gap-sm); flex: 0 0 auto; }
   .search {
     width: 100%; height: 24px;
-    padding: 0 26px 0 var(--control-pad); border-radius: var(--radius);
+    padding: 0 25px 0 var(--control-pad); border-radius: var(--radius);
     border: 1px solid var(--vscode-input-border, var(--border));
     background: var(--input-bg); color: var(--input-fg);
     font-size: 11px; outline: none;
   }
   .search:focus { border-color: var(--vscode-focusBorder); }
   .search-clear {
-    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
     display: inline-flex; align-items: center; justify-content: center;
-    width: 18px; height: 18px; padding: 0;
-    border: none; border-radius: 4px; background: transparent;
+    width: 16px; height: 16px; padding: 0;
+    border: none; border-radius: 3px; background: transparent;
     color: var(--vscode-errorForeground, #f14c4c);
-    cursor: pointer; opacity: .85;
+    cursor: pointer; opacity: .8;
   }
-  .search-clear:hover { opacity: 1; background: rgba(255,255,255,.08); }
-  .search-clear svg { width: 11px; height: 11px; fill: currentColor; }
-  /* O botão de limpar nativo herda o azul de acento do sistema; redesenhado
-     como um X na cor de erro do tema, que é o que a ação significa. */
-
+  .search-clear:hover { opacity: 1; background: rgba(255,255,255,.1); }
+  .search-clear svg { width: 10px; height: 10px; fill: currentColor; }
   .load-more { width: 100%; margin-top: var(--gap-sm); flex: 0 0 auto; }
   .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
   /* Antes o botão acumulava as classes mini (recuo próprio) e icon-btn

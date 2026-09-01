@@ -41,6 +41,7 @@ export function createMsg(t: Translate) {
     failedStart: (err: string) => t('Falha ao iniciar servidor: {0}', err),
     rconFailed: (err: string) => t('Falha ao enviar RCON: {0}', err),
     rconInvalidPassword: () => t('Senha RCON vazia ou inválida ("changename"). Comando não enviado.'),
+    rconRemoteBlocked:  () => t('O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.'),
     rconHint: () => t('Envie apenas o comando, ex.: "gmx" ou "say oii".'),
   },
 

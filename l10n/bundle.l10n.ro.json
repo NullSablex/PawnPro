@@ -299,5 +299,6 @@
   "Marque um comando com a estrela para tê-lo sempre à mão.": "Marchează o comandă cu steaua ca s-o ai la îndemână.",
   "Nada encontrado": "Nu s-a găsit nimic",
   "Tente outro trecho do comando.": "Încearcă altă parte a comenzii.",
-  "Limpar a busca": "Golește căutarea"
+  "Limpar a busca": "Golește căutarea",
+  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "Trimiterea prin RCON e limitată la serverul local — parola circulă în text clar. Folosește terminalul pentru un server la distanță."
 }

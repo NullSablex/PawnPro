@@ -299,5 +299,6 @@
   "Marque um comando com a estrela para tê-lo sempre à mão.": "Marca un comando con la estrella para tenerlo a mano.",
   "Nada encontrado": "No se encontró nada",
   "Tente outro trecho do comando.": "Prueba con otra parte del comando.",
-  "Limpar a busca": "Limpiar la búsqueda"
+  "Limpar a busca": "Limpiar la búsqueda",
+  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "El envío por RCON solo vale para el servidor local — la contraseña viaja en texto plano. Usa la terminal para un servidor remoto."
 }

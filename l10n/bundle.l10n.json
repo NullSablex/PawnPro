@@ -299,5 +299,6 @@
   "Marque um comando com a estrela para tê-lo sempre à mão.": "Marque um comando com a estrela para tê-lo sempre à mão.",
   "Nada encontrado": "Nada encontrado",
   "Tente outro trecho do comando.": "Tente outro trecho do comando.",
-  "Limpar a busca": "Limpar a busca"
+  "Limpar a busca": "Limpar a busca",
+  "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.": "O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto."
 }

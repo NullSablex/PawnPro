@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LogTailer, SampRconClient, loadServerConfig, resolveServerConfig } from '../core/server.js';
+import { LogTailer, SampRconClient, isLoopbackHost, loadServerConfig, resolveServerConfig } from '../core/server.js';
 import { PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
 import { ServerViewProvider } from './serverView.js';
@@ -65,18 +65,26 @@ class ServerController {
 
     if (/^\/?rcon\s+/i.test(txt)) {
       txt = txt.replace(/^\/?rcon\s+/i, '');
-      txt = txt.replace(/^login\s+\S+\s*/i, '');
-      if (!txt) {
-        vscode.window.showInformationMessage(`PawnPro: ${msg.server.rconHint()}`);
-        return;
-      }
     }
+    // `login <senha>` autentica o RCON — o painel já envia autenticado, então
+    // repeti-lo só faria a senha aparecer no histórico e no log. Vale tanto
+    // depois de `rcon` quanto digitado direto.
+    if (/^login(\s|$)/i.test(txt)) {
+      vscode.window.showInformationMessage(`PawnPro: ${msg.server.rconHint()}`);
+      return;
+    }
+    if (!txt) return;
 
     if (!this.rconCfg) await this.refreshRconFromServerCfg();
     const cfg = this.rconCfg!;
     const invalidPwd = !cfg.rconPassword || /^(changename)$/i.test(cfg.rconPassword);
+    // O RCON manda a senha em texto claro por UDP. Para um servidor remoto
+    // isso a exporia a quem estiver no caminho, então o envio direto fica
+    // restrito à máquina local; fora dela, cai no terminal (que não trafega
+    // credencial nenhuma).
+    const local = isLoopbackHost(cfg.host);
 
-    if (!invalidPwd) {
+    if (!invalidPwd && local) {
       try {
         const client = new SampRconClient(cfg.host, cfg.port, cfg.rconPassword);
         const out = await client.send(txt, 1500);
@@ -88,6 +96,8 @@ class ServerController {
         vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(err instanceof Error ? err.message : String(err))}`);
         return;
       }
+    } else if (!local) {
+      vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconRemoteBlocked()}`);
     } else {
       vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconInvalidPassword()}`);
     }
