@@ -422,11 +422,11 @@
     "underscore": "1.13.8"
   },
   "engineChecksums": {
-    "pawnpro-engine-linux-x64": "ce0835c9743f0e20f305ed6be36b641c3af073db660893190f77c027bfe3b6cf",
-    "pawnpro-engine-linux-arm64": "883896ecac93f2333cf7203571768e8212525d60155001456d1dc61e4103ae28",
-    "pawnpro-engine-win32-x64.exe": "040dda1f08d4491de08324e9c0cc75830e76074961b771ea37b9ede3778bb855",
-    "pawnpro-engine-darwin-x64": "5525fad77153d11b34a2aebb6031b6b1189e42844d1265dc2b2d3be9e4812833",
-    "pawnpro-engine-darwin-arm64": "14b3452babc6c49f3f2ee5d0080ca02a0d39b640af582647406da280aa978316"
+    "pawnpro-engine-linux-x64": "d5abca0556a7ee3258e235d170aa090bf02a101056c603ebeb06bd9c47030737",
+    "pawnpro-engine-linux-arm64": "237728d0efbac0efc260f6da9bb43780c0ca81642f6e9a82ab0ab2cd404e1324",
+    "pawnpro-engine-win32-x64.exe": "8dd439f18dcc6deadd508a438553379f16f2790e970964810ae4cc7929f35345",
+    "pawnpro-engine-darwin-x64": "d5ad4c9261b413f4866065e1c52b1d8018225d80b26686dcd1bc3b295a53f6bc",
+    "pawnpro-engine-darwin-arm64": "99c7d59cc70dd6274354ef68afb088e0389d8b7a65d7255caa8f47f16f46b3cd"
   },
   "debuggerChecksums": {
     "pawnpro-dap-adapter-linux-x64": "494bfc9eb5e725f877ae956ba45912fb6bd2b151ece78b3299d25f1ec0723a7f",
