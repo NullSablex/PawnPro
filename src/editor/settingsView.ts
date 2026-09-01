@@ -466,7 +466,7 @@ function getHtml(logoUri: string): string {
     /* O recuo perde os 2px que a borda esquerda ocupa, para o ícone do item
        ativo não deslizar para a direita ao ganhar a borda. */
     padding: 7px 16px 7px 14px;
-    font-size: 0.93em;
+    font-size: 0.98em;
     color: var(--vscode-foreground);
     text-decoration: none;
     cursor: pointer;
@@ -477,8 +477,8 @@ function getHtml(logoUri: string): string {
   /* O ícone herda a cor e a opacidade do item: acompanha ativo e hover sem
      precisar de regra própria para cada estado. */
   nav a svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
     flex: 0 0 auto;
     fill: currentColor;
   }
