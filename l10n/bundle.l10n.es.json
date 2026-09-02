@@ -325,5 +325,7 @@
   "Ver exemplos aceitos": "Ver ejemplos aceptados",
   "Fechar": "Cerrar",
   "Filtrar exemplos": "Filtrar ejemplos",
-  "Nenhum exemplo corresponde ao filtro.": "Ningún ejemplo coincide con el filtro."
+  "Nenhum exemplo corresponde ao filtro.": "Ningún ejemplo coincide con el filtro.",
+  "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Límite de visualización alcanzado: mostrando solo {0} ejemplos.",
+  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Patrón complejo: sin ejemplos aquí. Sigue valiendo en el análisis."
 }

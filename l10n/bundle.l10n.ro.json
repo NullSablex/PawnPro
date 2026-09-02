@@ -325,5 +325,7 @@
   "Ver exemplos aceitos": "Vezi exemplele acceptate",
   "Fechar": "Închide",
   "Filtrar exemplos": "Filtrează exemplele",
-  "Nenhum exemplo corresponde ao filtro.": "Niciun exemplu nu corespunde filtrului."
+  "Nenhum exemplo corresponde ao filtro.": "Niciun exemplu nu corespunde filtrului.",
+  "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Limita de afișare atinsă: se afișează doar {0} exemple.",
+  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Model complex: fără exemple aici. Rămâne valabil în analiză."
 }

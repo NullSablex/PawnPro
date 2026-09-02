@@ -325,5 +325,7 @@
   "Ver exemplos aceitos": "Показать принимаемые примеры",
   "Fechar": "Закрыть",
   "Filtrar exemplos": "Фильтр примеров",
-  "Nenhum exemplo corresponde ao filtro.": "Ни один пример не соответствует фильтру."
+  "Nenhum exemplo corresponde ao filtro.": "Ни один пример не соответствует фильтру.",
+  "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Достигнут предел отображения: показано только {0} примеров.",
+  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Сложный шаблон: примеров нет. В анализе он продолжает действовать."
 }

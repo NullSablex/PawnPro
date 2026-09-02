@@ -288,10 +288,12 @@ function buildI18n(m: Msg) {
     uiAccentAuto:                s.uiAccentAuto(),
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
+    namingRegexNoPreview:        s.namingRegexNoPreview(),
     namingAlsoAccepts:           s.namingAlsoAccepts(),
     fechar:                      s.fechar(),
     buscarExemplos:              s.buscarExemplos(),
     nenhumExemploBusca:          s.nenhumExemploBusca(),
+    exemplosCortados:            s.exemplosCortados(MAX_EXEMPLOS_UI),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -389,6 +391,7 @@ function namingStyleRow(category: string): string {
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
         <button type="button" class="naming-more" id="naming-more-${category}" hidden></button>
+        <p class="regex-erro" id="naming-regex-erro-${category}" role="alert" hidden></p>
       </div>
     </div>
     <div class="row-control style-checks">
@@ -425,6 +428,15 @@ const ENCODING_OPTIONS = /* html */`
         <option value="windows1256" data-i18n="encodingWin1256"></option>
         <option value="windows1257" data-i18n="encodingWin1257"></option>
         <option value="latin1"      data-i18n="encodingLatin1"></option>`;
+
+/**
+ * Teto da lista de exemplos do modal de nomenclatura.
+ *
+ * A rolagem dá conta do volume, mas uma lista sem fim não ajuda ninguém a
+ * entender o padrão. Declarado aqui, e não no script da WebView, para a
+ * mensagem de corte citar o mesmo número sem duplicar a constante.
+ */
+const MAX_EXEMPLOS_UI = 300;
 
 function getHtml(logoUri: string, themeCss: string): string {
   return /* html */`<!DOCTYPE html>
@@ -766,6 +778,36 @@ function getHtml(logoUri: string, themeCss: string): string {
     opacity: 0.7;
     font-size: 0.9em;
   }
+  /* Aviso de corte: e um AVISO, entao usa as cores de aviso do editor e uma
+     faixa propria. Como texto secundario ele sumia contra o fundo do widget. */
+  .exemplos-modal-corte {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 var(--modal-pad) 10px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+    background: var(--vscode-inputValidation-warningBackground,
+                     var(--vscode-editorWidget-background));
+    color: var(--vscode-foreground);
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+  .exemplos-modal-corte::before {
+    content: '!';
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--vscode-editorWarning-foreground, #cca700);
+    color: var(--vscode-editor-background);
+    font-size: 11px;
+    font-weight: 700;
+  }
   .exemplos-modal-rodape {
     display: flex;
     justify-content: flex-end;
@@ -783,6 +825,40 @@ function getHtml(logoUri: string, themeCss: string): string {
   }
   .exemplos-modal button:hover {
     background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+  }
+  /* O erro em TEXTO, nao so na borda: borda vermelha mais tooltip obriga o
+     usuario a passar o mouse para descobrir o que esta errado. */
+  /* Coluna propria: a grade dos estilos usa grid-auto-flow column com linhas
+     fixas, entao um filho a mais entrava no fluxo das colunas e empurrava um
+     botao para fora. O erro fica ABAIXO dela, nao dentro. */
+  .regex-erro {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 6px 0 0;
+    /* Quebra em varias linhas dentro da coluna, sem alargar nada. */
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    /* Em rem, nao em em: dentro do .row-desc (0.875em) um valor relativo se
+       multiplicava e o aviso ficava menor que o texto ao redor. */
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #f14c4c));
+  }
+  .regex-erro::before {
+    content: '!';
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: var(--vscode-errorForeground, #f14c4c);
+    color: var(--vscode-editor-background);
+    font-size: 10px;
+    font-weight: 700;
   }
   .style-checks {
     display: grid;
@@ -1582,6 +1658,8 @@ ${ENCODING_OPTIONS}
     <ul id="exemplos-modal-lista"></ul>
     <p class="exemplos-modal-vazio" id="exemplos-modal-vazio" hidden
        data-i18n="nenhumExemploBusca"></p>
+    <p class="exemplos-modal-corte" id="exemplos-modal-corte" hidden
+       data-i18n="exemplosCortados"></p>
     <div class="exemplos-modal-rodape">
       <button type="button" id="exemplos-modal-fechar" data-i18n="fechar"></button>
     </div>
@@ -1826,13 +1904,36 @@ const MAX_PATTERN_LEN = 200;
 
 function compileRule(raw) {
   const body = raw.slice(1, -1);
-  if (!body || body.length > MAX_PATTERN_LEN) return null;
+  if (!body) return null;
   try {
     return new RegExp('^(?:' + body + ')$');
   } catch {
     return null;
   }
 }
+
+// Padrão que pode travar a PRÉ-VISUALIZAÇÃO. Não diz nada sobre ele ser
+// válido nem sobre poder ser salvo: a engine tem tempo linear garantido e o
+// aplica sem restrição.
+//
+// O risco é o backtracking catastrófico do motor do JavaScript, e ele NÃO vem
+// do tamanho — /^(a+)+$/ tem sete caracteres e leva dezenas de segundos numa
+// única sonda. Vem da forma: um grupo quantificado cujo interior também
+// quantifica ou alterna faz o motor tentar exponenciais divisões da entrada.
+//
+// O orçamento de tempo não cobre este caso, porque é conferido ANTES de cada
+// teste — quando a página volta a responder, já travou.
+function arriscadoParaPreview(raw) {
+  const body = raw.slice(1, -1);
+  // Teto de comprimento como segunda linha: não é o risco principal, mas
+  // padrão gigante custa a cada tecla mesmo sendo benigno.
+  if (body.length > MAX_PATTERN_LEN) return true;
+  return QUANTIFICADOR_ANINHADO.test(body);
+}
+
+// Grupo seguido de quantificador cujo interior quantifica ou alterna:
+// (a+)+, (a*)*, (a|aa)+, (\\w+\\s?)*. É a forma dos padrões catastróficos.
+const QUANTIFICADOR_ANINHADO = /\\([^()]*(?:[*+]|\\{\\d|\\|)[^()]*\\)\\s*(?:[*+]|\\{\\d)/;
 
 // Comprimento máximo do nome testado. É o limite que de fato protege: uma vez
 // iniciado, re.test roda até o fim — não há como interromper JS de fora —, e
@@ -1967,10 +2068,18 @@ function updateRegexStatus(category, settled) {
   let erro = '';
   if (raw && settled) {
     if (!isRegexRule(raw)) erro = _i18n.namingRegexNeedsSlashes;
+    // O limite é da PRÉ-VISUALIZAÇÃO, que roda a cada tecla em JavaScript: um
+    // padrão longo pode estar correto, e chamá-lo de inválido seria mentira.
+    else if (arriscadoParaPreview(raw)) erro = _i18n.namingRegexNoPreview;
     else if (!compileRule(raw)) erro = _i18n.namingRegexInvalid;
   }
   input.classList.toggle('invalid', erro !== '');
   input.title = erro;
+  const aviso = document.getElementById('naming-regex-erro-' + category);
+  if (aviso) {
+    aviso.textContent = erro;
+    aviso.hidden = erro === '';
+  }
 }
 
 // Enquanto digita: mostra o efeito do que já é um padrão completo, sem gravar
@@ -1991,6 +2100,9 @@ function commitNamingRegex(category) {
   const raw = input.value.trim();
   // Agora sim vale apontar o que está errado: o usuário terminou de escrever.
   updateRegexStatus(category, true);
+  // Um padrão longo demais para a pré-visualização ainda é um padrão VÁLIDO:
+  // descartá-lo apagaria silenciosamente o que o usuário escreveu. Só o que
+  // está malformado é recusado.
   if (raw && (!isRegexRule(raw) || !compileRule(raw))) return;
   const accepted = readAcceptedStyles(category);
   set('analysis.naming.style.' + category, accepted);
@@ -2043,6 +2155,9 @@ function regexSample(category, raw) {
 // que é o que mostra o alcance real de um padrão — /^(g|s)_.../ aceita nomes
 // com s_ e o exemplo sozinho nunca deixaria isso claro.
 function regexSamples(category, raw) {
+  // O teto vale aqui, onde o custo existe: um padrão longo não gera exemplos,
+  // mas continua sendo salvo e aplicado pela engine.
+  if (arriscadoParaPreview(raw)) return [];
   const re = compileRule(raw);
   if (!re) return [];
   // O orçamento protege contra padrão com backtracking, e é por sonda testada:
@@ -2060,9 +2175,7 @@ function regexSamples(category, raw) {
 
 // Abre a lista de exemplos de UM padrão. Recebe o padrão e a categoria; a
 // lista sai daí, não de quem chama.
-// Teto da lista: a rolagem dá conta do volume, mas uma lista sem fim não
-// ajuda ninguém a entender o padrão.
-const MAX_EXEMPLOS = 300;
+const MAX_EXEMPLOS = ${MAX_EXEMPLOS_UI};
 
 function mostrarExemplosDoPadrao(category, raw) {
   const dlg = document.getElementById('exemplos-modal');
@@ -2071,11 +2184,15 @@ function mostrarExemplosDoPadrao(category, raw) {
   const conta = document.getElementById('exemplos-modal-conta');
   const busca = document.getElementById('exemplos-modal-busca');
   const vazio = document.getElementById('exemplos-modal-vazio');
+  const corte = document.getElementById('exemplos-modal-corte');
   const fechar = document.getElementById('exemplos-modal-fechar');
   if (!dlg || !h || !ul) return;
 
   h.textContent = raw;
-  const todos = regexSamples(category, raw).slice(0, MAX_EXEMPLOS);
+  const aceitos = regexSamples(category, raw);
+  const todos = aceitos.slice(0, MAX_EXEMPLOS);
+  // Cortar em silêncio faria o total parecer o número real de nomes aceitos.
+  if (corte) corte.hidden = aceitos.length <= MAX_EXEMPLOS;
 
   // Redesenha a lista pelo termo digitado. O contador mostra o que está à
   // vista sobre o total, para a filtragem não esconder o tamanho real.
