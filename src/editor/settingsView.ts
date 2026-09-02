@@ -2002,10 +2002,10 @@ function regexProbes(category, raw) {
   // duas formas curtas (uma palavra só), para padrões que limitam o tamanho
   // com quantificador. Com apenas a base em camelCase, cada uma dessas
   // exigências deixava o campo sem exemplo nenhum.
-  const curta = (NAMING_WORDS[category] ?? [])[0] ?? '';
-  const capitalizar = w => w.charAt(0).toUpperCase() + w.slice(1);
-  const bases = [base, capitalizar(base), base.toLowerCase()];
-  if (curta && curta !== base) bases.push(curta, capitalizar(curta));
+  const short = (NAMING_WORDS[category] ?? [])[0] ?? '';
+  const capitalize = w => w.charAt(0).toUpperCase() + w.slice(1);
+  const bases = [base, capitalize(base), base.toLowerCase()];
+  if (short && short !== base) bases.push(short, capitalize(short));
 
   // Prefixos: os literais do próprio padrão (o caso comum é /^g_[a-z].../,
   // e sem eles o exemplo prefixado usaria uma letra fixa que não casaria) e o
@@ -2040,17 +2040,17 @@ function literalPrefixes(raw) {
   // literal, e uma barra simples antes do parêntese seria consumida no escape
   // da string — a regex chegaria ao navegador sem ela, casando qualquer início
   // e devolvendo o padrão inteiro como se fosse prefixo.
-  const grupo = /^\\(([^()|]+(?:\\|[^()|]+)+)\\)/.exec(body);
-  if (grupo) {
+  const group = /^\\(([^()|]+(?:\\|[^()|]+)+)\\)/.exec(body);
+  if (group) {
     // O que vem depois do grupo pode ser literal também: em (g|s)_ o
     // sublinhado pertence aos dois ramos.
-    const resto = leadingLiteral(body.slice(grupo[0].length));
-    const vistos = [];
-    for (const ramo of grupo[1].split('|')) {
-      const p = (ramo + resto).slice(0, MAX_PREFIX);
-      if (p && !vistos.includes(p)) vistos.push(p);
+    const rest = leadingLiteral(body.slice(group[0].length));
+    const seen = [];
+    for (const branch of group[1].split('|')) {
+      const p = (branch + rest).slice(0, MAX_PREFIX);
+      if (p && !seen.includes(p)) seen.push(p);
     }
-    return vistos;
+    return seen;
   }
 
   const lit = leadingLiteral(body).slice(0, MAX_PREFIX);
@@ -2089,20 +2089,20 @@ function updateRegexStatus(category, settled) {
   // o padrão, não uma definição do que é válido. Um padrão correto que não bata
   // com nenhuma delas era marcado em vermelho, acusando o usuário de um
   // problema que é da lista de sondas.
-  let erro = '';
+  let error = '';
   if (raw && settled) {
-    if (!isRegexRule(raw)) erro = _i18n.namingRegexNeedsSlashes;
+    if (!isRegexRule(raw)) error = _i18n.namingRegexNeedsSlashes;
     // O limite é da PRÉ-VISUALIZAÇÃO, que roda a cada tecla em JavaScript: um
     // padrão longo pode estar correto, e chamá-lo de inválido seria mentira.
-    else if (riskyForPreview(raw)) erro = _i18n.namingRegexNoPreview;
-    else if (!compileRule(raw)) erro = _i18n.namingRegexInvalid;
+    else if (riskyForPreview(raw)) error = _i18n.namingRegexNoPreview;
+    else if (!compileRule(raw)) error = _i18n.namingRegexInvalid;
   }
-  input.classList.toggle('invalid', erro !== '');
-  input.title = erro;
-  const aviso = document.getElementById('naming-regex-erro-' + category);
-  if (aviso) {
-    aviso.textContent = erro;
-    aviso.hidden = erro === '';
+  input.classList.toggle('invalid', error !== '');
+  input.title = error;
+  const warn = document.getElementById('naming-regex-erro-' + category);
+  if (warn) {
+    warn.textContent = error;
+    warn.hidden = error === '';
   }
 }
 
@@ -2155,9 +2155,9 @@ function updateNamingPreview(category, accepted) {
   el.textContent = lines.join('\\n');
 
   // Sem critério, a caixa de exemplo some e nada explicaria por quê.
-  const vazio = document.getElementById('naming-vazio-' + category);
-  if (vazio) {
-    vazio.hidden = lines.length > 0;
+  const empty = document.getElementById('naming-vazio-' + category);
+  if (empty) {
+    empty.hidden = lines.length > 0;
     const txt = document.getElementById('naming-vazio-texto-' + category);
     if (txt) txt.textContent = _i18n.namingSemRegra || '';
   }
@@ -2167,12 +2167,12 @@ function updateNamingPreview(category, accepted) {
   // /^(g|s)_.../ também aceita nomes com s_.
   const more = document.getElementById('naming-more-' + category);
   if (!more) return;
-  const padrao = (accepted ?? []).find(st => isRegexRule(st));
-  const total = padrao ? regexSamples(category, padrao).length : 0;
+  const pattern = (accepted ?? []).find(st => isRegexRule(st));
+  const total = pattern ? regexSamples(category, pattern).length : 0;
   more.hidden = total < 2;
   if (total < 2) return;
   more.textContent = _i18n.namingAlsoAccepts + ' (' + total + ')';
-  more.onclick = () => showPatternExamples(category, padrao);
+  more.onclick = () => showPatternExamples(category, pattern);
 }
 
 // Primeiro nome de exemplo que o padrão aceita, ou null se nenhum passa (ou se
@@ -2213,47 +2213,47 @@ function showPatternExamples(category, raw) {
   const dlg = document.getElementById('exemplos-modal');
   const h = document.getElementById('exemplos-modal-titulo');
   const ul = document.getElementById('exemplos-modal-lista');
-  const conta = document.getElementById('exemplos-modal-conta');
-  const busca = document.getElementById('exemplos-modal-busca');
-  const vazio = document.getElementById('exemplos-modal-vazio');
-  const corte = document.getElementById('exemplos-modal-corte');
-  const fechar = document.getElementById('exemplos-modal-fechar');
+  const counter = document.getElementById('exemplos-modal-conta');
+  const search = document.getElementById('exemplos-modal-busca');
+  const empty = document.getElementById('exemplos-modal-vazio');
+  const cut = document.getElementById('exemplos-modal-corte');
+  const close = document.getElementById('exemplos-modal-fechar');
   if (!dlg || !h || !ul) return;
 
   h.textContent = raw;
-  const aceitos = regexSamples(category, raw);
-  const todos = aceitos.slice(0, MAX_EXAMPLES);
+  const accepted = regexSamples(category, raw);
+  const all = accepted.slice(0, MAX_EXAMPLES);
   // Cortar em silêncio faria o total parecer o número real de nomes aceitos.
-  if (corte) corte.hidden = aceitos.length <= MAX_EXAMPLES;
+  if (cut) cut.hidden = accepted.length <= MAX_EXAMPLES;
 
   // Redesenha a lista pelo termo digitado. O contador mostra o que está à
   // vista sobre o total, para a filtragem não esconder o tamanho real.
-  const render = termo => {
-    const alvo = (termo || '').trim().toLowerCase();
-    const visiveis = alvo ? todos.filter(n => n.toLowerCase().includes(alvo)) : todos;
+  const render = term => {
+    const needle = (term || '').trim().toLowerCase();
+    const shown = needle ? all.filter(n => n.toLowerCase().includes(needle)) : all;
     ul.textContent = '';
-    for (const nome of visiveis) {
+    for (const name of shown) {
       const li = document.createElement('li');
-      li.textContent = nome;
+      li.textContent = name;
       ul.appendChild(li);
     }
-    if (conta) {
-      conta.textContent = visiveis.length === todos.length
-        ? String(todos.length)
-        : visiveis.length + '/' + todos.length;
+    if (counter) {
+      counter.textContent = shown.length === all.length
+        ? String(all.length)
+        : shown.length + '/' + all.length;
     }
-    if (vazio) vazio.hidden = visiveis.length > 0;
-    ul.hidden = visiveis.length === 0;
+    if (empty) empty.hidden = shown.length > 0;
+    ul.hidden = shown.length === 0;
   };
 
-  if (busca) {
-    busca.value = '';
-    busca.oninput = () => render(busca.value);
+  if (search) {
+    search.value = '';
+    search.oninput = () => render(search.value);
   }
   render('');
-  if (fechar) fechar.onclick = () => dlg.close();
+  if (close) close.onclick = () => dlg.close();
   dlg.showModal();
-  if (busca) busca.focus();
+  if (search) search.focus();
 }
 
 const arrayState = {};

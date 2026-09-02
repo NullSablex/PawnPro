@@ -221,24 +221,24 @@ class ServerController {
       return;
     }
 
-    const lista = pids.join(', ');
+    const list = pids.join(', ');
     // O `vscode-l10n` não pluraliza, então cada mensagem tem as duas formas e
     // a contagem escolhe — "o processo 1, 2" não é português.
-    const conforme = <T>(um: T, muitos: T) => (pids.length > 1 ? muitos : um);
+    const byCount = <T>(one: T, many: T) => (pids.length > 1 ? many : one);
 
-    const encerrar = msg.server.btnKillOrphan();
-    const escolha = await vscode.window.showWarningMessage(
-      `PawnPro: ${conforme(msg.server.orphanOnPort, msg.server.orphansOnPort)(port, lista)}`,
-      encerrar,
+    const kill = msg.server.btnKillOrphan();
+    const choice = await vscode.window.showWarningMessage(
+      `PawnPro: ${byCount(msg.server.orphanOnPort, msg.server.orphansOnPort)(port, list)}`,
+      kill,
     );
-    if (escolha !== encerrar) return;
+    if (choice !== kill) return;
 
     // Progresso enquanto encerra: são SIGTERM, o prazo e talvez SIGKILL, e sem
     // sinal nenhum o usuário não sabe se o clique surtiu efeito.
-    const { naoMorreram, livre } = await vscode.window.withProgress(
+    const { survivors, free } = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: `PawnPro: ${conforme(msg.server.killingOrphan, msg.server.killingOrphans)()}`,
+        title: `PawnPro: ${byCount(msg.server.killingOrphan, msg.server.killingOrphans)()}`,
         cancellable: false,
       },
       async () => {
@@ -248,21 +248,21 @@ class ServerController {
         // A porta é a confirmação real: um processo pode morrer sem liberá-la
         // de imediato, e o painel só deve dizer "parado" quando ela estiver
         // livre de fato.
-        return { naoMorreram: pids.filter((_, i) => !ok[i]), livre: await this.esperarPorta(false, 4000) };
+        return { survivors: pids.filter((_, i) => !ok[i]), free: await this.esperarPorta(false, 4000) };
       },
     );
     await this.statusAtual();
 
     // A porta livre é o que o usuário queria: um PID que resistiu mas a soltou
     // não é problema dele.
-    if (livre) {
+    if (free) {
       vscode.window.showInformationMessage(`PawnPro: ${msg.server.killOk(port)}`);
       return;
     }
-    if (naoMorreram.length) {
-      const restantes = naoMorreram.join(', ');
-      const falhou = naoMorreram.length > 1 ? msg.server.killFailedMany : msg.server.killFailed;
-      vscode.window.showErrorMessage(`PawnPro: ${falhou(restantes)}`);
+    if (survivors.length) {
+      const rest = survivors.join(', ');
+      const failed = survivors.length > 1 ? msg.server.killFailedMany : msg.server.killFailed;
+      vscode.window.showErrorMessage(`PawnPro: ${failed(rest)}`);
     }
   }
 

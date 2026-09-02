@@ -391,11 +391,11 @@ export class SampRconClient {
    * espera `timeoutMs` pelo primeiro datagrama e, depois de começar a receber,
    * encerra quando parar de chegar coisa por `quietMs`.
    */
-  send(cmd: string, timeoutMs = 1500, quietMs = 300, maxLinhas = 2000): Promise<string> {
+  send(cmd: string, timeoutMs = 1500, quietMs = 300, maxLines = 2000): Promise<string> {
     return new Promise((resolve, reject) => {
       const socket = dgram.createSocket('udp4');
       const pkt = this.buildPacket(cmd);
-      const linhas: string[] = [];
+      const lines: string[] = [];
       let done = false;
       let timer: NodeJS.Timeout;
 
@@ -404,7 +404,7 @@ export class SampRconClient {
         done = true;
         clearTimeout(timer);
         try { socket.close(); } catch { /* já fechado */ }
-        resolve(linhas.join('\n'));
+        resolve(lines.join('\n'));
       };
 
       timer = setTimeout(finish, timeoutMs);
@@ -424,16 +424,16 @@ export class SampRconClient {
         // tamanho da mensagem (uint16 LE) e do texto. Ler a partir do byte 11
         // colava esses dois bytes de tamanho no início de cada linha — era isso
         // que chegava ao painel como dado inválido.
-        const tam = msg.readUInt16LE(11);
+        const size = msg.readUInt16LE(11);
         // `utf8` na leitura, ao contrário do `latin1` do envio: o servidor
         // devolve o console em UTF-8, e `latin1` transformava `ação` em `aÃ§Ã£o`.
-        const linha = msg.subarray(13, 13 + tam).toString('utf8').trim();
-        if (linha) linhas.push(linha);
+        const line = msg.subarray(13, 13 + size).toString('utf8').trim();
+        if (line) lines.push(line);
         // Teto de linhas: o filtro de origem aceita qualquer remetente de
         // loopback — que é justamente o caso de uso normal —, então um processo
         // local despejando datagramas renovaria o prazo para sempre e a promise
         // nunca resolveria. `varlist`, a maior resposta real, dá ~100 linhas.
-        if (linhas.length >= maxLinhas) {
+        if (lines.length >= maxLines) {
           finish();
           return;
         }
@@ -587,18 +587,18 @@ export function pidsOnPort(port: number): number[] {
   // `fuser` manda o rótulo `7777/udp:` para o stderr, e lê-lo junto faria a
   // PORTA virar um PID candidato — encerrando o processo de número igual ao
   // dela.
-  const comandos: Array<[string, string[]]> = [
+  const commands: Array<[string, string[]]> = [
     ['lsof', ['-ti', `udp:${port}`]],
     ['fuser', ['-n', 'udp', String(port)]],
   ];
-  for (const [exe, args] of comandos) {
-    let saida: string;
+  for (const [exe, args] of commands) {
+    let out: string;
     try {
-      saida = spawnSync(exe, args, { encoding: 'utf8', timeout: 2000 }).stdout ?? '';
+      out = spawnSync(exe, args, { encoding: 'utf8', timeout: 2000 }).stdout ?? '';
     } catch {
       continue; // ferramenta ausente — tenta a próxima
     }
-    const pids = saida
+    const pids = out
       .split(/\s+/)
       .filter(t => /^\d+$/.test(t))
       .map(Number)
