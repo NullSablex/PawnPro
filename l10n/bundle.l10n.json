@@ -320,6 +320,5 @@
   "Não foi possível editar o config.json: {0}": "Não foi possível editar o config.json: {0}",
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.",
   "{0} — enviado (este comando não devolve texto)": "{0} — enviado (este comando não devolve texto)",
-  "Este servidor foi iniciado pela depuração. Reinicie a sessão de depuração para recarregá-lo com o depurador anexado.": "Este servidor foi iniciado pela depuração. Reinicie a sessão de depuração para recarregá-lo com o depurador anexado.",
   "O servidor já está no ar pela sessão de depuração.": "O servidor já está no ar pela sessão de depuração."
 }

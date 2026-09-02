@@ -320,6 +320,5 @@
   "Não foi possível editar o config.json: {0}": "Nu s-a putut edita config.json: {0}",
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "Serverul încă răspunde pe port. Este posibil să fi rămas un proces — verificați înainte de a porni altul.",
   "{0} — enviado (este comando não devolve texto)": "{0} — trimis (această comandă nu returnează text)",
-  "Este servidor foi iniciado pela depuração. Reinicie a sessão de depuração para recarregá-lo com o depurador anexado.": "Acest server a fost pornit de depanare. Reporniți sesiunea de depanare pentru a-l reîncărca cu depanatorul atașat.",
   "O servidor já está no ar pela sessão de depuração.": "Serverul rulează deja din sesiunea de depanare."
 }

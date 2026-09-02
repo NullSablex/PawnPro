@@ -357,11 +357,13 @@ class ServerController {
 
 
   async restart() {
-    // Reiniciar um servidor da sessão de depuração pelo painel o traria de
-    // volta **sem** o depurador anexado, o que surpreende quem esperava
-    // continuar depurando. Melhor dizer que o caminho é reiniciar a sessão.
+    // O servidor da depuração é filho do processo do adaptador, que o mata no
+    // seu `Drop`. Reiniciar só o servidor deixaria o depurador anexado a um
+    // processo morto — a vida dos dois é a mesma, por construção. Então
+    // reiniciar aqui é reiniciar a sessão, que é o que o editor já sabe fazer
+    // (e que reanexa o depurador, preservando os breakpoints).
     if (!this.term && this.registry.ultimoConhecido()?.origem === 'debug') {
-      vscode.window.showInformationMessage(`PawnPro: ${msg.server.restartDebugHint()}`);
+      await vscode.commands.executeCommand('workbench.action.debug.restart');
       return;
     }
     this.restarting = true;
