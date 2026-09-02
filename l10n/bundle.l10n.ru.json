@@ -328,5 +328,8 @@
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Достигнут предел отображения: показано только {0} примеров.",
   "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Сложный шаблон: примеров нет. В анализе он продолжает действовать.",
   "Convenções de caixa aceitas para cada tipo de identificador.": "Допустимые стили написания для каждого вида идентификатора.",
-  "Nenhuma regra selecionada.": "Правило не выбрано."
+  "Nenhuma regra selecionada.": "Правило не выбрано.",
+  "A porta {0} continua ocupada pelo processo {1}.": "Порт {0} всё ещё занят процессом {1}.",
+  "Encerrar processo": "Завершить процесс",
+  "Não foi possível encerrar o processo {0}.": "Не удалось завершить процесс {0}."
 }

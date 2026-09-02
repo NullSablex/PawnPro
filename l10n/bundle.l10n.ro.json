@@ -328,5 +328,8 @@
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Limita de afișare atinsă: se afișează doar {0} exemple.",
   "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Model complex: fără exemple aici. Rămâne valabil în analiză.",
   "Convenções de caixa aceitas para cada tipo de identificador.": "Convenții de scriere acceptate pentru fiecare tip de identificator.",
-  "Nenhuma regra selecionada.": "Nicio regulă selectată."
+  "Nenhuma regra selecionada.": "Nicio regulă selectată.",
+  "A porta {0} continua ocupada pelo processo {1}.": "Portul {0} este încă ocupat de procesul {1}.",
+  "Encerrar processo": "Încheie procesul",
+  "Não foi possível encerrar o processo {0}.": "Procesul {0} nu a putut fi încheiat."
 }

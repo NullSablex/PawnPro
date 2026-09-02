@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { spawnSync } from 'child_process';
 import * as fsp from 'fs/promises';
 import * as iconv from 'iconv-lite';
 import * as dgram from 'dgram';
@@ -563,6 +564,73 @@ export function architectureOf(filePath: string): Arquitetura {
       try { fs.closeSync(fd); } catch { /* já fechado */ }
     }
   }
+}
+
+/**
+ * PIDs escutando na porta UDP, do mais recente para o mais antigo.
+ *
+ * Serve ao caso do processo que sobreviveu ao terminal que o criou: o painel
+ * confirma o estado pela porta, e sem saber QUEM a ocupa só resta pedir ao
+ * usuário que descubra por conta própria.
+ *
+ * Vazio no Windows e quando nenhuma ferramenta está disponível — o chamador
+ * trata isso como "não sei", não como "não há".
+ */
+export function pidsNaPorta(port: number): number[] {
+  if (process.platform === 'win32') return [];
+  // `lsof -t` devolve só os PIDs, um por linha. `fuser` é o reserva: sai em
+  // stderr e numa linha só.
+  const tentativas: Array<[string, string[]]> = [
+    ['lsof', ['-ti', `udp:${port}`]],
+    ['fuser', ['-n', 'udp', String(port)]],
+  ];
+  for (const [exe, args] of tentativas) {
+    try {
+      const r = spawnSync(exe, args, { encoding: 'utf8', timeout: 2000 });
+      const saida = `${r.stdout ?? ''} ${r.stderr ?? ''}`;
+      const pids = [...saida.matchAll(/\d+/g)]
+        .map(m => Number(m[0]))
+        .filter(n => n > 1 && n !== process.pid);
+      if (pids.length) return [...new Set(pids)].sort((a, b) => b - a);
+    } catch {
+      // ferramenta ausente — tenta a próxima
+    }
+  }
+  return [];
+}
+
+/**
+ * Encerra um processo pelo PID: `SIGTERM` primeiro, `SIGKILL` se insistir.
+ *
+ * Devolve `false` quando não foi possível — processo de outro usuário, ou que
+ * não morreu no prazo.
+ */
+export async function encerrarProcesso(pid: number, prazoMs = 3000): Promise<boolean> {
+  const vivo = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {
+    return !vivo();
+  }
+  const fim = Date.now() + prazoMs;
+  while (Date.now() < fim) {
+    if (!vivo()) return true;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    return !vivo();
+  }
+  await new Promise(r => setTimeout(r, 300));
+  return !vivo();
 }
 
 /** Como o plugin está (ou deveria estar) instalado, conforme o servidor. */

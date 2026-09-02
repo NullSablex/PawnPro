@@ -328,5 +328,8 @@
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Límite de visualización alcanzado: mostrando solo {0} ejemplos.",
   "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Patrón complejo: sin ejemplos aquí. Sigue valiendo en el análisis.",
   "Convenções de caixa aceitas para cada tipo de identificador.": "Convenciones de caja aceptadas para cada tipo de identificador.",
-  "Nenhuma regra selecionada.": "Ninguna regla seleccionada."
+  "Nenhuma regra selecionada.": "Ninguna regla seleccionada.",
+  "A porta {0} continua ocupada pelo processo {1}.": "El puerto {0} sigue ocupado por el proceso {1}.",
+  "Encerrar processo": "Terminar proceso",
+  "Não foi possível encerrar o processo {0}.": "No se pudo terminar el proceso {0}."
 }

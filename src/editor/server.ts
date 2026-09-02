@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fsp from 'fs/promises';
-import { LogTailer, SampRconClient, isLoopbackHost, loadServerConfig, resolveServerConfig } from '../core/server.js';
+import { LogTailer, SampRconClient, encerrarProcesso, isLoopbackHost, loadServerConfig, pidsNaPorta, resolveServerConfig } from '../core/server.js';
 import { ServerRegistry } from './serverRegistry.js';
 import { pingServer } from '../core/server.js';
 import { PawnProConfigManager } from '../core/config.js';
@@ -204,6 +204,39 @@ class ServerController {
     this.tailer.markVisible();
   }
 
+  /**
+   * A porta continua ocupada depois de parar: identifica quem a segura e
+   * oferece encerrá-lo.
+   *
+   * O terminal fecha, mas nada garante que o processo morreu — e um órfão na
+   * porta faz o painel e o RCON responderem por um servidor que já não é o do
+   * projeto. Sem isto restava pedir ao usuário que descobrisse por conta.
+   */
+  private async oferecerEncerrarOrfao(): Promise<void> {
+    const { port } = this.enderecoAtual();
+    const pids = pidsNaPorta(port);
+    if (!pids.length) {
+      // Windows, ou sem ferramenta para consultar: só o aviso.
+      vscode.window.showWarningMessage(`PawnPro: ${msg.server.stopTimeout()}`);
+      return;
+    }
+    const encerrar = msg.server.btnKillOrphan();
+    const escolha = await vscode.window.showWarningMessage(
+      `PawnPro: ${msg.server.orphanOnPort(port, pids.join(', '))}`,
+      encerrar,
+    );
+    if (escolha !== encerrar) return;
+
+    const falhas = [];
+    for (const pid of pids) {
+      if (!(await encerrarProcesso(pid))) falhas.push(pid);
+    }
+    await this.statusAtual();
+    if (falhas.length) {
+      vscode.window.showErrorMessage(`PawnPro: ${msg.server.killFailed(falhas.join(', '))}`);
+    }
+  }
+
   async start() {
     const existing = this.findExistingTerminal();
     if (existing) {
@@ -339,9 +372,7 @@ class ServerController {
     const parou = await this.esperarPorta(false, 6000);
     await this.statusAtual();
 
-    if (!parou) {
-      vscode.window.showWarningMessage(`PawnPro: ${msg.server.stopTimeout()}`);
-    }
+    if (!parou) await this.oferecerEncerrarOrfao();
   }
 
   /**

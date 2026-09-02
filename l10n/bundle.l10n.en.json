@@ -328,5 +328,8 @@
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Display limit reached: showing only {0} examples.",
   "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Complex pattern: no examples here. It still applies in the analysis.",
   "Convenções de caixa aceitas para cada tipo de identificador.": "Case conventions accepted for each kind of identifier.",
-  "Nenhuma regra selecionada.": "No rule selected."
+  "Nenhuma regra selecionada.": "No rule selected.",
+  "A porta {0} continua ocupada pelo processo {1}.": "The port {0} is still held by process {1}.",
+  "Encerrar processo": "Kill process",
+  "Não foi possível encerrar o processo {0}.": "Could not kill process {0}."
 }

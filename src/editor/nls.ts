@@ -52,6 +52,9 @@ export function createMsg(t: Translate) {
     rconEnabledNow: () => t('RCON ligado no config.json. Reinicie o servidor para valer.'),
     rconEnableFailed: (e: string) => t('Não foi possível editar o config.json: {0}', e),
     stopTimeout: () => t('O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.'),
+    orphanOnPort: (port: number, pids: string) => t('A porta {0} continua ocupada pelo processo {1}.', String(port), pids),
+    btnKillOrphan: () => t('Encerrar processo'),
+    killFailed: (pids: string) => t('Não foi possível encerrar o processo {0}.', pids),
     rconSentNoOutput: (cmd: string) => t('{0} — enviado (este comando não devolve texto)', cmd),
   },
 
