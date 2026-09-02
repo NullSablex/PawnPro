@@ -319,5 +319,7 @@
   "RCON ligado no config.json. Reinicie o servidor para valer.": "RCON включён в config.json. Перезапустите сервер, чтобы изменения вступили в силу.",
   "Não foi possível editar o config.json: {0}": "Не удалось изменить config.json: {0}",
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "Сервер всё ещё отвечает на порту. Возможно, остался процесс — проверьте перед запуском нового.",
-  "{0} — enviado (este comando não devolve texto)": "{0} — отправлено (эта команда не возвращает текст)"
+  "{0} — enviado (este comando não devolve texto)": "{0} — отправлено (эта команда не возвращает текст)",
+  "Este servidor foi iniciado pela depuração. Reinicie a sessão de depuração para recarregá-lo com o depurador anexado.": "Этот сервер запущен отладчиком. Перезапустите сеанс отладки, чтобы загрузить его с подключённым отладчиком.",
+  "O servidor já está no ar pela sessão de depuração.": "Сервер уже запущен сеансом отладки."
 }

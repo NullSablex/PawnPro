@@ -203,6 +203,12 @@ class ServerController {
     if (!this.restarting) {
       await this.refreshRconFromServerCfg();
       const st = await this.statusAtual();
+      // Servidor da depuração é conhecido e legítimo: iniciar outro por cima é
+      // que seria o erro. O aviso aqui é para órfão ou servidor externo.
+      if (st.vivo && st.origem === 'debug') {
+        vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunningDebug()}`);
+        return;
+      }
       if (st.vivo && st.origem !== 'terminal') {
         const usar = msg.server.btnUseRunning();
         const trocar = msg.server.btnRestartClean();
@@ -290,6 +296,11 @@ class ServerController {
       await esperar(600);
       try { termRef.dispose(); } catch { /* já descartado */ }
       if (this.term === termRef) this.term = null;
+    } else if (this.registry.ultimoConhecido()?.origem === 'debug') {
+      // Servidor da sessão de depuração: o processo é filho do adaptador, então
+      // quem o encerra é o próprio depurador. Sem isto, parar pelo painel não
+      // faria nada — não há terminal para fechar.
+      await vscode.debug.stopDebugging();
     }
 
     // Confirma pela porta, não pelo terminal.
@@ -346,6 +357,13 @@ class ServerController {
 
 
   async restart() {
+    // Reiniciar um servidor da sessão de depuração pelo painel o traria de
+    // volta **sem** o depurador anexado, o que surpreende quem esperava
+    // continuar depurando. Melhor dizer que o caminho é reiniciar a sessão.
+    if (!this.term && this.registry.ultimoConhecido()?.origem === 'debug') {
+      vscode.window.showInformationMessage(`PawnPro: ${msg.server.restartDebugHint()}`);
+      return;
+    }
     this.restarting = true;
     await this.stop();
     await this.start();

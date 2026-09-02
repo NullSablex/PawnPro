@@ -319,5 +319,7 @@
   "RCON ligado no config.json. Reinicie o servidor para valer.": "RCON activado en config.json. Reinicia el servidor para que surta efecto.",
   "Não foi possível editar o config.json: {0}": "No se pudo editar config.json: {0}",
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "El servidor sigue respondiendo en el puerto. Puede haber quedado un proceso — verifica antes de iniciar otro.",
-  "{0} — enviado (este comando não devolve texto)": "{0} — enviado (este comando no devuelve texto)"
+  "{0} — enviado (este comando não devolve texto)": "{0} — enviado (este comando no devuelve texto)",
+  "Este servidor foi iniciado pela depuração. Reinicie a sessão de depuração para recarregá-lo com o depurador anexado.": "Este servidor fue iniciado por la depuración. Reinicia la sesión de depuración para recargarlo con el depurador adjunto.",
+  "O servidor já está no ar pela sessão de depuração.": "El servidor ya está en marcha por la sesión de depuración."
 }

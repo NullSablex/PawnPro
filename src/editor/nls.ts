@@ -48,6 +48,8 @@ export function createMsg(t: Translate) {
     btnRestartClean: () => t('Encerrar e iniciar de novo'),
     rconDisabled: () => t('O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.'),
     btnEnableRcon: () => t('Ligar o RCON'),
+    alreadyRunningDebug: () => t('O servidor já está no ar pela sessão de depuração.'),
+    restartDebugHint: () => t('Este servidor foi iniciado pela depuração. Reinicie a sessão de depuração para recarregá-lo com o depurador anexado.'),
     rconEnabledNow: () => t('RCON ligado no config.json. Reinicie o servidor para valer.'),
     rconEnableFailed: (e: string) => t('Não foi possível editar o config.json: {0}', e),
     stopTimeout: () => t('O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.'),
