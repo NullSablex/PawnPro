@@ -191,6 +191,11 @@ export class LogTailer {
     return this.running && this.file === stripQuotes(filePath);
   }
 
+  /** `true` se está acompanhando algum arquivo de log. */
+  get ativo(): boolean {
+    return this.running;
+  }
+
   markVisible() { this.assumeVisible = true; }
   markHidden() { this.assumeVisible = false; }
 
@@ -213,7 +218,10 @@ export class LogTailer {
       this.lastSize = st.size;
     } catch { this.lastSize = 0; }
 
-    this.output.clear();
+    // Sem `clear()`: este sink é compartilhado com a saída do RCON, e apagá-lo
+    // aqui destruía o eco do comando e a resposta que já estavam escritos. O
+    // tail retoma a leitura a partir de `lastSize`, então não há conteúdo
+    // duplicado a limpar — e quem quiser o painel vazio chama `clear()`.
     this.running = true;
 
     const tick = async () => {
@@ -336,7 +344,11 @@ export class SampRconClient {
     // `latin1` preserva os bytes; `ascii` truncava silenciosamente um `ç` para
     // outro caractere, e a senha ia errada sem aviso.
     const passBuf = Buffer.from(this.password, 'latin1');
-    const cmdBuf = Buffer.from(cmd, 'latin1');
+    // O comando vai em UTF-8, e não em `latin1` como a senha: o console do
+    // servidor fala UTF-8, e `latin1` mandava `ação` como bytes inválidos — o
+    // eco voltava como U+FFFD. A senha continua em `latin1` por ser comparada
+    // byte a byte contra o que está no config.
+    const cmdBuf = Buffer.from(cmd, 'utf8');
     if (passBuf.length > RCON_FIELD_MAX || cmdBuf.length > RCON_FIELD_MAX) {
       throw new Error('RCON: senha ou comando excede o limite do protocolo');
     }
@@ -362,41 +374,75 @@ export class SampRconClient {
     return buf;
   }
 
-  send(cmd: string, timeoutMs = 1500): Promise<string> {
+  /**
+   * Envia um comando e junta **todas** as linhas de resposta.
+   *
+   * O servidor responde em vários datagramas — `varlist` manda cerca de cem,
+   * `cmdlist` trinta. Fechar o socket no primeiro deixava o painel com uma
+   * linha só (`Console variables:`) enquanto o resto aparecia apenas no log do
+   * servidor.
+   *
+   * Como o protocolo não marca o fim da resposta, o critério é o silêncio:
+   * espera `timeoutMs` pelo primeiro datagrama e, depois de começar a receber,
+   * encerra quando parar de chegar coisa por `quietMs`.
+   */
+  send(cmd: string, timeoutMs = 1500, quietMs = 300, maxLinhas = 2000): Promise<string> {
     return new Promise((resolve, reject) => {
       const socket = dgram.createSocket('udp4');
       const pkt = this.buildPacket(cmd);
+      const linhas: string[] = [];
       let done = false;
+      let timer: NodeJS.Timeout;
 
-      const to = setTimeout(() => {
+      const finish = () => {
         if (done) return;
         done = true;
-        socket.close();
-        resolve('');
-      }, timeoutMs);
+        clearTimeout(timer);
+        try { socket.close(); } catch { /* já fechado */ }
+        resolve(linhas.join('\n'));
+      };
 
-      // `on` e não `once`: um datagrama alheio na porta não pode encerrar a
-      // espera pela resposta legítima.
+      timer = setTimeout(finish, timeoutMs);
+
+      // `on` e não `once`: a resposta vem em vários datagramas, e um pacote
+      // alheio na porta não pode encerrar a espera pela resposta legítima.
       socket.on('message', (msg, rinfo) => {
         if (done) return;
         // Só aceita o que veio do servidor consultado e tem a assinatura do
         // protocolo. Sem isso, qualquer pacote UDP que chegasse à porta efêmera
         // apareceria no painel como se fosse resposta do servidor.
         const doServidor = rinfo.address === this.host || isLoopbackHost(rinfo.address);
-        if (!doServidor || msg.length < 11 || msg.subarray(0, 4).toString('ascii') !== 'SAMP') {
+        if (!doServidor || msg.length < 13 || msg.subarray(0, 4).toString('ascii') !== 'SAMP') {
           return;
         }
-        done = true;
-        clearTimeout(to);
-        socket.close();
-        resolve(msg.subarray(11).toString('utf8'));
+        // O datagrama de resposta repete os 11 bytes do cabeçalho, seguidos do
+        // tamanho da mensagem (uint16 LE) e do texto. Ler a partir do byte 11
+        // colava esses dois bytes de tamanho no início de cada linha — era isso
+        // que chegava ao painel como dado inválido.
+        const tam = msg.readUInt16LE(11);
+        // `utf8` na leitura, ao contrário do `latin1` do envio: o servidor
+        // devolve o console em UTF-8, e `latin1` transformava `ação` em `aÃ§Ã£o`.
+        const linha = msg.subarray(13, 13 + tam).toString('utf8').trim();
+        if (linha) linhas.push(linha);
+        // Teto de linhas: o filtro de origem aceita qualquer remetente de
+        // loopback — que é justamente o caso de uso normal —, então um processo
+        // local despejando datagramas renovaria o prazo para sempre e a promise
+        // nunca resolveria. `varlist`, a maior resposta real, dá ~100 linhas.
+        if (linhas.length >= maxLinhas) {
+          finish();
+          return;
+        }
+        // Chegou algo: a partir daqui o que encerra é o silêncio, não o prazo
+        // inicial.
+        clearTimeout(timer);
+        timer = setTimeout(finish, quietMs);
       });
 
       socket.once('error', (e) => {
         if (done) return;
         done = true;
-        clearTimeout(to);
-        socket.close();
+        clearTimeout(timer);
+        try { socket.close(); } catch { /* já fechado */ }
         reject(e);
       });
 
