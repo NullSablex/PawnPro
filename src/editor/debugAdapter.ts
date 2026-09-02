@@ -241,7 +241,12 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     const source = amxPath.replace(/\.amx$/i, '.pwn');
     if (!fs.existsSync(source)) {
       // Sem source ao lado — não há o que compilar; usa o `.amx` como está.
-      return fs.existsSync(amxPath);
+      if (fs.existsSync(amxPath)) return true;
+      // Nem source nem binário: abortar aqui calado deixava o F5 sem reação
+      // nenhuma, e o motivo mais comum é o `program` do launch.json apontar
+      // para o palpite do template (`gamemodes/main.amx`), que nunca existiu.
+      void vscode.window.showErrorMessage(msg.debug.programNotFound(amxPath));
+      return false;
     }
     const ws = this.workspaceRoot() ?? path.dirname(source);
     const args = buildCompileArgs({

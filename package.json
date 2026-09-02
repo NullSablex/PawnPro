@@ -295,7 +295,7 @@
             "type": "pawn",
             "request": "launch",
             "name": "Depurar script Pawn (PawnPro)",
-            "program": "${workspaceFolder}/gamemodes/main.amx",
+            "program": "${fileDirname}/${fileBasenameNoExtension}.amx",
             "cwd": "${workspaceFolder}"
           }
         ],
@@ -307,7 +307,7 @@
               "type": "pawn",
               "request": "launch",
               "name": "Depurar script Pawn (PawnPro)",
-              "program": "^\"\\${workspaceFolder}/gamemodes/main.amx\"",
+              "program": "^\"\\${fileDirname}/\\${fileBasenameNoExtension}.amx\"",
               "cwd": "^\"\\${workspaceFolder}\""
             }
           }

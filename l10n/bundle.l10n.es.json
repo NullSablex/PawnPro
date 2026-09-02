@@ -320,5 +320,6 @@
   "Não foi possível editar o config.json: {0}": "No se pudo editar config.json: {0}",
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "El servidor sigue respondiendo en el puerto. Puede haber quedado un proceso — verifica antes de iniciar otro.",
   "{0} — enviado (este comando não devolve texto)": "{0} — enviado (este comando no devuelve texto)",
-  "O servidor já está no ar pela sessão de depuração.": "El servidor ya está en marcha por la sesión de depuración."
+  "O servidor já está no ar pela sessão de depuração.": "El servidor ya está en marcha por la sesión de depuración.",
+  "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Script a depurar no encontrado: {0}. Abre el `.pwn` que quieres depurar o corrige el campo \"program\" en launch.json."
 }

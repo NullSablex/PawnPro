@@ -320,5 +320,6 @@
   "Não foi possível editar o config.json: {0}": "Nu s-a putut edita config.json: {0}",
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "Serverul încă răspunde pe port. Este posibil să fi rămas un proces — verificați înainte de a porni altul.",
   "{0} — enviado (este comando não devolve texto)": "{0} — trimis (această comandă nu returnează text)",
-  "O servidor já está no ar pela sessão de depuração.": "Serverul rulează deja din sesiunea de depanare."
+  "O servidor já está no ar pela sessão de depuração.": "Serverul rulează deja din sesiunea de depanare.",
+  "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Scriptul de depanat nu a fost găsit: {0}. Deschide fișierul `.pwn` pe care vrei să îl depanezi sau corectează câmpul \"program\" din launch.json."
 }
