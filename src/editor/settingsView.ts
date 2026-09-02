@@ -1675,31 +1675,65 @@ function regexProbes(category, raw) {
   }
   const base = out[0];
   if (!base) return out;
+  // Variantes do nome-base. Um padrão pode exigir maiúscula logo após o
+  // prefixo (/^g_[A-Z].../) ou só minúsculas (/^m_[a-z]+$/): com uma única
+  // base em camelCase, nenhum dos dois casava e o campo ficava sem exemplo.
+  const bases = [base, base.charAt(0).toUpperCase() + base.slice(1), base.toLowerCase()];
   // O prefixo sai do próprio padrão quando ele começa por um literal (o caso
   // comum: /^g_[a-z].../). Sem isso o exemplo prefixado usaria uma letra fixa
   // e não casaria com o padrão que o usuário acabou de escrever.
   // Teto no prefixo: é por ele que o padrão do usuário alonga o nome testado,
   // e entrada longa é o que torna caro um padrão com backtracking.
-  const prefix = literalPrefix(raw).slice(0, 12);
-  if (prefix && !out.includes(prefix + base)) out.push(prefix + base);
-  out.push('_' + base);
+  for (const prefix of literalPrefixes(raw)) {
+    for (const b of bases) {
+      const cand = prefix + b;
+      if (!out.includes(cand)) out.push(cand);
+    }
+  }
+  for (const b of bases) {
+    if (!out.includes('_' + b)) out.push('_' + b);
+  }
   return out;
 }
 
-// Trecho literal no início do padrão, antes de qualquer metacaractere. Devolve
-// '' quando não há um — aí não há prefixo a exemplificar.
-function literalPrefix(raw) {
-  if (!isRegexRule(raw)) return '';
+// Prefixos literais possíveis no início do padrão, antes de qualquer
+// metacaractere. Lista vazia quando não há nenhum — aí não há prefixo a
+// exemplificar.
+//
+// Com alternância no início (/^(g|s)_.../), cada ramo é um prefixo: antes só se
+// lia literal contíguo, a alternância devolvia '' e nenhuma sonda ganhava
+// prefixo, deixando o campo sem exemplo.
+function literalPrefixes(raw) {
+  if (!isRegexRule(raw)) return [];
   let body = raw.slice(1, -1);
   if (body.startsWith('^')) body = body.slice(1);
+
+  const grupo = /^\(([^()|]+(?:\|[^()|]+)+)\)/.exec(body);
+  if (grupo) {
+    // O que vem depois do grupo pode ser literal também: em (g|s)_ o
+    // sublinhado pertence aos dois ramos.
+    const resto = literalInicial(body.slice(grupo[0].length));
+    const vistos = [];
+    for (const ramo of grupo[1].split('|')) {
+      const p = (ramo + resto).slice(0, 12);
+      if (p && !vistos.includes(p)) vistos.push(p);
+    }
+    return vistos;
+  }
+
+  const lit = literalInicial(body).slice(0, 12);
+  return lit ? [lit] : [];
+}
+
+// Literal contíguo no início de um trecho de padrão, sem metacaracteres.
+function literalInicial(body) {
   const m = /^[A-Za-z0-9_]+/.exec(body);
   if (!m) return '';
   // Um literal seguido de quantificador pertence ao quantificador, não ao
   // prefixo: em ab* o b é opcional.
   const lit = m[0];
   const next = body.charAt(lit.length);
-  const trimmed = '*?+{'.includes(next) ? lit.slice(0, -1) : lit;
-  return trimmed;
+  return '*?+{'.includes(next) ? lit.slice(0, -1) : lit;
 }
 
 // Mostra se o padrão é válido e quais exemplos ele aceita — o usuário vê o
