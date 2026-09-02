@@ -79,7 +79,7 @@ function esc(value: string): string {
  * dentro do projeto — um `login` ali seria commitado junto. O comando ainda é
  * enviado; só não fica registrado.
  */
-const COMANDOS_SENSIVEIS = [
+const SENSITIVE_COMMANDS = [
   /^login(\s|$)/i,
   /^rcon_password(\s|$)/i,
   /^password(\s|$)/i,
@@ -91,7 +91,7 @@ const COMANDOS_SENSIVEIS = [
  * Palavras que, num argumento, anunciam que o próximo termo é credencial —
  * `meucomando --senha 1234`, `auth token abc`.
  */
-const ROTULOS_DE_SEGREDO =
+const SECRET_LABELS =
   /^-{0,2}(pass|passwd|password|senha|pwd|token|key|chave|secret|segredo|auth|apikey)$/i;
 
 /**
@@ -102,7 +102,7 @@ const ROTULOS_DE_SEGREDO =
  * são argumentos comuns e não podem sumir do histórico por engano — o custo
  * de um falso positivo aqui é o recurso deixar de servir.
  */
-function pareceSegredo(termo: string): boolean {
+function looksLikeSecret(termo: string): boolean {
   if (termo.length < 8) return false;
   if (/^[\d.,:-]+$/.test(termo)) return false;          // números, ip, coordenada
   if (!/[a-z]/i.test(termo) || !/\d/.test(termo)) return false;
@@ -119,19 +119,19 @@ function pareceSegredo(termo: string): boolean {
 export function isSensitiveCommand(cmd: string, extras: string[] = []): boolean {
   const t = cmd.trim().replace(/^\/?rcon\s+/i, '');
   if (!t) return false;
-  if (COMANDOS_SENSIVEIS.some(rx => rx.test(t))) return true;
+  if (SENSITIVE_COMMANDS.some(rx => rx.test(t))) return true;
 
-  const termos = t.split(/\s+/);
-  const nome = termos[0].toLowerCase();
-  if (extras.some(e => e.trim().toLowerCase() === nome)) return true;
+  const parts = t.split(/\s+/);
+  const head = parts[0].toLowerCase();
+  if (extras.some(e => e.trim().toLowerCase() === head)) return true;
 
-  for (let i = 1; i < termos.length; i++) {
+  for (let i = 1; i < parts.length; i++) {
     // `--senha 1234`: o rótulo entrega o próximo termo.
-    if (ROTULOS_DE_SEGREDO.test(termos[i]) && i + 1 < termos.length) return true;
+    if (SECRET_LABELS.test(parts[i]) && i + 1 < parts.length) return true;
     // `--senha=1234` num termo só.
-    const [chave, ...resto] = termos[i].split('=');
-    if (resto.length > 0 && ROTULOS_DE_SEGREDO.test(chave)) return true;
-    if (pareceSegredo(termos[i])) return true;
+    const [key, ...rest] = parts[i].split('=');
+    if (rest.length > 0 && SECRET_LABELS.test(key)) return true;
+    if (looksLikeSecret(parts[i])) return true;
   }
   return false;
 }

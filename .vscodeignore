@@ -10,6 +10,7 @@ CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 changelogs/**
 mkdocs.yml
+notes/**
 
 # Source maps
 out/**/*.map
@@ -36,4 +37,3 @@ node_modules/**
 
 # Observação: l10n/ e package.nls*.json NÃO são ignorados — entram no VSIX
 # (localização nativa do editor via vscode.l10n e contributes).
-notes/**
