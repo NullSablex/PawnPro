@@ -321,5 +321,6 @@
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "Сервер всё ещё отвечает на порту. Возможно, остался процесс — проверьте перед запуском нового.",
   "{0} — enviado (este comando não devolve texto)": "{0} — отправлено (эта команда не возвращает текст)",
   "O servidor já está no ar pela sessão de depuração.": "Сервер уже запущен сеансом отладки.",
-  "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Скрипт для отладки не найден: {0}. Откройте нужный файл `.pwn` или исправьте поле \"program\" в launch.json."
+  "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Скрипт для отладки не найден: {0}. Откройте нужный файл `.pwn` или исправьте поле \"program\" в launch.json.",
+  "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "Плагин отладки — {0}, а сервер — {1}. Установите сборку {1}."
 }

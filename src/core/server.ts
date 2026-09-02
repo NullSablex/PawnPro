@@ -517,6 +517,54 @@ export function isOfficialDebugPlugin(filePath: string): boolean {
   }
 }
 
+/** Arquitetura de um executável ou biblioteca. */
+export type Arquitetura = 'x86' | 'x64' | 'desconhecida';
+
+/**
+ * Arquitetura de um binário, pelo cabeçalho ELF (Linux) ou PE (Windows).
+ *
+ * O servidor SA-MP e o open.mp legado são de 32 bits, e um plugin de 64 não
+ * carrega neles — o servidor recusa com "classe ELF errada" no meio de dezenas
+ * de linhas de boot, e a depuração falha sem que nada apareça no editor.
+ *
+ * Basta o cabeçalho: em ELF, o byte 4 é a classe (1 = 32, 2 = 64); em PE, o
+ * campo `Machine` logo após a assinatura, no deslocamento que o cabeçalho DOS
+ * indica.
+ */
+export function architectureOf(filePath: string): Arquitetura {
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const cab = Buffer.alloc(64);
+    if (fs.readSync(fd, cab, 0, 64, 0) < 64) return 'desconhecida';
+
+    if (cab.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
+      if (cab[4] === 1) return 'x86';
+      if (cab[4] === 2) return 'x64';
+      return 'desconhecida';
+    }
+
+    if (cab[0] === 0x4d && cab[1] === 0x5a) {
+      // `e_lfanew` (offset 0x3C) aponta para a assinatura PE.
+      const pe = cab.readUInt32LE(0x3c);
+      const maq = Buffer.alloc(6);
+      if (fs.readSync(fd, maq, 0, 6, pe) < 6) return 'desconhecida';
+      if (maq.subarray(0, 4).toString('ascii') !== 'PE\0\0') return 'desconhecida';
+      const machine = maq.readUInt16LE(4);
+      if (machine === 0x014c) return 'x86';
+      if (machine === 0x8664) return 'x64';
+      return 'desconhecida';
+    }
+    return 'desconhecida';
+  } catch {
+    return 'desconhecida';
+  } finally {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch { /* já fechado */ }
+    }
+  }
+}
+
 /** Como o plugin está (ou deveria estar) instalado, conforme o servidor. */
 export type DebugInstallKind =
   | 'samp'          // SA-MP: plugins/ + linha `plugins` no server.cfg
@@ -542,6 +590,14 @@ export interface DebugPreflight {
   recommendedPath: string;
   /** Forma de instalação recomendada/detectada. */
   installKind: DebugInstallKind;
+  /**
+   * O plugin e o executável do servidor têm arquiteturas diferentes.
+   *
+   * Quando isso acontece o servidor recusa o plugin no boot e a depuração não
+   * funciona — mas o erro fica no meio das linhas de carga e o editor não
+   * mostra nada. Vazio quando as duas batem ou não foi possível determinar.
+   */
+  archMismatch?: { plugin: Arquitetura; servidor: Arquitetura };
 }
 
 /**
@@ -564,6 +620,24 @@ function probePluginFile(cwd: string, dir: string, file: string): 'official' | '
  *   sem registro). O modo legado — `plugins/` + `legacy_plugins` — também é
  *   aceito, mas o componente é preferido.
  */
+/**
+ * Compara a arquitetura do plugin com a do executável do servidor.
+ *
+ * Só reporta quando as duas são conhecidas e diferentes: sem o executável, ou
+ * com um formato que não sabemos ler, o silêncio é melhor que um alarme falso.
+ */
+function conferirArquitetura(
+  cwd: string,
+  pluginPath: string,
+): { plugin: Arquitetura; servidor: Arquitetura } | undefined {
+  const exe = detectServerExecutable(cwd);
+  if (!exe) return undefined;
+  const plugin = architectureOf(pluginPath);
+  const servidor = architectureOf(exe);
+  if (plugin === 'desconhecida' || servidor === 'desconhecida') return undefined;
+  return plugin === servidor ? undefined : { plugin, servidor };
+}
+
 export function checkDebugPlugin(cwd: string): DebugPreflight {
   const ext = process.platform === 'win32' ? '.dll' : '.so';
   const file = `${DEBUG_PLUGIN_NAME}${ext}`;
@@ -584,27 +658,31 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
     } catch {
       registered = false;
     }
+    const arch = conferirArquitetura(cwd, path.join(cwd, 'plugins', file));
     return {
-      ok: plugins === 'official' && registered,
+      ok: plugins === 'official' && registered && !arch,
       pluginFilePresent: plugins === 'official',
       pluginNameClash: plugins === 'clash',
       pluginRegistered: registered,
       serverType,
       recommendedPath: path.join(cwd, 'plugins', file),
       installKind: 'samp',
+      archMismatch: arch,
     };
   }
 
   // open.mp: componente nativo OFICIAL em components/ é auto-descoberto.
   if (components === 'official') {
+    const arch = conferirArquitetura(cwd, path.join(cwd, 'components', file));
     return {
-      ok: true,
+      ok: !arch,
       pluginFilePresent: true,
       pluginNameClash: false,
       pluginRegistered: true, // não precisa registrar
       serverType,
       recommendedPath: path.join(cwd, 'components', file),
       installKind: 'omp-component',
+      archMismatch: arch,
     };
   }
 
@@ -621,8 +699,9 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
   }
 
   // Aqui `components` nunca é 'official' (já retornou acima nesse caso).
+  const arch = conferirArquitetura(cwd, path.join(cwd, 'plugins', file));
   return {
-    ok: plugins === 'official' && legacyRegistered,
+    ok: plugins === 'official' && legacyRegistered && !arch,
     pluginFilePresent: plugins === 'official',
     pluginNameClash: plugins === 'clash' || components === 'clash',
     pluginRegistered: legacyRegistered,
@@ -630,5 +709,6 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
     // Recomenda o caminho de componente (preferido), mesmo no fallback.
     recommendedPath: path.join(cwd, 'components', file),
     installKind: plugins === 'official' ? 'omp-legacy' : 'omp-component',
+    archMismatch: arch,
   };
 }

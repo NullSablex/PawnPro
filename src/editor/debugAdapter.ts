@@ -226,7 +226,13 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     const pre = checkDebugPlugin(cwd);
     if (!pre.ok) {
       const missing: string[] = [];
-      if (pre.pluginNameClash) {
+      if (pre.archMismatch) {
+        // O servidor recusa o plugin no boot, mas o erro se perde entre as
+        // linhas de carga — sem isto, a depuração falha sem nada no editor.
+        missing.push(
+          msg.debug.pluginArchMismatch(pre.archMismatch.plugin, pre.archMismatch.servidor),
+        );
+      } else if (pre.pluginNameClash) {
         missing.push(msg.debug.pluginNameClash(pre.recommendedPath));
       } else if (!pre.pluginFilePresent) {
         missing.push(msg.debug.missingPluginFile(pre.recommendedPath));

@@ -381,6 +381,8 @@ export function createMsg(t: Translate) {
     programNotFound: (p: string) => t('Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo "program" no launch.json.', p),
     serverNotFound:  () => t('Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.'),
     missingPluginFile: (p: string) => t('Instale o plugin de depuração em {0}.', p),
+    pluginArchMismatch: (plugin: string, servidor: string) =>
+      t('O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.', plugin, servidor),
     pluginNameClash: (p: string) =>
       t('Há um arquivo em {0}, mas não é o plugin de depuração do PawnPro (nome em conflito). Substitua-o pelo plugin oficial.', p),
     missingPluginReg:  (kind: string) =>

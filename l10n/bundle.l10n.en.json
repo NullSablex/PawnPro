@@ -321,5 +321,6 @@
   "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "The server is still responding on the port. A process may have survived — check before starting another.",
   "{0} — enviado (este comando não devolve texto)": "{0} — sent (this command returns no text)",
   "O servidor já está no ar pela sessão de depuração.": "The server is already running from the debug session.",
-  "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Script to debug not found: {0}. Open the `.pwn` you want to debug, or fix the \"program\" field in launch.json."
+  "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Script to debug not found: {0}. Open the `.pwn` you want to debug, or fix the \"program\" field in launch.json.",
+  "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "The debug plugin is {0} and the server is {1}. Install the {1} build."
 }
