@@ -13,6 +13,16 @@ export type Translate = (ptKey: string, ...args: (string | number)[]) => string;
  *   estado global e sem interferência entre contextos. A string PT é a mesma
  *   fonte para ambos; não há duplicação de textos.
  */
+/**
+ * Escolhe entre a forma singular e a plural pela contagem.
+ *
+ * O `vscode-l10n` não pluraliza, e a saída fácil — "{0} item(ns) movido(s)" —
+ * não é português: cada forma vira uma chave própria, traduzida por inteiro.
+ */
+function plural(n: number, um: string, muitos: string): string {
+  return n === 1 ? um : muitos;
+}
+
 export function createMsg(t: Translate) {
   return {
   compiler: {
@@ -52,9 +62,16 @@ export function createMsg(t: Translate) {
     rconEnabledNow: () => t('RCON ligado no config.json. Reinicie o servidor para valer.'),
     rconEnableFailed: (e: string) => t('Não foi possível editar o config.json: {0}', e),
     stopTimeout: () => t('O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.'),
+    // Uma chave por número: o `vscode-l10n` não pluraliza, e um texto só ficava
+    // incoerente com dois processos na porta.
     orphanOnPort: (port: number, pids: string) => t('A porta {0} continua ocupada pelo processo {1}.', String(port), pids),
-    btnKillOrphan: () => t('Encerrar processo'),
+    orphansOnPort: (port: number, pids: string) => t('A porta {0} continua ocupada pelos processos {1}.', String(port), pids),
+    btnKillOrphan: () => t('Encerrar'),
+    killingOrphan: () => t('Encerrando o processo...'),
+    killingOrphans: () => t('Encerrando os processos...'),
+    killOk: (port: number) => t('Porta {0} liberada.', String(port)),
     killFailed: (pids: string) => t('Não foi possível encerrar o processo {0}.', pids),
+    killFailedMany: (pids: string) => t('Não foi possível encerrar os processos {0}.', pids),
     rconSentNoOutput: (cmd: string) => t('{0} — enviado (este comando não devolve texto)', cmd),
   },
 
@@ -82,14 +99,26 @@ export function createMsg(t: Translate) {
     noFilePath: () => t('PawnPro: caminho do arquivo de lista não configurado.'),
     migrateConfirm: (sizeMb: string) => t('As listas a migrar somam {0} MB, acima do limite configurado. Migrar mesmo assim?', sizeMb),
     migrateProceed: () => t('Migrar'),
-    migratedBlocklist: (n: number) => t('{0} nome(s) proibido(s) → .ban', n),
-    migratedLoopIndices: (n: number) => t('{0} índice(s) de loop → .allow', n),
+    migratedBlocklist: (n: number) =>
+      plural(n, t('{0} nome proibido → .ban', n), t('{0} nomes proibidos → .ban', n)),
+    migratedLoopIndices: (n: number) =>
+      plural(n, t('{0} índice de loop → .allow', n), t('{0} índices de loop → .allow', n)),
     migrateDone: (summary: string) => t('PawnPro: migração concluída ({0}).', summary),
     migrateDoneBackup: (summary: string, path: string) => t('PawnPro: migração concluída ({0}). Backup dos itens em {1} — confira e apague quando quiser.', summary, path),
     migrateFailed: () => t('PawnPro: falha ao migrar as listas. O config.json não foi alterado.'),
     recoverNothing: () => t('PawnPro: nada a recuperar no config.json.'),
-    recoverDone: (n: number) => t('PawnPro: {0} item(ns) movido(s) do config.json para os arquivos .ban/.allow.', n),
-    recoverDoneBackup: (n: number, path: string) => t('PawnPro: {0} item(ns) movido(s) do config.json. Backup em {1} — confira e apague quando quiser.', n, path),
+    recoverDone: (n: number) =>
+      plural(
+        n,
+        t('PawnPro: {0} item movido do config.json para os arquivos .ban/.allow.', n),
+        t('PawnPro: {0} itens movidos do config.json para os arquivos .ban/.allow.', n),
+      ),
+    recoverDoneBackup: (n: number, path: string) =>
+      plural(
+        n,
+        t('PawnPro: {0} item movido do config.json. Backup em {1} — confira e apague quando quiser.', n, path),
+        t('PawnPro: {0} itens movidos do config.json. Backup em {1} — confira e apague quando quiser.', n, path),
+      ),
   },
 
   settings: {
@@ -360,7 +389,9 @@ export function createMsg(t: Translate) {
     sortDownloads:     () => t('Downloads'),
     sortUpdated:       () => t('Atualização'),
     clearSearch:       () => t('Limpar'),
-    resultCount:       (n: string) => t('{0} pacote(s)', n),
+    // Duas formas: a página escolhe pela contagem, que só ela conhece.
+    resultCount:       (n: string) => t('{0} pacote', n),
+    resultCountMany:   (n: string) => t('{0} pacotes', n),
     secDescription:    () => t('Descrição'),
     secScreenshots:    () => t('Capturas de tela'),
     secDependencies:   () => t('Dependências'),

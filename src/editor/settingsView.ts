@@ -294,7 +294,7 @@ function buildI18n(m: Msg) {
     fechar:                      s.fechar(),
     buscarExemplos:              s.buscarExemplos(),
     nenhumExemploBusca:          s.nenhumExemploBusca(),
-    exemplosCortados:            s.exemplosCortados(MAX_EXEMPLOS_UI),
+    exemplosCortados:            s.exemplosCortados(MAX_EXAMPLES_UI),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -441,7 +441,7 @@ const ENCODING_OPTIONS = /* html */`
  * entender o padrão. Declarado aqui, e não no script da WebView, para a
  * mensagem de corte citar o mesmo número sem duplicar a constante.
  */
-const MAX_EXEMPLOS_UI = 300;
+const MAX_EXAMPLES_UI = 300;
 
 function getHtml(logoUri: string, themeCss: string): string {
   return /* html */`<!DOCTYPE html>
@@ -1947,17 +1947,17 @@ function compileRule(raw) {
 //
 // O orçamento de tempo não cobre este caso, porque é conferido ANTES de cada
 // teste — quando a página volta a responder, já travou.
-function arriscadoParaPreview(raw) {
+function riskyForPreview(raw) {
   const body = raw.slice(1, -1);
   // Teto de comprimento como segunda linha: não é o risco principal, mas
   // padrão gigante custa a cada tecla mesmo sendo benigno.
   if (body.length > MAX_PATTERN_LEN) return true;
-  return QUANTIFICADOR_ANINHADO.test(body);
+  return NESTED_QUANTIFIER.test(body);
 }
 
 // Grupo seguido de quantificador cujo interior quantifica ou alterna:
 // (a+)+, (a*)*, (a|aa)+, (\\w+\\s?)*. É a forma dos padrões catastróficos.
-const QUANTIFICADOR_ANINHADO = /\\([^()]*(?:[*+]|\\{\\d|\\|)[^()]*\\)\\s*(?:[*+]|\\{\\d)/;
+const NESTED_QUANTIFIER = /\\([^()]*(?:[*+]|\\{\\d|\\|)[^()]*\\)\\s*(?:[*+]|\\{\\d)/;
 
 // Comprimento máximo do nome testado. É o limite que de fato protege: uma vez
 // iniciado, re.test roda até o fim — não há como interromper JS de fora —, e
@@ -2029,7 +2029,7 @@ function regexProbes(category, raw) {
 // prefixo, deixando o campo sem exemplo.
 // Teto do prefixo extraído do padrão: é por ele que a sonda cresce, e entrada
 // longa é o que torna caro um padrão com backtracking.
-const MAX_PREFIXO = 12;
+const MAX_PREFIX = 12;
 
 function literalPrefixes(raw) {
   if (!isRegexRule(raw)) return [];
@@ -2044,21 +2044,21 @@ function literalPrefixes(raw) {
   if (grupo) {
     // O que vem depois do grupo pode ser literal também: em (g|s)_ o
     // sublinhado pertence aos dois ramos.
-    const resto = literalInicial(body.slice(grupo[0].length));
+    const resto = leadingLiteral(body.slice(grupo[0].length));
     const vistos = [];
     for (const ramo of grupo[1].split('|')) {
-      const p = (ramo + resto).slice(0, MAX_PREFIXO);
+      const p = (ramo + resto).slice(0, MAX_PREFIX);
       if (p && !vistos.includes(p)) vistos.push(p);
     }
     return vistos;
   }
 
-  const lit = literalInicial(body).slice(0, MAX_PREFIXO);
+  const lit = leadingLiteral(body).slice(0, MAX_PREFIX);
   return lit ? [lit] : [];
 }
 
 // Literal contíguo no início de um trecho de padrão, sem metacaracteres.
-function literalInicial(body) {
+function leadingLiteral(body) {
   const m = /^[A-Za-z0-9_]+/.exec(body);
   if (!m) return '';
   // Um literal seguido de quantificador pertence ao quantificador, não ao
@@ -2094,7 +2094,7 @@ function updateRegexStatus(category, settled) {
     if (!isRegexRule(raw)) erro = _i18n.namingRegexNeedsSlashes;
     // O limite é da PRÉ-VISUALIZAÇÃO, que roda a cada tecla em JavaScript: um
     // padrão longo pode estar correto, e chamá-lo de inválido seria mentira.
-    else if (arriscadoParaPreview(raw)) erro = _i18n.namingRegexNoPreview;
+    else if (riskyForPreview(raw)) erro = _i18n.namingRegexNoPreview;
     else if (!compileRule(raw)) erro = _i18n.namingRegexInvalid;
   }
   input.classList.toggle('invalid', erro !== '');
@@ -2172,7 +2172,7 @@ function updateNamingPreview(category, accepted) {
   more.hidden = total < 2;
   if (total < 2) return;
   more.textContent = _i18n.namingAlsoAccepts + ' (' + total + ')';
-  more.onclick = () => mostrarExemplosDoPadrao(category, padrao);
+  more.onclick = () => showPatternExamples(category, padrao);
 }
 
 // Primeiro nome de exemplo que o padrão aceita, ou null se nenhum passa (ou se
@@ -2189,7 +2189,7 @@ function regexSample(category, raw) {
 function regexSamples(category, raw) {
   // O teto vale aqui, onde o custo existe: um padrão longo não gera exemplos,
   // mas continua sendo salvo e aplicado pela engine.
-  if (arriscadoParaPreview(raw)) return [];
+  if (riskyForPreview(raw)) return [];
   const re = compileRule(raw);
   if (!re) return [];
   // O orçamento protege contra padrão com backtracking, e é por sonda testada:
@@ -2207,9 +2207,9 @@ function regexSamples(category, raw) {
 
 // Abre a lista de exemplos de UM padrão. Recebe o padrão e a categoria; a
 // lista sai daí, não de quem chama.
-const MAX_EXEMPLOS = ${MAX_EXEMPLOS_UI};
+const MAX_EXAMPLES = ${MAX_EXAMPLES_UI};
 
-function mostrarExemplosDoPadrao(category, raw) {
+function showPatternExamples(category, raw) {
   const dlg = document.getElementById('exemplos-modal');
   const h = document.getElementById('exemplos-modal-titulo');
   const ul = document.getElementById('exemplos-modal-lista');
@@ -2222,9 +2222,9 @@ function mostrarExemplosDoPadrao(category, raw) {
 
   h.textContent = raw;
   const aceitos = regexSamples(category, raw);
-  const todos = aceitos.slice(0, MAX_EXEMPLOS);
+  const todos = aceitos.slice(0, MAX_EXAMPLES);
   // Cortar em silêncio faria o total parecer o número real de nomes aceitos.
-  if (corte) corte.hidden = aceitos.length <= MAX_EXEMPLOS;
+  if (corte) corte.hidden = aceitos.length <= MAX_EXAMPLES;
 
   // Redesenha a lista pelo termo digitado. O contador mostra o que está à
   // vista sobre o total, para a filtragem não esconder o tamanho real.

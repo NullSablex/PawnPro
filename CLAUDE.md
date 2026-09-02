@@ -13,6 +13,7 @@ O motor de análise é um processo externo em Rust: [`pawnpro-engine`](https://g
 
 ## Regras absolutas
 
+- **Identificadores em inglês, comentários em português.** Funções, variáveis, constantes e tipos em inglês (`detectServerExecutable`, `pidsOnPort`, `MAX_EXAMPLES`); comentários e documentação em português. As strings visíveis ao usuário são outra coisa — ficam em português no `nls.ts`, traduzidas em `l10n/`. Há três desvios preexistentes em `src/editor/server.ts` (`enderecoAtual`, `garantirTail`, `statusAtual`): não os tome como regra.
 - **Nunca importar `vscode` em `src/core/`**. Se precisar de algo do editor, exponha uma interface em `core/types.ts` e injete via `editor/`.
 - **Nunca escrever comentários óbvios**. Apenas comentários que explicam *por quê* — restrições ocultas, invariantes sutis, workarounds de bugs específicos.
 - **Mensagens ao usuário sempre via `src/editor/nls.ts`**. Nunca strings hardcoded em outros arquivos.

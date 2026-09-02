@@ -291,6 +291,7 @@ function buildI18n(m: Msg) {
     sortUpdated: s.sortUpdated(),
     clearSearch: s.clearSearch(),
     resultCount: s.resultCount('{0}'),
+    resultCountMany: s.resultCountMany('{0}'),
     secDescription: s.secDescription(),
     secScreenshots: s.secScreenshots(),
     secDependencies: s.secDependencies(),
@@ -799,7 +800,8 @@ function render() {
   const host = document.getElementById('results');
   const items = filtered();
   const count = document.getElementById('count');
-  count.textContent = (_i18n.resultCount || '{0}').replace('{0}', String(items.length));
+  const modelo = items.length === 1 ? _i18n.resultCount : _i18n.resultCountMany;
+  count.textContent = (modelo || '{0}').replace('{0}', String(items.length));
   if (items.length === 0) {
     const txt = _onlyAdded ? (_i18n.emptyAdded || '') : (_i18n.empty || '');
     host.innerHTML = '<div class="empty">' + txt + '</div>';
@@ -813,7 +815,9 @@ function cardHtml(i) {
   const addedTag = _added.has(i.id)
     ? '<span class="badge badge-added">' + (_i18n.added || '') + '</span>'
     : '';
-  return '<div class="card" onclick="openDetail(\\'' + i.id + '\\')">' +
+  // O id vai escapado como qualquer outro campo: hoje o catálogo é embutido,
+  // mas um id com aspa fecharia o atributo e injetaria script.
+  return '<div class="card" onclick="openDetail(\\'' + esc(i.id) + '\\')">' +
     '<div class="name">' + esc(i.name) + '</div>' +
     '<div class="badges">' + badges(i) + addedTag + '</div>' +
     '<div class="short">' + esc(i.short) + '</div>' +
@@ -876,7 +880,7 @@ function openDetail(id) {
       ? '<div class="dep-list">' + deps.map(dep => {
           const found = _items.find(x => x.id === dep || x.name === dep);
           return found
-            ? '<button class="dep" onclick="openDetail(\\'' + found.id + '\\')">' + esc(found.name) + '</button>'
+            ? '<button class="dep" onclick="openDetail(\\'' + esc(found.id) + '\\')">' + esc(found.name) + '</button>'
             : '<span class="muted">' + esc(dep) + '</span>';
         }).join('') + '</div>'
       : '<div class="muted">' + esc(_i18n.noDependencies || '') + '</div>');

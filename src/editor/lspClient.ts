@@ -126,7 +126,9 @@ export async function startLspClient(
   savedWorkspaceRoot = workspaceRoot;
 
   if (process.platform !== 'win32') {
-    try { fs.chmodSync(binaryPath, 0o755); } catch {}
+    // O binário pode já estar executável, ou ser de outro dono — quem diz se
+    // dá para usá-lo é o spawn logo abaixo, não este chmod.
+    try { fs.chmodSync(binaryPath, 0o755); } catch { /* sem permissão para ajustar */ }
   }
 
   const cfg = config.getAll();

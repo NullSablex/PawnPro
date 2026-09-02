@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { PAWNPRO_DIR } from './config.js';
 import type { PawnProState, ServerState } from './types.js';
 
 const DEFAULTS: PawnProState = {
@@ -71,7 +72,7 @@ export class PawnProStateManager {
   private data: PawnProState = structuredClone(DEFAULTS);
 
   constructor(projectRoot: string) {
-    this.filePath = path.join(projectRoot, '.pawnpro', 'state.json');
+    this.filePath = path.join(projectRoot, PAWNPRO_DIR, 'state.json');
     ensureIgnored(path.dirname(this.filePath));
     this.load();
   }

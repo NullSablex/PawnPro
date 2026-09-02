@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PawnProConfigManager } from '../core/config.js';
+import { PAWNPRO_DIR, PawnProConfigManager } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
 import { sendConfigurationToEngine } from './lspClient.js';
 
@@ -30,7 +30,7 @@ export function getWorkspaceRoot(): string {
 export function recoverLargeConfig(): { removed: number; backup: string | null } | null {
   const root = getWorkspaceRoot();
   if (!root) return null;
-  const cfgPath = path.join(root, '.pawnpro', 'config.json');
+  const cfgPath = path.join(root, PAWNPRO_DIR, 'config.json');
 
   let parsed: unknown;
   try {
@@ -50,8 +50,7 @@ export function recoverLargeConfig(): { removed: number; backup: string | null }
   if (removed === 0) return null;
 
   // Backup dos itens (não do config inteiro) antes de mexer.
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupPath = path.join(root, '.pawnpro', `naming-backup-${stamp}.json`);
+  const backupPath = makeBackupPath(root);
   let backup: string | null = null;
   try {
     fs.writeFileSync(
@@ -66,7 +65,7 @@ export function recoverLargeConfig(): { removed: number; backup: string | null }
   // Escreve as listas nos arquivos e remove-as do JSON cru.
   if (blocklist.length > 0) {
     appendListFile(
-      path.join(root, '.pawnpro', 'naming-blocklist.ban'),
+      path.join(root, PAWNPRO_DIR, 'naming-blocklist.ban'),
       'PawnPro — nomes proibidos',
       blocklist,
     );
@@ -74,7 +73,7 @@ export function recoverLargeConfig(): { removed: number; backup: string | null }
   }
   if (loop.length > 0) {
     appendListFile(
-      path.join(root, '.pawnpro', 'naming-loop-indices.allow'),
+      path.join(root, PAWNPRO_DIR, 'naming-loop-indices.allow'),
       'PawnPro — índices de loop tolerados',
       loop,
     );
@@ -88,6 +87,17 @@ export function recoverLargeConfig(): { removed: number; backup: string | null }
   }
   configManager?.reload();
   return { removed, backup };
+}
+
+/**
+ * Caminho do backup dos itens de nomenclatura, carimbado pela hora.
+ *
+ * Os dois lugares que gravam backup montavam o mesmo caminho, cada um com sua
+ * cópia do carimbo — mudar o formato exigiria lembrar dos dois.
+ */
+function makeBackupPath(root: string): string {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return path.join(root, PAWNPRO_DIR, `naming-backup-${stamp}.json`);
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -212,8 +222,7 @@ export function backupNamingLists(config: PawnProConfigManager): string | null {
 
   const root = getWorkspaceRoot();
   if (!root) return null;
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dest = path.join(root, '.pawnpro', `naming-backup-${stamp}.json`);
+  const dest = makeBackupPath(root);
   try {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, JSON.stringify({ blocklist, allowShortInLoops: loop }, null, 2) + '\n');

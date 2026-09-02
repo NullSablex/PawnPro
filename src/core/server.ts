@@ -79,7 +79,11 @@ export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
 export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
   const cfgPath = path.join(cwd || '', 'config.json');
   let json: Record<string, unknown> = {};
-  try { json = JSON.parse(await fsp.readFile(cfgPath, 'utf8')) as Record<string, unknown>; } catch {}
+  // Sem config.json, ou com JSON quebrado, seguem os padrões abaixo: a função
+  // devolve o que sabe em vez de falhar.
+  try {
+    json = JSON.parse(await fsp.readFile(cfgPath, 'utf8')) as Record<string, unknown>;
+  } catch { /* ausente ou malformado */ }
 
   const rcon = json?.['rcon'] as Record<string, unknown> | undefined;
   // `enable: false` faz o servidor não escutar RCON nenhum. Sem ler isto, a
@@ -576,25 +580,30 @@ export function architectureOf(filePath: string): Arquitetura {
  * Vazio no Windows e quando nenhuma ferramenta está disponível — o chamador
  * trata isso como "não sei", não como "não há".
  */
-export function pidsNaPorta(port: number): number[] {
+export function pidsOnPort(port: number): number[] {
   if (process.platform === 'win32') return [];
-  // `lsof -t` devolve só os PIDs, um por linha. `fuser` é o reserva: sai em
-  // stderr e numa linha só.
-  const tentativas: Array<[string, string[]]> = [
+
+  // Só o STDOUT: as duas ferramentas imprimem ali os PIDs e nada mais. O
+  // `fuser` manda o rótulo `7777/udp:` para o stderr, e lê-lo junto faria a
+  // PORTA virar um PID candidato — encerrando o processo de número igual ao
+  // dela.
+  const comandos: Array<[string, string[]]> = [
     ['lsof', ['-ti', `udp:${port}`]],
     ['fuser', ['-n', 'udp', String(port)]],
   ];
-  for (const [exe, args] of tentativas) {
+  for (const [exe, args] of comandos) {
+    let saida: string;
     try {
-      const r = spawnSync(exe, args, { encoding: 'utf8', timeout: 2000 });
-      const saida = `${r.stdout ?? ''} ${r.stderr ?? ''}`;
-      const pids = [...saida.matchAll(/\d+/g)]
-        .map(m => Number(m[0]))
-        .filter(n => n > 1 && n !== process.pid);
-      if (pids.length) return [...new Set(pids)].sort((a, b) => b - a);
+      saida = spawnSync(exe, args, { encoding: 'utf8', timeout: 2000 }).stdout ?? '';
     } catch {
-      // ferramenta ausente — tenta a próxima
+      continue; // ferramenta ausente — tenta a próxima
     }
+    const pids = saida
+      .split(/\s+/)
+      .filter(t => /^\d+$/.test(t))
+      .map(Number)
+      .filter(pid => pid > 1 && pid !== process.pid);
+    if (pids.length) return [...new Set(pids)];
   }
   return [];
 }
@@ -605,8 +614,10 @@ export function pidsNaPorta(port: number): number[] {
  * Devolve `false` quando não foi possível — processo de outro usuário, ou que
  * não morreu no prazo.
  */
-export async function encerrarProcesso(pid: number, prazoMs = 3000): Promise<boolean> {
-  const vivo = () => {
+export async function killProcess(pid: number, timeoutMs = 3000): Promise<boolean> {
+  // `kill(pid, 0)` não envia sinal: só pergunta se o processo existe e se
+  // temos permissão sobre ele.
+  const alive = () => {
     try {
       process.kill(pid, 0);
       return true;
@@ -614,23 +625,26 @@ export async function encerrarProcesso(pid: number, prazoMs = 3000): Promise<boo
       return false;
     }
   };
-  try {
-    process.kill(pid, 'SIGTERM');
-  } catch {
-    return !vivo();
+  const signal = (sig: NodeJS.Signals) => {
+    try {
+      process.kill(pid, sig);
+    } catch {
+      /* já morreu, ou é de outro usuário — `alive()` dá a resposta */
+    }
+  };
+  const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+  // SIGTERM primeiro: o servidor salva e desliga os componentes. SIGKILL só se
+  // ele ignorar o prazo.
+  signal('SIGTERM');
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!alive()) return true;
+    await wait(200);
   }
-  const fim = Date.now() + prazoMs;
-  while (Date.now() < fim) {
-    if (!vivo()) return true;
-    await new Promise(r => setTimeout(r, 200));
-  }
-  try {
-    process.kill(pid, 'SIGKILL');
-  } catch {
-    return !vivo();
-  }
-  await new Promise(r => setTimeout(r, 300));
-  return !vivo();
+  signal('SIGKILL');
+  await wait(300);
+  return !alive();
 }
 
 /** Como o plugin está (ou deveria estar) instalado, conforme o servidor. */

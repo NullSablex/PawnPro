@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fsp from 'fs/promises';
-import { LogTailer, SampRconClient, encerrarProcesso, isLoopbackHost, loadServerConfig, pidsNaPorta, resolveServerConfig } from '../core/server.js';
+import { LogTailer, SampRconClient, killProcess, isLoopbackHost, loadServerConfig, pidsOnPort, resolveServerConfig } from '../core/server.js';
 import { ServerRegistry } from './serverRegistry.js';
 import { pingServer } from '../core/server.js';
 import { PawnProConfigManager } from '../core/config.js';
@@ -214,28 +214,58 @@ class ServerController {
    */
   private async oferecerEncerrarOrfao(): Promise<void> {
     const { port } = this.enderecoAtual();
-    const pids = pidsNaPorta(port);
+    const pids = pidsOnPort(port);
     if (!pids.length) {
       // Windows, ou sem ferramenta para consultar: só o aviso.
       vscode.window.showWarningMessage(`PawnPro: ${msg.server.stopTimeout()}`);
       return;
     }
+
+    const lista = pids.join(', ');
+    // O `vscode-l10n` não pluraliza, então cada mensagem tem as duas formas e
+    // a contagem escolhe — "o processo 1, 2" não é português.
+    const conforme = <T>(um: T, muitos: T) => (pids.length > 1 ? muitos : um);
+
     const encerrar = msg.server.btnKillOrphan();
     const escolha = await vscode.window.showWarningMessage(
-      `PawnPro: ${msg.server.orphanOnPort(port, pids.join(', '))}`,
+      `PawnPro: ${conforme(msg.server.orphanOnPort, msg.server.orphansOnPort)(port, lista)}`,
       encerrar,
     );
     if (escolha !== encerrar) return;
 
-    const falhas = [];
-    for (const pid of pids) {
-      if (!(await encerrarProcesso(pid))) falhas.push(pid);
-    }
+    // Progresso enquanto encerra: são SIGTERM, o prazo e talvez SIGKILL, e sem
+    // sinal nenhum o usuário não sabe se o clique surtiu efeito.
+    const { naoMorreram, livre } = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `PawnPro: ${conforme(msg.server.killingOrphan, msg.server.killingOrphans)()}`,
+        cancellable: false,
+      },
+      async () => {
+        // Em paralelo: os processos são independentes, e em série cada um
+        // somaria seu próprio prazo de SIGTERM antes do seguinte.
+        const ok = await Promise.all(pids.map(pid => killProcess(pid)));
+        // A porta é a confirmação real: um processo pode morrer sem liberá-la
+        // de imediato, e o painel só deve dizer "parado" quando ela estiver
+        // livre de fato.
+        return { naoMorreram: pids.filter((_, i) => !ok[i]), livre: await this.esperarPorta(false, 4000) };
+      },
+    );
     await this.statusAtual();
-    if (falhas.length) {
-      vscode.window.showErrorMessage(`PawnPro: ${msg.server.killFailed(falhas.join(', '))}`);
+
+    // A porta livre é o que o usuário queria: um PID que resistiu mas a soltou
+    // não é problema dele.
+    if (livre) {
+      vscode.window.showInformationMessage(`PawnPro: ${msg.server.killOk(port)}`);
+      return;
+    }
+    if (naoMorreram.length) {
+      const restantes = naoMorreram.join(', ');
+      const falhou = naoMorreram.length > 1 ? msg.server.killFailedMany : msg.server.killFailed;
+      vscode.window.showErrorMessage(`PawnPro: ${falhou(restantes)}`);
     }
   }
+
 
   async start() {
     const existing = this.findExistingTerminal();
