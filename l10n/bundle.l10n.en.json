@@ -323,5 +323,7 @@
   "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Script to debug not found: {0}. Open the `.pwn` you want to debug, or fix the \"program\" field in launch.json.",
   "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "The debug plugin is {0} and the server is {1}. Install the {1} build.",
   "Ver exemplos aceitos": "See accepted examples",
-  "Fechar": "Close"
+  "Fechar": "Close",
+  "Filtrar exemplos": "Filter examples",
+  "Nenhum exemplo corresponde ao filtro.": "No example matches the filter."
 }

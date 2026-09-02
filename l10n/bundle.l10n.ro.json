@@ -323,5 +323,7 @@
   "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Scriptul de depanat nu a fost găsit: {0}. Deschide fișierul `.pwn` pe care vrei să îl depanezi sau corectează câmpul \"program\" din launch.json.",
   "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "Pluginul de depanare este {0}, iar serverul este {1}. Instalează versiunea {1}.",
   "Ver exemplos aceitos": "Vezi exemplele acceptate",
-  "Fechar": "Închide"
+  "Fechar": "Închide",
+  "Filtrar exemplos": "Filtrează exemplele",
+  "Nenhum exemplo corresponde ao filtro.": "Niciun exemplu nu corespunde filtrului."
 }

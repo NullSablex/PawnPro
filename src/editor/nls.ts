@@ -165,6 +165,8 @@ export function createMsg(t: Translate) {
     namingRegexInvalid:    () => t('Expressão regular inválida.'),
     namingAlsoAccepts: () => t('Ver exemplos aceitos'),
     fechar: () => t('Fechar'),
+    buscarExemplos: () => t('Filtrar exemplos'),
+    nenhumExemploBusca: () => t('Nenhum exemplo corresponde ao filtro.'),
     uiAccent:              () => t('Cor de destaque'),
     uiAccentDesc:          () => t('Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.'),
     uiAccentAuto:          () => t('Automático'),

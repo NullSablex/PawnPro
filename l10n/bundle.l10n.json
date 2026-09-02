@@ -323,5 +323,7 @@
   "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.",
   "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.",
   "Ver exemplos aceitos": "Ver exemplos aceitos",
-  "Fechar": "Fechar"
+  "Fechar": "Fechar",
+  "Filtrar exemplos": "Filtrar exemplos",
+  "Nenhum exemplo corresponde ao filtro.": "Nenhum exemplo corresponde ao filtro."
 }

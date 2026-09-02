@@ -290,6 +290,8 @@ function buildI18n(m: Msg) {
     namingRegexInvalid:          s.namingRegexInvalid(),
     namingAlsoAccepts:           s.namingAlsoAccepts(),
     fechar:                      s.fechar(),
+    buscarExemplos:              s.buscarExemplos(),
+    nenhumExemploBusca:          s.nenhumExemploBusca(),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -632,27 +634,155 @@ function getHtml(logoUri: string, themeCss: string): string {
     text-align: left;
   }
   .naming-more:hover { text-decoration: underline; }
+  /* O body e flex, entao um dialog no fluxo viraria item flex e encostaria no
+     canto. Posicao fixa com margem automatica o tira do fluxo e o centra,
+     que e o que o dialog modal faz por padrao numa pagina comum. */
+  /* Recuo proprio, na mesma tecnica do --pad-x da pagina mas em escala menor:
+     o do corpo vai a 36px, exagerado dentro de uma caixa de 480px. */
   .exemplos-modal {
-    border: 1px solid var(--vscode-widget-border, transparent);
-    border-radius: 4px;
-    padding: 12px 14px;
-    max-width: min(90vw, 420px);
+    --modal-pad: clamp(12px, 4vw, 18px);
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(92vw, 480px);
+    max-height: 80vh;
+    height: fit-content;
+    border: 1px solid var(--vscode-widget-border, var(--vscode-contrastBorder, #454545));
+    border-radius: 8px;
+    padding: 0;
     background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
     color: var(--vscode-foreground);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
   }
-  .exemplos-modal::backdrop { background: rgba(0, 0, 0, 0.45); }
-  .exemplos-modal h3 { margin: 0 0 8px; font-size: 1em; }
-  /* Rola quando são muitos, em vez de esticar a página. */
+  .exemplos-modal::backdrop { background: rgba(0, 0, 0, 0.5); }
+  /* Cabecalho, busca e rodape fixos; so a lista rola. */
+  .exemplos-modal-corpo {
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+  .exemplos-modal-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: var(--modal-pad) var(--modal-pad) 12px;
+    border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  }
+  /* Um padrao longo QUEBRA em varias linhas em vez de ser cortado: e o texto
+     que identifica o que se esta vendo, e some justamente quando e complexo. */
+  /* Cabeçalho é para ser lido: cor plena do editor, não a esmaecida de código
+     embutido em texto, e um fundo próprio que separa o padrão do resto. */
+  #exemplos-modal-titulo {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--vscode-textCodeBlock-background, var(--vscode-editor-background));
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.92em;
+    line-height: 1.5;
+    color: var(--vscode-foreground);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  /* Distintivo com a contagem: legível por contraste de fundo, sem depender de
+     opacidade — que é o que some contra o fundo escuro do widget. */
+  .exemplos-modal-conta {
+    flex: 0 0 auto;
+    /* Cabe o maior valor possível — 300/300, sete caracteres — para a largura
+       não mudar a cada filtragem e empurrar o campo de busca ao lado. */
+    min-width: 7ch;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    font-size: 0.82em;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+  }
+  /* Busca e contagem na mesma faixa: ao lado do padrão, a contagem mudava de
+     largura a cada filtragem e empurrava o bloco do regex. */
+  .exemplos-modal .search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px var(--modal-pad) 0;
+  }
+  .exemplos-modal input.search {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 3px;
+    border: 1px solid var(--vscode-input-border, transparent);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-size: 12px;
+    outline: none;
+  }
+  .exemplos-modal input.search:focus {
+    border-color: var(--vscode-focusBorder);
+  }
+  /* Mesma rolagem da lista de favoritos: fina, na cor do tema, sem trilho. */
   .exemplos-modal ul {
     margin: 0;
-    padding: 0;
-    max-height: 45vh;
+    padding: 6px var(--modal-pad) 10px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     list-style: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+  }
+  .exemplos-modal ul::-webkit-scrollbar { width: 10px; }
+  .exemplos-modal ul::-webkit-scrollbar-track { background: transparent; }
+  .exemplos-modal ul::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border: 3px solid transparent;
+    border-radius: 6px;
+    background-clip: content-box;
+  }
+  .exemplos-modal ul::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+    background-clip: content-box;
   }
   .exemplos-modal li {
-    padding: 2px 0;
+    padding: 4px 0;
     font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.95em;
+    overflow-wrap: anywhere;
+  }
+  .exemplos-modal li + li {
+    border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.12));
+  }
+  .exemplos-modal-vazio {
+    margin: 0;
+    padding: 16px var(--modal-pad);
+    text-align: center;
+    opacity: 0.7;
+    font-size: 0.9em;
+  }
+  .exemplos-modal-rodape {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px var(--modal-pad) var(--modal-pad);
+    border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  }
+  .exemplos-modal button {
+    padding: 6px 18px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    font: inherit;
+    cursor: pointer;
+  }
+  .exemplos-modal button:hover {
+    background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
   }
   .style-checks {
     display: grid;
@@ -1440,9 +1570,22 @@ ${ENCODING_OPTIONS}
 </main>
 
 <dialog class="exemplos-modal" id="exemplos-modal">
-  <h3 id="exemplos-modal-titulo"></h3>
-  <ul id="exemplos-modal-lista"></ul>
-  <button type="button" id="exemplos-modal-fechar" data-i18n="fechar"></button>
+  <div class="exemplos-modal-corpo">
+    <div class="exemplos-modal-topo">
+      <code id="exemplos-modal-titulo"></code>
+    </div>
+    <div class="search-box">
+      <input id="exemplos-modal-busca" class="search" type="text"
+        data-i18n-ph="buscarExemplos" data-i18n-aria="buscarExemplos" />
+      <span class="exemplos-modal-conta" id="exemplos-modal-conta"></span>
+    </div>
+    <ul id="exemplos-modal-lista"></ul>
+    <p class="exemplos-modal-vazio" id="exemplos-modal-vazio" hidden
+       data-i18n="nenhumExemploBusca"></p>
+    <div class="exemplos-modal-rodape">
+      <button type="button" id="exemplos-modal-fechar" data-i18n="fechar"></button>
+    </div>
+  </div>
 </dialog>
 
 <script>
@@ -1497,6 +1640,10 @@ function applyI18n(i18n) {
   document.querySelectorAll('[data-i18n-aria]').forEach(el => {
     const key = el.getAttribute('data-i18n-aria');
     if (i18n[key] !== undefined) el.setAttribute('aria-label', i18n[key]);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    const key = el.getAttribute('data-i18n-ph');
+    if (i18n[key] !== undefined) el.setAttribute('placeholder', i18n[key]);
   });
 
   const note = document.getElementById('note-text');
@@ -1698,7 +1845,11 @@ const MAX_PROBE_LEN = 40;
 // padrão patológico deixa de responder em vez de travar a página. O resultado
 // que vale é sempre o da engine, cujo motor tem tempo linear garantido.
 function testWithBudget(re, name, budget) {
-  if (budget.left <= 0 || name.length > MAX_PROBE_LEN) return null;
+  // Sonda longa demais é PULADA, não é fim de orçamento: devolver o mesmo
+  // 'null' nos dois casos fazia quem varre a lista parar na primeira sonda
+  // impossivel, como se o tempo tivesse acabado.
+  if (name.length > MAX_PROBE_LEN) return false;
+  if (budget.left <= 0) return null;
   const t0 = Date.now();
   let hit;
   try {
@@ -1720,23 +1871,26 @@ function regexProbes(category, raw) {
   }
   const base = out[0];
   if (!base) return out;
-  // Variantes do nome-base. Um padrão pode exigir maiúscula logo após o
-  // prefixo (/^g_[A-Z].../) ou só minúsculas (/^m_[a-z]+$/): com uma única
-  // base em camelCase, nenhum dos dois casava e o campo ficava sem exemplo.
-  const bases = [base, base.charAt(0).toUpperCase() + base.slice(1), base.toLowerCase()];
-  // O prefixo sai do próprio padrão quando ele começa por um literal (o caso
-  // comum: /^g_[a-z].../). Sem isso o exemplo prefixado usaria uma letra fixa
-  // e não casaria com o padrão que o usuário acabou de escrever.
-  // Teto no prefixo: é por ele que o padrão do usuário alonga o nome testado,
-  // e entrada longa é o que torna caro um padrão com backtracking.
-  for (const prefix of literalPrefixes(raw)) {
+
+  // Variantes do nome, uma por exigência que um padrão pode fazer sobre o
+  // trecho depois do prefixo: camelCase, inicial maiúscula, tudo minúsculo e as
+  // duas formas curtas (uma palavra só), para padrões que limitam o tamanho
+  // com quantificador. Com apenas a base em camelCase, cada uma dessas
+  // exigências deixava o campo sem exemplo nenhum.
+  const curta = (NAMING_WORDS[category] ?? [])[0] ?? '';
+  const capitalizar = w => w.charAt(0).toUpperCase() + w.slice(1);
+  const bases = [base, capitalizar(base), base.toLowerCase()];
+  if (curta && curta !== base) bases.push(curta, capitalizar(curta));
+
+  // Prefixos: os literais do próprio padrão (o caso comum é /^g_[a-z].../,
+  // e sem eles o exemplo prefixado usaria uma letra fixa que não casaria) e o
+  // sublinhado, convenção de "privado". Vazio também é prefixo — é o nome sem
+  // nada na frente, já coberto pelos estilos acima.
+  for (const prefix of [...literalPrefixes(raw), '_']) {
     for (const b of bases) {
       const cand = prefix + b;
       if (!out.includes(cand)) out.push(cand);
     }
-  }
-  for (const b of bases) {
-    if (!out.includes('_' + b)) out.push('_' + b);
   }
   return out;
 }
@@ -1748,25 +1902,33 @@ function regexProbes(category, raw) {
 // Com alternância no início (/^(g|s)_.../), cada ramo é um prefixo: antes só se
 // lia literal contíguo, a alternância devolvia '' e nenhuma sonda ganhava
 // prefixo, deixando o campo sem exemplo.
+// Teto do prefixo extraído do padrão: é por ele que a sonda cresce, e entrada
+// longa é o que torna caro um padrão com backtracking.
+const MAX_PREFIXO = 12;
+
 function literalPrefixes(raw) {
   if (!isRegexRule(raw)) return [];
   let body = raw.slice(1, -1);
   if (body.startsWith('^')) body = body.slice(1);
 
-  const grupo = /^\(([^()|]+(?:\|[^()|]+)+)\)/.exec(body);
+  // As barras invertidas vão DOBRADAS: este código vive dentro de um template
+  // literal, e uma barra simples antes do parêntese seria consumida no escape
+  // da string — a regex chegaria ao navegador sem ela, casando qualquer início
+  // e devolvendo o padrão inteiro como se fosse prefixo.
+  const grupo = /^\\(([^()|]+(?:\\|[^()|]+)+)\\)/.exec(body);
   if (grupo) {
     // O que vem depois do grupo pode ser literal também: em (g|s)_ o
     // sublinhado pertence aos dois ramos.
     const resto = literalInicial(body.slice(grupo[0].length));
     const vistos = [];
     for (const ramo of grupo[1].split('|')) {
-      const p = (ramo + resto).slice(0, 12);
+      const p = (ramo + resto).slice(0, MAX_PREFIXO);
       if (p && !vistos.includes(p)) vistos.push(p);
     }
     return vistos;
   }
 
-  const lit = literalInicial(body).slice(0, 12);
+  const lit = literalInicial(body).slice(0, MAX_PREFIXO);
   return lit ? [lit] : [];
 }
 
@@ -1883,11 +2045,13 @@ function regexSample(category, raw) {
 function regexSamples(category, raw) {
   const re = compileRule(raw);
   if (!re) return [];
+  // O orçamento protege contra padrão com backtracking, e é por sonda testada:
+  // 50 ms para a lista inteira, não por chamada.
   const budget = { left: 50 };
   const hits = [];
   for (const probe of regexProbes(category, raw)) {
     const hit = testWithBudget(re, probe, budget);
-    // Orçamento estourado: devolve o que já se sabe em vez de descartar tudo.
+    // Tempo esgotado: devolve o que já se sabe em vez de descartar tudo.
     if (hit === null) break;
     if (hit) hits.push(probe);
   }
@@ -1896,21 +2060,51 @@ function regexSamples(category, raw) {
 
 // Abre a lista de exemplos de UM padrão. Recebe o padrão e a categoria; a
 // lista sai daí, não de quem chama.
+// Teto da lista: a rolagem dá conta do volume, mas uma lista sem fim não
+// ajuda ninguém a entender o padrão.
+const MAX_EXEMPLOS = 300;
+
 function mostrarExemplosDoPadrao(category, raw) {
   const dlg = document.getElementById('exemplos-modal');
   const h = document.getElementById('exemplos-modal-titulo');
   const ul = document.getElementById('exemplos-modal-lista');
+  const conta = document.getElementById('exemplos-modal-conta');
+  const busca = document.getElementById('exemplos-modal-busca');
+  const vazio = document.getElementById('exemplos-modal-vazio');
   const fechar = document.getElementById('exemplos-modal-fechar');
   if (!dlg || !h || !ul) return;
+
   h.textContent = raw;
-  ul.textContent = '';
-  for (const nome of regexSamples(category, raw)) {
-    const li = document.createElement('li');
-    li.textContent = nome;
-    ul.appendChild(li);
+  const todos = regexSamples(category, raw).slice(0, MAX_EXEMPLOS);
+
+  // Redesenha a lista pelo termo digitado. O contador mostra o que está à
+  // vista sobre o total, para a filtragem não esconder o tamanho real.
+  const render = termo => {
+    const alvo = (termo || '').trim().toLowerCase();
+    const visiveis = alvo ? todos.filter(n => n.toLowerCase().includes(alvo)) : todos;
+    ul.textContent = '';
+    for (const nome of visiveis) {
+      const li = document.createElement('li');
+      li.textContent = nome;
+      ul.appendChild(li);
+    }
+    if (conta) {
+      conta.textContent = visiveis.length === todos.length
+        ? String(todos.length)
+        : visiveis.length + '/' + todos.length;
+    }
+    if (vazio) vazio.hidden = visiveis.length > 0;
+    ul.hidden = visiveis.length === 0;
+  };
+
+  if (busca) {
+    busca.value = '';
+    busca.oninput = () => render(busca.value);
   }
+  render('');
   if (fechar) fechar.onclick = () => dlg.close();
   dlg.showModal();
+  if (busca) busca.focus();
 }
 
 const arrayState = {};
