@@ -104,7 +104,6 @@
   "Migrar para arquivos": "Migrează în fișiere",
   "Há listas de nomes salvas no formato antigo (no config.json).": "Există liste de nume salvate în formatul vechi (în config.json).",
   "Estilos de nomenclatura por categoria": "Stiluri de nomenclatură pe categorii",
-  "Convenções de caixa aceitas para cada tipo de identificador. Vazio = sem checagem.": "Convenții de scriere acceptate pentru fiecare tip de identificator. Gol = fără verificare.",
   "Estilo de funções": "Stil de funcții",
   "Estilo de variáveis globais": "Stil de variabile globale",
   "Estilo de variáveis locais": "Stil de variabile locale",
@@ -327,5 +326,7 @@
   "Filtrar exemplos": "Filtrează exemplele",
   "Nenhum exemplo corresponde ao filtro.": "Niciun exemplu nu corespunde filtrului.",
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Limita de afișare atinsă: se afișează doar {0} exemple.",
-  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Model complex: fără exemple aici. Rămâne valabil în analiză."
+  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Model complex: fără exemple aici. Rămâne valabil în analiză.",
+  "Convenções de caixa aceitas para cada tipo de identificador.": "Convenții de scriere acceptate pentru fiecare tip de identificator.",
+  "Nenhuma regra selecionada.": "Nicio regulă selectată."
 }

@@ -104,7 +104,6 @@
   "Migrar para arquivos": "Migrate to files",
   "Há listas de nomes salvas no formato antigo (no config.json).": "There are name lists saved in the old format (in config.json).",
   "Estilos de nomenclatura por categoria": "Naming styles by category",
-  "Convenções de caixa aceitas para cada tipo de identificador. Vazio = sem checagem.": "Accepted case conventions for each identifier type. Empty = no checking.",
   "Estilo de funções": "Function style",
   "Estilo de variáveis globais": "Global variable style",
   "Estilo de variáveis locais": "Local variable style",
@@ -327,5 +326,7 @@
   "Filtrar exemplos": "Filter examples",
   "Nenhum exemplo corresponde ao filtro.": "No example matches the filter.",
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Display limit reached: showing only {0} examples.",
-  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Complex pattern: no examples here. It still applies in the analysis."
+  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Complex pattern: no examples here. It still applies in the analysis.",
+  "Convenções de caixa aceitas para cada tipo de identificador.": "Case conventions accepted for each kind of identifier.",
+  "Nenhuma regra selecionada.": "No rule selected."
 }

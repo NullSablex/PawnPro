@@ -104,7 +104,6 @@
   "Migrar para arquivos": "Перенести в файлы",
   "Há listas de nomes salvas no formato antigo (no config.json).": "Есть списки имён, сохранённые в старом формате (в config.json).",
   "Estilos de nomenclatura por categoria": "Стили именования по категориям",
-  "Convenções de caixa aceitas para cada tipo de identificador. Vazio = sem checagem.": "Принятые соглашения о регистре для каждого типа идентификатора. Пусто = без проверки.",
   "Estilo de funções": "Стиль функций",
   "Estilo de variáveis globais": "Стиль глобальных переменных",
   "Estilo de variáveis locais": "Стиль локальных переменных",
@@ -327,5 +326,7 @@
   "Filtrar exemplos": "Фильтр примеров",
   "Nenhum exemplo corresponde ao filtro.": "Ни один пример не соответствует фильтру.",
   "Limite de exibição atingido: mostrando apenas {0} exemplos.": "Достигнут предел отображения: показано только {0} примеров.",
-  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Сложный шаблон: примеров нет. В анализе он продолжает действовать."
+  "Padrão complexo: sem exemplos aqui. Continua valendo na análise.": "Сложный шаблон: примеров нет. В анализе он продолжает действовать.",
+  "Convenções de caixa aceitas para cada tipo de identificador.": "Допустимые стили написания для каждого вида идентификатора.",
+  "Nenhuma regra selecionada.": "Правило не выбрано."
 }

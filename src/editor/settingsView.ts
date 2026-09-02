@@ -289,6 +289,7 @@ function buildI18n(m: Msg) {
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
     namingRegexNoPreview:        s.namingRegexNoPreview(),
+    namingSemRegra:              s.namingSemRegra(),
     namingAlsoAccepts:           s.namingAlsoAccepts(),
     fechar:                      s.fechar(),
     buscarExemplos:              s.buscarExemplos(),
@@ -391,6 +392,10 @@ function namingStyleRow(category: string): string {
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
         <button type="button" class="naming-more" id="naming-more-${category}" hidden></button>
+        <p class="naming-vazio" id="naming-vazio-${category}" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm0 1.2a5.3 5.3 0 0 1 3.2 1.08L3.78 11.2A5.3 5.3 0 0 1 8 2.7Zm0 10.6a5.3 5.3 0 0 1-3.2-1.08l7.42-7.42A5.3 5.3 0 0 1 8 13.3Z"/></svg>
+          <span id="naming-vazio-texto-${category}"></span>
+        </p>
         <p class="regex-erro" id="naming-regex-erro-${category}" role="alert" hidden></p>
       </div>
     </div>
@@ -826,6 +831,25 @@ function getHtml(logoUri: string, themeCss: string): string {
   .exemplos-modal button:hover {
     background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
   }
+  /* Categoria sem criterio nenhum: no lugar do exemplo, diz o que isso
+     significa. Mesma ideia do estado vazio da lista de favoritos: um icone que
+     situa e uma linha curta. */
+  .naming-vazio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--vscode-descriptionForeground);
+  }
+  .naming-vazio svg {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    opacity: 0.65;
+  }
+
   /* O erro em TEXTO, nao so na borda: borda vermelha mais tooltip obriga o
      usuario a passar o mouse para descobrir o que esta errado. */
   /* Coluna propria: a grade dos estilos usa grid-auto-flow column com linhas
@@ -2129,6 +2153,14 @@ function updateNamingPreview(category, accepted) {
     .map(ident => tpl.replace('{}', ident));
   el.hidden = lines.length === 0;
   el.textContent = lines.join('\\n');
+
+  // Sem critério, a caixa de exemplo some e nada explicaria por quê.
+  const vazio = document.getElementById('naming-vazio-' + category);
+  if (vazio) {
+    vazio.hidden = lines.length > 0;
+    const txt = document.getElementById('naming-vazio-texto-' + category);
+    if (txt) txt.textContent = _i18n.namingSemRegra || '';
+  }
 
   // A caixa mostra um exemplo por critério. Um padrão costuma aceitar mais de
   // um nome, e o botão dá acesso à lista inteira — sem ele nada revelaria que
