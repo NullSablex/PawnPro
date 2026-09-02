@@ -26,6 +26,25 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider('pawn', provider),
     vscode.debug.registerDebugAdapterDescriptorFactory('pawn', new PawnAdapterFactory(context)),
+    // Reiniciar recompila quando o fonte mudou.
+    //
+    // Quem detecta é o adaptador, no `on_restart`: é o ponto por onde todo
+    // restart passa, venha do botão nativo do editor, da tecla ou da paleta —
+    // por isso não é preciso comando próprio nem interceptar o do editor.
+    // Compilar, porém, é atribuição daqui: o compilador e as flags são
+    // configuração do projeto. Ele pede por evento, compilamos e devolvemos o
+    // `restart`, que então segue o caminho normal.
+    vscode.debug.onDidReceiveDebugSessionCustomEvent(async (e) => {
+      if (e.session.type !== 'pawn' || e.event !== 'pawnproRebuild') return;
+      const corpo = e.body as { program?: unknown } | undefined;
+      const amx = typeof corpo?.program === 'string' ? corpo.program : '';
+      if (amx && !(await provider.ensureDebugBuild(amx))) {
+        // Compilação falhou: `ensureDebugBuild` já avisou. Não reenviar o
+        // restart é o que impede o servidor de subir com o binário velho.
+        return;
+      }
+      await e.session.customRequest('restart');
+    }),
   );
 }
 
@@ -237,8 +256,18 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
    * e o compila com `-d3` (injetado só se ausente). Se não houver source, segue
    * com o `.amx` existente (assume já compilado com `-d3`).
    */
-  private async ensureDebugBuild(amxPath: string): Promise<boolean> {
+  async ensureDebugBuild(amxPath: string, soSeMudou = false): Promise<boolean> {
     const source = amxPath.replace(/\.amx$/i, '.pwn');
+    // `soSeMudou`: no restart, recompilar um binário que já está em dia só
+    // custaria tempo. O fonte ser mais novo que o `.amx` é o que distingue
+    // "mudei o código" de "só quero subir o servidor de novo".
+    if (soSeMudou && fs.existsSync(source) && fs.existsSync(amxPath)) {
+      try {
+        if (fs.statSync(source).mtimeMs <= fs.statSync(amxPath).mtimeMs) return true;
+      } catch {
+        /* sem stat, compila — é o lado seguro */
+      }
+    }
     if (!fs.existsSync(source)) {
       // Sem source ao lado — não há o que compilar; usa o `.amx` como está.
       if (fs.existsSync(amxPath)) return true;
