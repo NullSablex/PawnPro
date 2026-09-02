@@ -308,7 +308,6 @@
   "Padrão próprio": "Patrón propio",
   "Escreva o padrão entre barras, como /^g_[a-z]+$/.": "Escribe el patrón entre barras, como /^g_[a-z]+$/.",
   "Expressão regular inválida.": "Expresión regular no válida.",
-  "Nenhum dos exemplos passa neste padrão.": "Ninguno de los ejemplos coincide con este patrón.",
   "Cor de destaque": "Color de acento",
   "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Color de los botones y del elemento activo en las páginas de la extensión. No cambia el resaltado de sintaxis.",
   "Já existe um servidor respondendo na porta {0}.": "Ya hay un servidor respondiendo en el puerto {0}.",
@@ -322,5 +321,7 @@
   "{0} — enviado (este comando não devolve texto)": "{0} — enviado (este comando no devuelve texto)",
   "O servidor já está no ar pela sessão de depuração.": "El servidor ya está en marcha por la sesión de depuración.",
   "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Script a depurar no encontrado: {0}. Abre el `.pwn` que quieres depurar o corrige el campo \"program\" en launch.json.",
-  "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "El plugin de depuración es {0} y el servidor es {1}. Instala la versión {1}."
+  "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "El plugin de depuración es {0} y el servidor es {1}. Instala la versión {1}.",
+  "Ver exemplos aceitos": "Ver ejemplos aceptados",
+  "Fechar": "Cerrar"
 }

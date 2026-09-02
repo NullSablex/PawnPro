@@ -308,7 +308,6 @@
   "Padrão próprio": "Tipar propriu",
   "Escreva o padrão entre barras, como /^g_[a-z]+$/.": "Scrieți tiparul între bare oblice, precum /^g_[a-z]+$/.",
   "Expressão regular inválida.": "Expresie regulată invalidă.",
-  "Nenhum dos exemplos passa neste padrão.": "Niciunul dintre exemple nu se potrivește cu acest tipar.",
   "Cor de destaque": "Culoare de accent",
   "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Culoarea butoanelor și a elementului activ din paginile extensiei. Nu schimbă evidențierea sintaxei.",
   "Já existe um servidor respondendo na porta {0}.": "Există deja un server care răspunde pe portul {0}.",
@@ -322,5 +321,7 @@
   "{0} — enviado (este comando não devolve texto)": "{0} — trimis (această comandă nu returnează text)",
   "O servidor já está no ar pela sessão de depuração.": "Serverul rulează deja din sesiunea de depanare.",
   "Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo \"program\" no launch.json.": "Scriptul de depanat nu a fost găsit: {0}. Deschide fișierul `.pwn` pe care vrei să îl depanezi sau corectează câmpul \"program\" din launch.json.",
-  "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "Pluginul de depanare este {0}, iar serverul este {1}. Instalează versiunea {1}."
+  "O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.": "Pluginul de depanare este {0}, iar serverul este {1}. Instalează versiunea {1}.",
+  "Ver exemplos aceitos": "Vezi exemplele acceptate",
+  "Fechar": "Închide"
 }

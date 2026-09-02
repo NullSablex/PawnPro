@@ -288,7 +288,8 @@ function buildI18n(m: Msg) {
     uiAccentAuto:                s.uiAccentAuto(),
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
-    namingRegexMatchesNothing:   s.namingRegexMatchesNothing(),
+    namingAlsoAccepts:           s.namingAlsoAccepts(),
+    fechar:                      s.fechar(),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -385,6 +386,7 @@ function namingStyleRow(category: string): string {
       <div class="row-label" data-i18n="namingStyle.${category}"></div>
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
+        <button type="button" class="naming-more" id="naming-more-${category}" hidden></button>
       </div>
     </div>
     <div class="row-control style-checks">
@@ -614,6 +616,43 @@ function getHtml(logoUri: string, themeCss: string): string {
     font-family: var(--vscode-editor-font-family, monospace);
     color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
     opacity: 0.85;
+  }
+  /* Fica FORA do <code>: ali dentro é código Pawn real, e um contador entre as
+     linhas deixaria de ser código válido. */
+  .naming-more {
+    display: block;
+    margin-top: 2px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.9em;
+    color: var(--vscode-textLink-foreground, inherit);
+    cursor: pointer;
+    text-align: left;
+  }
+  .naming-more:hover { text-decoration: underline; }
+  .exemplos-modal {
+    border: 1px solid var(--vscode-widget-border, transparent);
+    border-radius: 4px;
+    padding: 12px 14px;
+    max-width: min(90vw, 420px);
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    color: var(--vscode-foreground);
+  }
+  .exemplos-modal::backdrop { background: rgba(0, 0, 0, 0.45); }
+  .exemplos-modal h3 { margin: 0 0 8px; font-size: 1em; }
+  /* Rola quando são muitos, em vez de esticar a página. */
+  .exemplos-modal ul {
+    margin: 0;
+    padding: 0;
+    max-height: 45vh;
+    overflow-y: auto;
+    list-style: none;
+  }
+  .exemplos-modal li {
+    padding: 2px 0;
+    font-family: var(--vscode-editor-font-family, monospace);
   }
   .style-checks {
     display: grid;
@@ -1400,6 +1439,12 @@ ${ENCODING_OPTIONS}
 
 </main>
 
+<dialog class="exemplos-modal" id="exemplos-modal">
+  <h3 id="exemplos-modal-titulo"></h3>
+  <ul id="exemplos-modal-lista"></ul>
+  <button type="button" id="exemplos-modal-fechar" data-i18n="fechar"></button>
+</dialog>
+
 <script>
 const vscode = acquireVsCodeApi();
 let _i18n = {};
@@ -1752,11 +1797,15 @@ function updateRegexStatus(category, settled) {
   // A validação marca o CAMPO; o exemplo do padrão sai junto dos demais, no
   // preview da categoria. Enquanto se digita não há erro a apontar: o texto
   // passa por estados incompletos até a barra final.
+  // Só erro de FORMA: falta de barras e regex que não compila. Não casar com os
+  // exemplos não é erro — as sondas são nomes que a página inventa para ilustrar
+  // o padrão, não uma definição do que é válido. Um padrão correto que não bata
+  // com nenhuma delas era marcado em vermelho, acusando o usuário de um
+  // problema que é da lista de sondas.
   let erro = '';
   if (raw && settled) {
-    if (!isRegexRule(raw)) erro = T.namingRegexNeedsSlashes;
-    else if (!compileRule(raw)) erro = T.namingRegexInvalid;
-    else if (regexSample(category, raw) === null) erro = T.namingRegexMatchesNothing;
+    if (!isRegexRule(raw)) erro = _i18n.namingRegexNeedsSlashes;
+    else if (!compileRule(raw)) erro = _i18n.namingRegexInvalid;
   }
   input.classList.toggle('invalid', erro !== '');
   input.title = erro;
@@ -1806,20 +1855,62 @@ function updateNamingPreview(category, accepted) {
     .map(ident => tpl.replace('{}', ident));
   el.hidden = lines.length === 0;
   el.textContent = lines.join('\\n');
+
+  // A caixa mostra um exemplo por critério. Um padrão costuma aceitar mais de
+  // um nome, e o botão dá acesso à lista inteira — sem ele nada revelaria que
+  // /^(g|s)_.../ também aceita nomes com s_.
+  const more = document.getElementById('naming-more-' + category);
+  if (!more) return;
+  const padrao = (accepted ?? []).find(st => isRegexRule(st));
+  const total = padrao ? regexSamples(category, padrao).length : 0;
+  more.hidden = total < 2;
+  if (total < 2) return;
+  more.textContent = _i18n.namingAlsoAccepts + ' (' + total + ')';
+  more.onclick = () => mostrarExemplosDoPadrao(category, padrao);
 }
 
 // Primeiro nome de exemplo que o padrão aceita, ou null se nenhum passa (ou se
 // o padrão é caro demais para testar aqui — a análise real é da engine).
 function regexSample(category, raw) {
+  return regexSamples(category, raw)[0] ?? null;
+}
+
+// Todos os nomes-sonda que o padrão aceita, na ordem em que foram gerados.
+//
+// O preview usa o primeiro como exemplo; os demais alimentam a lista completa,
+// que é o que mostra o alcance real de um padrão — /^(g|s)_.../ aceita nomes
+// com s_ e o exemplo sozinho nunca deixaria isso claro.
+function regexSamples(category, raw) {
   const re = compileRule(raw);
-  if (!re) return null;
+  if (!re) return [];
   const budget = { left: 50 };
+  const hits = [];
   for (const probe of regexProbes(category, raw)) {
     const hit = testWithBudget(re, probe, budget);
-    if (hit === null) return null;
-    if (hit) return probe;
+    // Orçamento estourado: devolve o que já se sabe em vez de descartar tudo.
+    if (hit === null) break;
+    if (hit) hits.push(probe);
   }
-  return null;
+  return hits;
+}
+
+// Abre a lista de exemplos de UM padrão. Recebe o padrão e a categoria; a
+// lista sai daí, não de quem chama.
+function mostrarExemplosDoPadrao(category, raw) {
+  const dlg = document.getElementById('exemplos-modal');
+  const h = document.getElementById('exemplos-modal-titulo');
+  const ul = document.getElementById('exemplos-modal-lista');
+  const fechar = document.getElementById('exemplos-modal-fechar');
+  if (!dlg || !h || !ul) return;
+  h.textContent = raw;
+  ul.textContent = '';
+  for (const nome of regexSamples(category, raw)) {
+    const li = document.createElement('li');
+    li.textContent = nome;
+    ul.appendChild(li);
+  }
+  if (fechar) fechar.onclick = () => dlg.close();
+  dlg.showModal();
 }
 
 const arrayState = {};
