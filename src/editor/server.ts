@@ -163,10 +163,21 @@ class ServerController {
     if (!invalidPwd && local) {
       try {
         const client = new SampRconClient(cfg.host, cfg.port, cfg.rconPassword);
-        const out = await client.send(txt, 1500);
+        // O eco sai antes do envio: a resposta só resolve depois do silêncio
+        // que fecha a rajada de datagramas, e nesse intervalo o tail do log já
+        // despejou as linhas — o comando aparecia embaixo do próprio resultado.
         this.tailer.appendLine(`> ${txt}`);
+        const out = await client.send(txt, 1500);
+        // O servidor grava no log toda mensagem que devolve pelo console
+        // (`ConsoleComponent::sendMessage` escreve com `logLn` antes de
+        // entregar ao remetente), então com o tail ativo a resposta já vem por
+        // ali — e com timestamp e nível, que a via RCON não tem. Repeti-la aqui
+        // duplicaria cada comando no painel.
         if (out && out.trim()) {
-          this.tailer.appendLine(out.trim());
+          // Só escreve a resposta quando o tail não está no ar. O aviso de
+          // "sem saída", logo abaixo, continua valendo nos dois casos: ele não
+          // vem do servidor e portanto não está no log.
+          if (!this.tailer.ativo) this.tailer.appendLine(out.trim());
         } else {
           // Comandos como `gmx` e `players` (sem ninguém on-line) executam mas
           // não devolvem texto. Sem esta linha, o sucesso silencioso ficava
@@ -200,7 +211,7 @@ class ServerController {
       void this.statusAtual();
       if (!this.restarting) {
         vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunning()}`);
-        existing.show(false);
+        void this.revealConsole();
       }
       return;
     }
@@ -216,11 +227,15 @@ class ServerController {
       const st = await this.statusAtual();
       // Servidor da depuração é conhecido e legítimo: iniciar outro por cima é
       // que seria o erro. O aviso aqui é para órfão ou servidor externo.
-      if (st.vivo && st.origem === 'debug') {
+      // `respondeu`, e não `vivo`: barrar o start exige que a porta tenha
+      // respondido agora. `vivo` sobrevive a algumas perdas para o painel não
+      // piscar, e essa inércia carrega junto a origem — uma sessão de depuração
+      // encerrada bloquearia a próxima por alguns segundos.
+      if (st.respondeu && st.origem === 'debug') {
         vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunningDebug()}`);
         return;
       }
-      if (st.vivo && st.origem !== 'terminal') {
+      if (st.respondeu && st.origem !== 'terminal') {
         const usar = msg.server.btnUseRunning();
         const trocar = msg.server.btnRestartClean();
         const escolha = await vscode.window.showWarningMessage(
@@ -258,11 +273,17 @@ class ServerController {
         shellArgs: resolved.args,
       });
       this.term = t;
-      t.show(false);
+      // O terminal existe para hospedar o processo e para poder pará-lo, não
+      // para ser lido: quem mostra o console é o canal de saída, que reúne o
+      // log e as respostas do RCON. Trazer o terminal à frente aqui deixava o
+      // usuário olhando o painel onde o eco dos comandos nunca aparece.
 
       void this.refreshRconFromServerCfg();
 
-      if (!IS_WINDOWS && resolved.logPath) this.tailer.start(resolved.logPath, resolved.logEncoding);
+      if (!IS_WINDOWS && resolved.logPath) {
+        this.tailer.start(resolved.logPath, resolved.logEncoding);
+        this.tailer.reveal(true);
+      }
 
       const onClose = vscode.window.onDidCloseTerminal((closed) => {
         if (closed === this.term) {
@@ -389,17 +410,22 @@ class ServerController {
    * acompanha o arquivo independentemente da origem. Antes só existia o
    * caminho do terminal, então quem depurava ficava sem saída nenhuma.
    */
+  /**
+   * Mostra o console do servidor — sempre o canal de saída, nunca o terminal.
+   *
+   * O terminal só tem a saída do processo: os comandos do painel vão por RCON,
+   * e a resposta deles existe apenas aqui. Enquanto isto priorizava o terminal,
+   * quem mandava um comando era levado ao painel que não mostra a resposta, e o
+   * eco parecia perdido.
+   */
   async revealConsole() {
-    if (this.term) {
-      this.term.show(false);
-      return;
-    }
     const st = await this.statusAtual();
     if (!st.vivo) {
       vscode.window.showInformationMessage(`PawnPro: ${msg.server.notRunning()}`);
       return;
     }
     this.garantirTail();
+    this.tailer.reveal(true);
     this.tailer.markVisible();
   }
 
