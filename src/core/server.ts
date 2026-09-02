@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as iconv from 'iconv-lite';
 import * as dgram from 'dgram';
+import { randomBytes } from 'crypto';
 import type { SampCfgData, OutputSink, PawnProConfig } from './types.js';
 
 function stripQuotes(p: string): string {
@@ -46,7 +47,7 @@ export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
   const cfgPath = path.join(cwd || '', 'server.cfg');
   let txt = '';
   try { txt = await fsp.readFile(cfgPath, 'utf8'); }
-  catch { return { rconPassword: '', port: 7777, host: '127.0.0.1', cfgPath }; }
+  catch { return { rconPassword: '', port: 7777, host: '127.0.0.1', cfgPath, rconEnabled: true }; }
 
   let rcon_password = '';
   let port = '7777';
@@ -70,7 +71,8 @@ export async function loadSampConfig(cwd: string): Promise<SampCfgData> {
   const host = bind && bind !== '0.0.0.0' ? bind : '127.0.0.1';
   const prt = Math.max(1, parseInt(port, 10) || 7777);
 
-  return { rconPassword: rcon_password, port: prt, host, cfgPath };
+  // O SA-MP não tem chave equivalente: o RCON está sempre disponível.
+  return { rconPassword: rcon_password, port: prt, host, cfgPath, rconEnabled: true };
 }
 
 export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
@@ -79,13 +81,16 @@ export async function loadOmpConfig(cwd: string): Promise<SampCfgData> {
   try { json = JSON.parse(await fsp.readFile(cfgPath, 'utf8')) as Record<string, unknown>; } catch {}
 
   const rcon = json?.['rcon'] as Record<string, unknown> | undefined;
+  // `enable: false` faz o servidor não escutar RCON nenhum. Sem ler isto, a
+  // extensão manda pacotes para quem não responde e o timeout passa calado.
+  const rconEnabled = rcon?.['enable'] !== false;
   const network = json?.['network'] as Record<string, unknown> | undefined;
   const rconPassword = String(rcon?.['password'] ?? '');
   const rawPort = network?.['port'] ?? 7777;
   const bind = String(network?.['bind'] ?? '');
   const host = bind && bind !== '0.0.0.0' ? bind : '127.0.0.1';
 
-  return { rconPassword, port: Math.max(1, Number(rawPort) || 7777), host, cfgPath };
+  return { rconPassword, port: Math.max(1, Number(rawPort) || 7777), host, cfgPath, rconEnabled };
 }
 
 /**
@@ -257,11 +262,71 @@ export function isLoopbackHost(host: string): boolean {
   return m !== null && Number(m[1]) === 127;
 }
 
+/**
+ * Sonda se há um servidor vivo em `host:port`.
+ *
+ * Usa o opcode `p` (ping) do protocolo de consulta, que **não exige senha** e
+ * responde devolvendo o mesmo token de 4 bytes. É o único jeito de saber que o
+ * servidor está no ar independentemente de quem o iniciou — terminal do painel,
+ * sessão de depuração, ou um processo que ficou órfão de uma execução anterior.
+ *
+ * O token torna a resposta inequívoca: um datagrama que não o devolva não é
+ * resposta a esta sondagem.
+ */
+export function pingServer(host: string, port: number, timeoutMs = 1200): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = dgram.createSocket('udp4');
+    const token = randomBytes(4);
+    let done = false;
+
+    const finish = (vivo: boolean) => {
+      if (done) return;
+      done = true;
+      clearTimeout(to);
+      try { socket.close(); } catch { /* já fechado */ }
+      resolve(vivo);
+    };
+
+    const to = setTimeout(() => finish(false), timeoutMs);
+
+    socket.on('error', () => finish(false));
+    socket.on('message', (msg, rinfo) => {
+      const daOrigem = rinfo.address === host || isLoopbackHost(rinfo.address);
+      const assinado = msg.length >= 15 && msg.subarray(0, 4).toString('latin1') === 'SAMP';
+      const ecoou = msg.subarray(-4).equals(token);
+      if (daOrigem && assinado && ecoou) finish(true);
+    });
+
+    const octetos = ipOctets(host);
+    const pkt = Buffer.allocUnsafe(15);
+    pkt.write('SAMP', 0, 4, 'ascii');
+    pkt[4] = octetos[0]; pkt[5] = octetos[1]; pkt[6] = octetos[2]; pkt[7] = octetos[3];
+    pkt.writeUInt16LE(port, 8);
+    pkt.write('p', 10, 1, 'ascii');
+    token.copy(pkt, 11);
+
+    socket.send(pkt, port, host, (err) => { if (err) finish(false); });
+  });
+}
+
+/**
+ * Octetos IPv4 do host. Um nome (`localhost`) ou IPv6 (`::1`) não tem octetos:
+ * o protocolo é IPv4-only, então cai no loopback, que é o único destino que a
+ * extensão aceita de qualquer forma.
+ */
+function ipOctets(host: string): [number, number, number, number] {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host.trim());
+  if (!m) return [127, 0, 0, 1];
+  return [Number(m[1]) & 255, Number(m[2]) & 255, Number(m[3]) & 255, Number(m[4]) & 255];
+}
+
 export class SampRconClient {
   constructor(private host: string, private port: number, private password: string) {}
 
   private buildPacket(cmd: string): Buffer {
-    const ipOctets = this.host.split('.').map(n => Math.max(0, Math.min(255, parseInt(n, 10) || 0)));
+    // `split('.')` só funciona com IPv4 numérico: `localhost` ou `::1` davam um
+    // único octeto e o pacote saía com o IP errado no cabeçalho.
+    const octetos = ipOctets(this.host);
     // `latin1` preserva os bytes; `ascii` truncava silenciosamente um `ç` para
     // outro caractere, e a senha ia errada sem aviso.
     const passBuf = Buffer.from(this.password, 'latin1');
@@ -272,10 +337,10 @@ export class SampRconClient {
     const buf = Buffer.allocUnsafe(11 + 2 + passBuf.length + 2 + cmdBuf.length);
     let o = 0;
     buf.write('SAMP', o, 4, 'ascii'); o += 4;
-    buf[o++] = ipOctets[0] || 127;
-    buf[o++] = ipOctets[1] || 0;
-    buf[o++] = ipOctets[2] || 0;
-    buf[o++] = ipOctets[3] || 1;
+    buf[o++] = octetos[0];
+    buf[o++] = octetos[1];
+    buf[o++] = octetos[2];
+    buf[o++] = octetos[3];
     buf[o++] = this.port & 0xFF;
     buf[o++] = (this.port >> 8) & 0xFF;
     buf[o++] = 'x'.charCodeAt(0);

@@ -310,5 +310,14 @@
   "Expressão regular inválida.": "Недопустимое регулярное выражение.",
   "Nenhum dos exemplos passa neste padrão.": "Ни один из примеров не подходит под этот шаблон.",
   "Cor de destaque": "Акцентный цвет",
-  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Цвет кнопок и активного элемента на страницах расширения. Не меняет подсветку синтаксиса."
+  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Цвет кнопок и активного элемента на страницах расширения. Не меняет подсветку синтаксиса.",
+  "Já existe um servidor respondendo na porta {0}.": "На порту {0} уже отвечает сервер.",
+  "Usar esse servidor": "Использовать этот сервер",
+  "Encerrar e iniciar de novo": "Остановить и запустить заново",
+  "O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.": "RCON отключён в config.json сервера (rcon.enable). Включите его, чтобы отправлять команды из панели.",
+  "Ligar o RCON": "Включить RCON",
+  "RCON ligado no config.json. Reinicie o servidor para valer.": "RCON включён в config.json. Перезапустите сервер, чтобы изменения вступили в силу.",
+  "Não foi possível editar o config.json: {0}": "Не удалось изменить config.json: {0}",
+  "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "Сервер всё ещё отвечает на порту. Возможно, остался процесс — проверьте перед запуском нового.",
+  "{0} — enviado (este comando não devolve texto)": "{0} — отправлено (эта команда не возвращает текст)"
 }

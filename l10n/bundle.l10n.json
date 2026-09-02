@@ -310,5 +310,14 @@
   "Expressão regular inválida.": "Expressão regular inválida.",
   "Nenhum dos exemplos passa neste padrão.": "Nenhum dos exemplos passa neste padrão.",
   "Cor de destaque": "Cor de destaque",
-  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe."
+  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.",
+  "Já existe um servidor respondendo na porta {0}.": "Já existe um servidor respondendo na porta {0}.",
+  "Usar esse servidor": "Usar esse servidor",
+  "Encerrar e iniciar de novo": "Encerrar e iniciar de novo",
+  "O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.": "O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.",
+  "Ligar o RCON": "Ligar o RCON",
+  "RCON ligado no config.json. Reinicie o servidor para valer.": "RCON ligado no config.json. Reinicie o servidor para valer.",
+  "Não foi possível editar o config.json: {0}": "Não foi possível editar o config.json: {0}",
+  "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.",
+  "{0} — enviado (este comando não devolve texto)": "{0} — enviado (este comando não devolve texto)"
 }

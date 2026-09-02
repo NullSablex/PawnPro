@@ -310,5 +310,14 @@
   "Expressão regular inválida.": "Expresie regulată invalidă.",
   "Nenhum dos exemplos passa neste padrão.": "Niciunul dintre exemple nu se potrivește cu acest tipar.",
   "Cor de destaque": "Culoare de accent",
-  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Culoarea butoanelor și a elementului activ din paginile extensiei. Nu schimbă evidențierea sintaxei."
+  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Culoarea butoanelor și a elementului activ din paginile extensiei. Nu schimbă evidențierea sintaxei.",
+  "Já existe um servidor respondendo na porta {0}.": "Există deja un server care răspunde pe portul {0}.",
+  "Usar esse servidor": "Folosește acel server",
+  "Encerrar e iniciar de novo": "Oprește-l și pornește din nou",
+  "O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.": "RCON este dezactivat în config.json al serverului (rcon.enable). Activați-l pentru a trimite comenzi din panou.",
+  "Ligar o RCON": "Activează RCON",
+  "RCON ligado no config.json. Reinicie o servidor para valer.": "RCON activat în config.json. Reporniți serverul pentru a avea efect.",
+  "Não foi possível editar o config.json: {0}": "Nu s-a putut edita config.json: {0}",
+  "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "Serverul încă răspunde pe port. Este posibil să fi rămas un proces — verificați înainte de a porni altul.",
+  "{0} — enviado (este comando não devolve texto)": "{0} — trimis (această comandă nu returnează text)"
 }

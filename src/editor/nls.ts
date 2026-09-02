@@ -43,6 +43,15 @@ export function createMsg(t: Translate) {
     rconInvalidPassword: () => t('Senha RCON vazia ou inválida ("changename"). Comando não enviado.'),
     rconRemoteBlocked:  () => t('O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.'),
     rconHint: () => t('Envie apenas o comando, ex.: "gmx" ou "say oii".'),
+    portInUse: (porta: number) => t('Já existe um servidor respondendo na porta {0}.', String(porta)),
+    btnUseRunning: () => t('Usar esse servidor'),
+    btnRestartClean: () => t('Encerrar e iniciar de novo'),
+    rconDisabled: () => t('O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.'),
+    btnEnableRcon: () => t('Ligar o RCON'),
+    rconEnabledNow: () => t('RCON ligado no config.json. Reinicie o servidor para valer.'),
+    rconEnableFailed: (e: string) => t('Não foi possível editar o config.json: {0}', e),
+    stopTimeout: () => t('O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.'),
+    rconSentNoOutput: (cmd: string) => t('{0} — enviado (este comando não devolve texto)', cmd),
   },
 
   themes: {

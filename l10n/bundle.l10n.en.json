@@ -310,5 +310,14 @@
   "Expressão regular inválida.": "Invalid regular expression.",
   "Nenhum dos exemplos passa neste padrão.": "None of the examples match this pattern.",
   "Cor de destaque": "Accent color",
-  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Color of buttons and the active item on the extension pages. Does not change syntax highlighting."
+  "Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.": "Color of buttons and the active item on the extension pages. Does not change syntax highlighting.",
+  "Já existe um servidor respondendo na porta {0}.": "There is already a server responding on port {0}.",
+  "Usar esse servidor": "Use that server",
+  "Encerrar e iniciar de novo": "Stop it and start fresh",
+  "O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.": "RCON is disabled in the server's config.json (rcon.enable). Enable it to send commands from the panel.",
+  "Ligar o RCON": "Enable RCON",
+  "RCON ligado no config.json. Reinicie o servidor para valer.": "RCON enabled in config.json. Restart the server for it to take effect.",
+  "Não foi possível editar o config.json: {0}": "Could not edit config.json: {0}",
+  "O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.": "The server is still responding on the port. A process may have survived — check before starting another.",
+  "{0} — enviado (este comando não devolve texto)": "{0} — sent (this command returns no text)"
 }
