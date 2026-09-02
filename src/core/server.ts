@@ -185,6 +185,12 @@ export class LogTailer {
     }
   }
 
+  /** `true` se já está acompanhando este arquivo — evita reiniciar o tail (e
+   *  limpar o painel) à toa. */
+  isTailing(filePath: string): boolean {
+    return this.running && this.file === stripQuotes(filePath);
+  }
+
   markVisible() { this.assumeVisible = true; }
   markHidden() { this.assumeVisible = false; }
 

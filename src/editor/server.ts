@@ -59,7 +59,13 @@ class ServerController {
       if (st.vivo) this.garantirTail();
       else { this.tailer.stop(); this.tailer.markHidden(); }
     });
-    this.registry.vigiar(() => this.enderecoAtual());
+    // A porta vem do `server.cfg`/`config.json` do projeto. Sem carregar isto
+    // primeiro, a vigilância sondaria 7777 num projeto que usa outra porta e
+    // reportaria "parado" com o servidor no ar.
+    void this.refreshRconFromServerCfg().then(() => {
+      this.registry.vigiar(() => this.enderecoAtual());
+      return this.statusAtual();
+    });
   }
 
   /** Host e porta do servidor deste projeto, para sondagem. */
@@ -76,7 +82,12 @@ class ServerController {
   private garantirTail(): void {
     if (IS_WINDOWS) return;
     const resolved = resolveServerConfig(this.config.getAll().server, getWorkspaceRoot());
-    if (resolved.logPath) this.tailer.start(resolved.logPath, resolved.logEncoding);
+    if (!resolved.logPath) return;
+    // `start` limpa o painel e recomeça a leitura. Como a vigilância chama isto
+    // a cada poucos segundos enquanto o servidor está no ar, sem a guarda o log
+    // seria apagado sem parar e não daria para ler nada.
+    if (this.tailer.isTailing(resolved.logPath)) return;
+    void this.tailer.start(resolved.logPath, resolved.logEncoding);
   }
 
   /** Estado atual do servidor, sondando a porta. */
@@ -357,11 +368,10 @@ class ServerController {
 
 
   async restart() {
-    // O servidor da depuração é filho do processo do adaptador, que o mata no
-    // seu `Drop`. Reiniciar só o servidor deixaria o depurador anexado a um
-    // processo morto — a vida dos dois é a mesma, por construção. Então
-    // reiniciar aqui é reiniciar a sessão, que é o que o editor já sabe fazer
-    // (e que reanexa o depurador, preservando os breakpoints).
+    // Servidor da depuração: quem o detém é o adaptador, então o pedido vai
+    // pelo editor. O adaptador troca o processo por baixo e mantém a sessão
+    // viva, reresolvendo os breakpoints contra o `.amx` recompilado — que é o
+    // motivo mais comum de reiniciar.
     if (!this.term && this.registry.ultimoConhecido()?.origem === 'debug') {
       await vscode.commands.executeCommand('workbench.action.debug.restart');
       return;
@@ -393,7 +403,16 @@ class ServerController {
     this.tailer.markVisible();
   }
 
+  /**
+   * Abre o painel de log.
+   *
+   * Garante o tail antes de mostrar: abrir o log com o servidor no ar deve
+   * mostrar o log, e não um painel vazio — o que aconteceria se o servidor
+   * tivesse subido por um caminho que não liga o tail (a depuração, ou um
+   * servidor que já estava rodando).
+   */
   revealLog() {
+    this.garantirTail();
     this.tailer.reveal(true);
     this.tailer.markVisible();
   }
