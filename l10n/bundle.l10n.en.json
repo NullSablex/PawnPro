@@ -169,13 +169,10 @@
   "Use <code>PawnPro: O que há de novo</code> para reabrir.": "Use <code>PawnPro: What's New</code> to reopen.",
   "PawnPro — Ajuda e informações": "PawnPro — Help and information",
   "Componentes, links e guia do depurador": "Components, links and debugger guide",
-  "Compilador recomendado": "Recommended compiler",
-  "Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.": "Compile your scripts with the **open.mp compiler** — version **3.10.11** is the recommended one, and **3.10.10** has also been tested (on Windows, debugging has not been verified yet). It is the recommended compiler both for engine analysis and for debugging; others may produce incompatible code or debug information.",
   "Baixar o compilador do open.mp": "Download the open.mp compiler",
   "Componentes": "Components",
   "Extensão PawnPro": "PawnPro extension",
   "Engine LSP (pawnpro-engine)": "LSP engine (pawnpro-engine)",
-  "Adaptador do depurador (dap-adapter)": "Debugger adapter (dap-adapter)",
   "Links": "Links",
   "Documentação": "Documentation",
   "Repositório da extensão": "Extension repository",
@@ -341,5 +338,9 @@
   "PawnPro: {0} item movido do config.json. Backup em {1} — confira e apague quando quiser.": "PawnPro: {0} item moved from config.json. Backup at {1} — check it and delete when you like.",
   "PawnPro: {0} itens movidos do config.json. Backup em {1} — confira e apague quando quiser.": "PawnPro: {0} items moved from config.json. Backup at {1} — check it and delete when you like.",
   "{0} pacote": "{0} package",
-  "{0} pacotes": "{0} packages"
+  "{0} pacotes": "{0} packages",
+  "Adaptador do depurador (pawnpro-debugger)": "Debug adapter (pawnpro-debugger)",
+  "Compiladores recomendados": "Recommended compilers",
+  "Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux e macOS. Verificado no Linux; nos demais sistemas ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.": "Use the **open.mp compiler** — it serves both open.mp and SA-MP, and is the only one with a Linux and macOS build. Verified on Linux; on other systems it has not been tested. Other compilers may produce debug information the debugger cannot read.",
+  "Ver os compiladores verificados": "See the verified compilers"
 }

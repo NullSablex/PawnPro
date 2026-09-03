@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "Folhas de estilo das WebViews. O fonte fica em assets-src/, legível e com",
+    "realce do editor; a saída minificada vai para outDir, que é de onde a",
+    "extensão as serve via asWebviewUri.",
+    "Ao criar uma folha nova, acrescente aqui — o build não varre diretórios,",
+    "para que nada entre no pacote sem estar declarado."
+  ],
+  "outDir": "out/assets",
+  "css": [
+    {
+      "src": "assets-src/css/settings.css",
+      "out": "css/settings.min.css"
+    },
+    {
+      "src": "assets-src/css/server.css",
+      "out": "css/server.min.css"
+    },
+    {
+      "src": "assets-src/css/help.css",
+      "out": "css/help.min.css"
+    },
+    {
+      "src": "assets-src/css/whats-new.css",
+      "out": "css/whats-new.min.css"
+    }
+  ],
+  "js": [
+    {
+      "src": "assets-src/js/settings.js",
+      "out": "js/settings.min.js"
+    },
+    {
+      "src": "assets-src/js/brand-animation.js",
+      "out": "js/brand-animation.min.js"
+    }
+  ]
+}

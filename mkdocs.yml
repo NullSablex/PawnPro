@@ -15,6 +15,7 @@ nav:
       - Comandos: commands.md
       - Servidor: server.md
       - Depuração: debugging.md
+      - Compiladores: compilers.md
       - Snippets: snippets.md
       - Idiomas (i18n): i18n.md
   - Para desenvolvedores:

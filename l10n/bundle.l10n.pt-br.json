@@ -169,13 +169,10 @@
   "Use <code>PawnPro: O que há de novo</code> para reabrir.": "Use <code>PawnPro: O que há de novo</code> para reabrir.",
   "PawnPro — Ajuda e informações": "PawnPro — Ajuda e informações",
   "Componentes, links e guia do depurador": "Componentes, links e guia do depurador",
-  "Compilador recomendado": "Compilador recomendado",
-  "Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.": "Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.",
   "Baixar o compilador do open.mp": "Baixar o compilador do open.mp",
   "Componentes": "Componentes",
   "Extensão PawnPro": "Extensão PawnPro",
   "Engine LSP (pawnpro-engine)": "Engine LSP (pawnpro-engine)",
-  "Adaptador do depurador (dap-adapter)": "Adaptador do depurador (dap-adapter)",
   "Links": "Links",
   "Documentação": "Documentação",
   "Repositório da extensão": "Repositório da extensão",
@@ -341,5 +338,9 @@
   "PawnPro: {0} item movido do config.json. Backup em {1} — confira e apague quando quiser.": "PawnPro: {0} item movido do config.json. Backup em {1} — confira e apague quando quiser.",
   "PawnPro: {0} itens movidos do config.json. Backup em {1} — confira e apague quando quiser.": "PawnPro: {0} itens movidos do config.json. Backup em {1} — confira e apague quando quiser.",
   "{0} pacote": "{0} pacote",
-  "{0} pacotes": "{0} pacotes"
+  "{0} pacotes": "{0} pacotes",
+  "Adaptador do depurador (pawnpro-debugger)": "Adaptador do depurador (pawnpro-debugger)",
+  "Compiladores recomendados": "Compiladores recomendados",
+  "Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux e macOS. Verificado no Linux; nos demais sistemas ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.": "Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux e macOS. Verificado no Linux; nos demais sistemas ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.",
+  "Ver os compiladores verificados": "Ver os compiladores verificados"
 }

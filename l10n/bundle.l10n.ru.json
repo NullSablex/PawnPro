@@ -169,13 +169,10 @@
   "Use <code>PawnPro: O que há de novo</code> para reabrir.": "Используйте <code>PawnPro: Что нового</code>, чтобы открыть снова.",
   "PawnPro — Ajuda e informações": "PawnPro — Справка и информация",
   "Componentes, links e guia do depurador": "Компоненты, ссылки и руководство по отладчику",
-  "Compilador recomendado": "Рекомендуемый компилятор",
-  "Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.": "Компилируйте свои скрипты **компилятором open.mp** — рекомендуется версия **3.10.11**, версия **3.10.10** также протестирована (на Windows отладка ещё не проверена). Это рекомендуемый компилятор как для анализа движком, так и для отладки; другие могут генерировать несовместимый код или отладочную информацию.",
   "Baixar o compilador do open.mp": "Скачать компилятор open.mp",
   "Componentes": "Компоненты",
   "Extensão PawnPro": "Расширение PawnPro",
   "Engine LSP (pawnpro-engine)": "Движок LSP (pawnpro-engine)",
-  "Adaptador do depurador (dap-adapter)": "Адаптер отладчика (dap-adapter)",
   "Links": "Ссылки",
   "Documentação": "Документация",
   "Repositório da extensão": "Репозиторий расширения",
@@ -341,5 +338,9 @@
   "PawnPro: {0} item movido do config.json. Backup em {1} — confira e apague quando quiser.": "PawnPro: {0} элемент перемещён из config.json. Копия в {1} — проверьте и удалите, когда захотите.",
   "PawnPro: {0} itens movidos do config.json. Backup em {1} — confira e apague quando quiser.": "PawnPro: {0} элементов перемещено из config.json. Копия в {1} — проверьте и удалите, когда захотите.",
   "{0} pacote": "{0} пакет",
-  "{0} pacotes": "{0} пакетов"
+  "{0} pacotes": "{0} пакетов",
+  "Adaptador do depurador (pawnpro-debugger)": "Адаптер отладчика (pawnpro-debugger)",
+  "Compiladores recomendados": "Рекомендуемые компиляторы",
+  "Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux e macOS. Verificado no Linux; nos demais sistemas ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.": "Используйте **компилятор open.mp** — он подходит и для open.mp, и для SA-MP, и это единственный вариант со сборкой для Linux и macOS. Проверен на Linux; на других системах тестов не было. Другие компиляторы могут выдавать отладочную информацию, которую отладчик не читает.",
+  "Ver os compiladores verificados": "Посмотреть проверенные компиляторы"
 }

@@ -1,0 +1,239 @@
+  :root {
+    --pad: 8px;
+    /* Escala de espaçamento: os valores eram avulsos (6, 10, 4...) e o
+       ritmo vertical saía irregular. */
+    --gap-xs: 4px;
+    --gap-sm: 6px;
+    --gap-md: 10px;
+    /* Altura dos controles da primeira linha e recuo do texto dentro deles —
+       a legenda alinha por este mesmo valor. */
+    --control-h: 28px;
+    --control-pad: 9px;
+    /* Altura mínima de uma linha da lista, para todas ficarem iguais. */
+    --row-h: 30px;
+    --radius: 8px;
+    --bg: var(--vscode-sideBar-background);
+    --fg: var(--vscode-foreground);
+    --border: var(--vscode-panel-border);
+    --btn-bg: var(--pp-accent);
+    --btn-fg: var(--vscode-button-foreground);
+    --btn-hover: var(--pp-accent-hover);
+    --input-bg: var(--vscode-input-background);
+    --input-fg: var(--vscode-input-foreground);
+    --list-bg: var(--vscode-editorWidget-background);
+    --list-border: var(--vscode-widget-border);
+    --muted: var(--vscode-descriptionForeground);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin:0; padding: var(--pad); background: var(--bg); color: var(--fg);
+    font: 12px/1.4 var(--vscode-font-family);
+    /* O painel inteiro é uma coluna: a lista fica com a altura que sobra, e
+       só ela rola. Sem isso o body rolava por fora enquanto a lista rolava
+       por dentro — dois scrolls concorrendo no mesmo gesto. */
+    display: flex; flex-direction: column; overflow: hidden;
+    /* A unidade vw mede a janela inteira, não este painel: numa janela
+       estreita as fontes encolhiam mesmo havendo espaço aqui. Declarar o
+       container faz as consultas abaixo medirem o painel. */
+    container-type: inline-size;
+  }
+  .row { display: flex; gap: var(--gap-sm); align-items: stretch; flex: 0 0 auto; }
+  input[type="text"]{
+    flex: 1 1 auto; min-width: 0; height: var(--control-h);
+    padding: 0 var(--control-pad);
+    border-radius: var(--radius);
+    border: 1px solid var(--vscode-input-border, var(--border));
+    background: var(--input-bg); color: var(--input-fg); outline: none;
+  }
+  button {
+    padding: var(--gap-sm) var(--gap-md); border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
+  }
+  button:hover { background: var(--btn-hover); }
+  .section {
+    /* O recuo interno vive numa variável própria porque as abas se estendem
+       até a borda cancelando-o; mudar um sem o outro desalinharia a régua. */
+    --section-pad: var(--gap-sm);
+    margin-top: var(--gap-md); border: 1px solid var(--list-border);
+    border-radius: var(--radius); background: var(--list-bg);
+    padding: var(--section-pad);
+    /* Ocupa a altura restante e não deixa o conteúdo empurrá-lo além dela. */
+    display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 0;
+  }
+  /* A barra usa as cores do tema, em vez da padrão do navegador — larga e
+     clara, destoando do painel. */
+  .items {
+    display: grid; gap: var(--gap-xs); align-content: start;
+    /* A altura vem do espaço disponível, não de um número fixo de linhas:
+       alargar o painel faz o scroll sumir sozinho. */
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+  }
+  .items::-webkit-scrollbar { width: 10px; }
+  .items::-webkit-scrollbar-track { background: transparent; }
+  .items::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border: 3px solid transparent; border-radius: 6px; background-clip: content-box;
+  }
+  .items::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+    background-clip: content-box;
+  }
+  .items::-webkit-scrollbar-thumb:active {
+    background: var(--vscode-scrollbarSlider-activeBackground);
+    background-clip: content-box;
+  }
+  /* Ocupa a área da lista em vez de ficar encolhido num canto: o vazio é a
+     primeira coisa que se vê num painel novo. */
+  /* A lista é uma grade alinhada ao topo, então o vazio ficava encostado no
+     campo de busca com a área toda livre abaixo. Ocupar a altura inteira o
+     mantém centrado no espaço da lista, que é onde o olho procura. */
+  .empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: var(--gap-sm);
+    height: 100%; min-height: 96px; padding: var(--gap-md);
+    text-align: center;
+  }
+  /* Cada ícone recebe a cor do que representa: a estrela dos favoritos usa o
+     mesmo amarelo da estrela marcada, e a lupa da busca sem resultado o tom
+     de aviso. As cores vêm da paleta de gráficos do tema, que existe para
+     acentos assim e acompanha o claro e o escuro. */
+  .empty svg { width: 28px; height: 28px; fill: currentColor; opacity: .55; }
+  .empty-icon { line-height: 0; }
+  .empty-icon.hist   { color: var(--vscode-charts-blue, #4a9eff); }
+  .empty-icon.fav    { color: var(--vscode-charts-yellow, #d7ba7d); }
+  .empty-icon.search { color: var(--vscode-charts-orange, #d18616); }
+  /* O título usa a cor normal do texto: é a resposta à pergunta "o que há
+     aqui?" e precisa ser lido primeiro. */
+  .empty-title { color: var(--fg); font-size: 12px; font-weight: 600; }
+  /* A dica é secundária, mas legível — antes somava a cor apagada com mais
+     opacidade por cima, e o texto quase sumia. */
+  .empty-hint {
+    color: var(--muted); font-size: 11px;
+    max-width: 28ch; line-height: 1.5;
+  }
+  .cmd-row {
+    display: flex; gap: var(--gap-sm); align-items: center;
+    min-height: var(--row-h);
+    padding: var(--gap-xs) var(--gap-sm); border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+  }
+  .cmd-row:hover { border-color: var(--border); background: rgba(255,255,255,.04); }
+  /* Um comando longo encolhe com reticências em vez de empurrar os botões
+     para fora da linha; o texto inteiro fica no title. O min-width é o que
+     autoriza o flex a encolher abaixo do conteúdo. */
+  .cmd-text {
+    flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mini { padding: 3px var(--gap-sm); font-size: 11px; border-radius: 6px; }
+  .ghost { background: transparent; border-color: var(--list-border); color: var(--fg); }
+  .ghost:hover { background: rgba(255,255,255,.06); }
+  .muted { color: var(--muted); }
+
+  /* Botão de enviar: só o ícone, quadrado e alinhado à altura do input. */
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: var(--control-h); padding: 0; flex: 0 0 auto;
+  }
+  .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+  /* Nas linhas da lista os botões são menores, e o ícone acompanha — sem
+     isso o traço fica maior que o botão. */
+  .cmd-row .icon-btn { width: 24px; height: 22px; }
+  .cmd-row .icon-btn svg { width: 13px; height: 13px; }
+
+  /* A estrela precisa se distinguir do fundo em ambos os estados: contorno
+     apagado quando não é favorito, cheia e destacada quando é. */
+  .star-btn { color: var(--muted); }
+  .star-btn:hover { color: var(--fg); }
+  .star-btn.is-on { color: var(--vscode-charts-yellow, #d7ba7d); }
+  .star-btn.is-on:hover { color: var(--vscode-charts-yellow, #d7ba7d); opacity: .8; }
+
+  /* Abas: Recentes e Favoritos dividem o mesmo espaço.
+     O painel lateral pode ficar bem estreito, então os rótulos encolhem
+     truncam antes de empurrar o "Limpar" para fora. */
+  .tabs {
+    display: flex; align-items: stretch; gap: 2px;
+    /* Puxa a régua até as bordas do bloco: a aba ativa passa a sentar sobre
+       uma linha que atravessa o painel, em vez de flutuar num traço curto. */
+    margin: calc(var(--section-pad) * -1) calc(var(--section-pad) * -1) var(--gap-sm);
+    padding: 0 var(--section-pad);
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--list-border);
+  }
+  .tab {
+    min-width: 0; flex: 0 1 auto;
+    padding: 5px var(--gap-md);
+    border: none; border-bottom: 2px solid transparent; border-radius: 0;
+    background: transparent; color: var(--muted);
+    font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .tab:hover { background: rgba(255,255,255,.04); color: var(--fg); }
+  .tab[aria-selected="true"] {
+    color: var(--fg);
+    border-bottom-color: var(--pp-accent);
+  }
+  /* Cabe até 3 dígitos (o histórico vai a 200) sem empurrar o rótulo. */
+  .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
+
+  /* O X é um botão nosso, e não o nativo do input de busca: aquele vive no
+     shadow DOM, onde nem a cor do tema nem uma máscara declarada aqui chegam
+     — ficava azul do sistema ou invisível. */
+  .search-box { position: relative; margin-bottom: var(--gap-sm); flex: 0 0 auto; }
+  /* Ancorado no elemento: 'search' também é o tipo do ícone do estado vazio
+     (empty-icon search), e o seletor solto vestia o ícone de input. */
+  input.search {
+    width: 100%; height: 24px;
+    padding: 0 25px 0 var(--control-pad); border-radius: var(--radius);
+    border: 1px solid var(--vscode-input-border, var(--border));
+    background: var(--input-bg); color: var(--input-fg);
+    font-size: 11px; outline: none;
+  }
+  input.search:focus { border-color: var(--pp-accent); }
+  .search-clear {
+    position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; padding: 0;
+    border: none; border-radius: 3px; background: transparent;
+    color: var(--vscode-errorForeground, #f14c4c);
+    cursor: pointer; opacity: .8;
+  }
+  .search-clear:hover { opacity: 1; background: rgba(255,255,255,.1); }
+  .search-clear svg { width: 10px; height: 10px; fill: currentColor; }
+  .load-more { width: 100%; margin-top: var(--gap-sm); flex: 0 0 auto; }
+  .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
+  /* Antes o botão acumulava as classes mini (recuo próprio) e icon-btn
+     (medida fixa) ao mesmo tempo, e as duas brigavam. Aqui tem medida única,
+     discreta como as abas e destacando-se só ao passar o mouse. */
+  .tab-action {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 26px; padding: 0;
+    border: none; border-radius: 5px;
+    background: transparent; color: var(--muted);
+    cursor: pointer;
+  }
+  .tab-action:hover {
+    background: rgba(255,255,255,.07);
+    color: var(--vscode-errorForeground, var(--fg));
+  }
+  .tab-action svg { width: 16px; height: 16px; fill: currentColor; }
+  [hidden] { display: none !important; }
+
+  /* Só quando o painel em si aperta é que algo cede — primeiro o respiro
+     lateral, depois a contagem, que é o menos essencial. O rótulo mantém o
+     tamanho: é ele que identifica a aba. */
+  @container (max-width: 230px) {
+    .tab { padding: 5px var(--gap-sm); }
+    .tab-action { width: 24px; }
+  }
+  @container (max-width: 190px) {
+    .tab-count { display: none; }
+  }

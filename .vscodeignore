@@ -15,6 +15,10 @@ notes/**
 # Source maps
 out/**/*.map
 
+# CSS fonte: no VSIX vai só a versão minificada, em out/assets/
+assets-src/**
+assets.manifest.json
+
 # Configuração de build e dev
 tsconfig.json
 .vscode/**
