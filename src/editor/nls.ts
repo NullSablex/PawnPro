@@ -31,11 +31,8 @@ export function createMsg(t: Translate) {
     success: (file: string) => t('Compilação bem-sucedida: {0}', file),
     failed: (file: string) => t('Compilação falhou: {0}', file),
     notPawnFile: () => t('Abra um arquivo .pwn para compilar.'),
-    noCompiler: () => t('Compilador não configurado. Use "PawnPro: Detectar compilador" ou configure em .pawnpro/config.json'),
     compilerNotFound: (path: string) => t('Falha ao iniciar pawncc: {0}', path),
-    detecting: () => t('Detectando compilador...'),
     detected: (path: string) => t('pawncc detectado: {0}', path),
-    notDetected: () => t('Compilador não detectado automaticamente.'),
   },
 
   server: {
@@ -45,7 +42,6 @@ export function createMsg(t: Translate) {
     stopped: () => t('Servidor parado'),
     restarting: () => t('Reiniciando servidor...'),
     notConfigured: () => t('Configure "server.path" em .pawnpro/config.json (executável do servidor).'),
-    notFound: (path: string) => t('Servidor não encontrado: {0}', path),
     alreadyRunning: () => t('Servidor já está em execução.'),
     notRunning: () => t('Servidor não está em execução.'),
     failedStart: (err: string) => t('Falha ao iniciar servidor: {0}', err),

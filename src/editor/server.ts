@@ -205,6 +205,23 @@ class ServerController {
   }
 
   /**
+   * Executa uma etapa longa com a notificação de progresso do editor.
+   *
+   * Subir, parar e reiniciar levam segundos e não dão retorno visual nenhum —
+   * o painel só muda de estado quando a porta responde.
+   */
+  private comProgresso<T>(titulo: string, etapa: () => Promise<T>): Thenable<T> {
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `PawnPro: ${titulo}`,
+        cancellable: false,
+      },
+      etapa,
+    );
+  }
+
+  /**
    * A porta continua ocupada depois de parar: identifica quem a segura e
    * oferece encerrá-lo.
    *
@@ -359,10 +376,15 @@ class ServerController {
       });
 
       // Sondagem em vez de prazo fixo: o servidor sobe quando sobe, e antes
-      // disso o painel não deve dizer que está no ar.
-      void this.esperarPorta(true, 15000).then(() => {
-        this.registry.marcarOrigem('terminal');
-        return this.statusAtual();
+      // disso o painel não deve dizer que está no ar. O progresso acompanha
+      // essa espera: subir leva segundos, e sem sinal o usuário não sabe se o
+      // clique surtiu efeito.
+      const titulo = this.restarting ? msg.server.restarting() : msg.server.starting();
+      void this.comProgresso(titulo, async () => {
+        const subiu = await this.esperarPorta(true, 15000);
+        if (subiu) this.registry.marcarOrigem('terminal');
+        await this.statusAtual();
+        if (subiu) vscode.window.showInformationMessage(`PawnPro: ${msg.server.started()}`);
       });
     } catch (err: unknown) {
       this.term = null;
@@ -399,10 +421,19 @@ class ServerController {
     }
 
     // Confirma pela porta, não pelo terminal.
-    const parou = await this.esperarPorta(false, 6000);
+    const parou = await this.comProgresso(msg.server.stopping(), () =>
+      this.esperarPorta(false, 6000),
+    );
     await this.statusAtual();
 
-    if (!parou) await this.oferecerEncerrarOrfao();
+    if (parou) {
+      // No reinício quem anuncia é o start, no fim do ciclo.
+      if (!this.restarting) {
+        vscode.window.showInformationMessage(`PawnPro: ${msg.server.stopped()}`);
+      }
+      return;
+    }
+    await this.oferecerEncerrarOrfao();
   }
 
   /**
@@ -458,6 +489,8 @@ class ServerController {
       await vscode.commands.executeCommand('workbench.action.debug.restart');
       return;
     }
+    // `restarting` silencia o aviso de parada: o ciclo é um só, e anunciar as
+    // duas metades seria ruído. O "servidor iniciado" no fim vem do `start`.
     this.restarting = true;
     await this.stop();
     await this.start();

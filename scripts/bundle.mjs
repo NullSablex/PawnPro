@@ -20,32 +20,45 @@ const rootDir = path.join(import.meta.dirname, '..');
  */
 async function buildAssets() {
   const manifestPath = path.join(rootDir, 'assets.manifest.json');
-  if (!fs.existsSync(manifestPath)) return;
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const outDir = path.resolve(rootDir, manifest.outDir ?? 'out/assets');
 
+  // Duas entradas com o mesmo destino se sobrescreveriam em silêncio, e o
+  // pacote sairia com um dos arquivos faltando.
+  const destinos = new Set();
+  for (const item of [...(manifest.css ?? []), ...(manifest.js ?? [])]) {
+    if (destinos.has(item.out)) {
+      throw new Error(`[assets] destino repetido no manifesto: ${item.out}`);
+    }
+    destinos.add(item.out);
+  }
+
   for (const [type, list] of [['css', manifest.css], ['js', manifest.js]]) {
     if (!list?.length) continue;
-    let from = 0;
-    let to = 0;
     for (const item of list) {
-      const src = path.resolve(rootDir, item.src);
-      const out = path.resolve(outDir, item.out);
-      if (!fs.existsSync(src)) {
+      if (!fs.existsSync(path.resolve(rootDir, item.src))) {
         throw new Error(`[assets] declarado no manifesto mas ausente: ${item.src}`);
       }
-      fs.mkdirSync(path.dirname(out), { recursive: true });
-      await esbuild.build({
-        entryPoints: [src],
-        outfile: out,
-        bundle: false,
-        minify: !isDev,
-        sourcemap: isDev,
-        legalComments: 'none',
-      });
-      from += fs.statSync(src).size;
-      to += fs.statSync(out).size;
+      fs.mkdirSync(path.dirname(path.resolve(outDir, item.out)), { recursive: true });
     }
+    // Em paralelo: os arquivos são independentes, e em série cada um esperava
+    // o anterior sem razão.
+    await Promise.all(
+      list.map(item =>
+        esbuild.build({
+          entryPoints: [path.resolve(rootDir, item.src)],
+          outfile: path.resolve(outDir, item.out),
+          bundle: false,
+          minify: !isDev,
+          sourcemap: isDev,
+          legalComments: 'none',
+        }),
+      ),
+    );
+    const tamanho = (base, campo) =>
+      list.reduce((n, item) => n + fs.statSync(path.resolve(base, item[campo])).size, 0);
+    const from = tamanho(rootDir, 'src');
+    const to = tamanho(outDir, 'out');
     const kb = n => (n / 1024).toFixed(1);
     const saved = from ? Math.round((1 - to / from) * 100) : 0;
     console.log(
