@@ -12,6 +12,26 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
+## [3.5.1] - 03/09/2026
+
+> **Último patch da linha 3.5.** A próxima versão é a **4.0.0**, que traz
+> mudanças profundas na extensão e em todas as funcionalidades — sem prejuízo
+> para quem já usa: a configuração e os projetos existentes seguem valendo.
+
+### Corrigido
+- **O painel deixa de tratar o servidor da depuração como órfão** — parar uma sessão de depuração pelo botão do painel acusava "a porta continua ocupada pelo processo N", e o servidor de fato continuava no ar. A decisão de *como* parar vinha da origem registrada, que expira sozinha depois de algumas sondagens UDP perdidas — e um servidor pausado num breakpoint deixa de responder ao datagrama. Quando expirava, nenhum caminho de parada era executado e ninguém pedia o encerramento. Agora o critério é a sessão que o editor entrega, que é um fato e não uma estimativa. Reiniciar pelo painel durante a depuração também parou de exibir duas mensagens sobre o mesmo processo
+- **F5 confere quem está na porta** — a depuração validava o plugin do servidor mas não olhava se a porta já estava ocupada. Com um processo de uma execução anterior ali, subia um segundo servidor e os dois disputavam o mesmo datagrama, tornando o diagnóstico imprevisível. Agora a checagem acontece antes de o servidor subir, com o mesmo filtro do painel: só oferece encerrar o que é comprovadamente o executável do projeto e do mesmo usuário
+- **Reiniciar e parar deixam de dar por concluído o que apenas pediram** — o início do servidor era dado como terminado antes de ele responder na porta, e o ciclo de reinício seguia adiante mesmo quando a parada falhava. Um terminal que fechasse sem o processo morrer, um encerramento que não liberasse a porta, e a espera pela subida: todos passam a ser confirmados pela porta, não pelo pedido
+- **Encerrar um processo deixa de falhar em silêncio** — quando o encerramento era aceito mas a porta continuava ocupada, nada era dito e o clique parecia não ter efeito
+- **`0.0.0.0` deixa de contar como endereço local** — é o curinga "todas as interfaces", e a extensão o tratava como loopback. Como esse é o teste que decide se a senha do RCON pode trafegar (o protocolo a envia em texto claro), um servidor configurado assim mandava a credencial para fora da máquina
+- **Processos e portas passam a ser inspecionados em macOS e Windows** — a verificação de quem ocupa a porta e de a quem o processo pertence só funcionava no Linux. No macOS o filtro reprovava tudo, e o painel nunca oferecia encerrar; no Windows a extensão afirmava "ocupada por outro programa" mesmo quando era um servidor do próprio projeto. No Windows o encerramento também passa a pedir a saída limpa antes de forçar, dando ao servidor a chance de salvar
+- **Ícones do painel montados como nós, não como texto interpretado** — o painel construía os ícones reinterpretando texto como HTML. A origem era sempre interna, mas o padrão é o que as ferramentas de análise sinalizam; agora os nós são criados diretamente
+
+### Alterado
+- **Iniciar, parar e reiniciar mostram progresso** — as três ações levam segundos e não davam retorno nenhum: o painel só mudava quando a porta respondia. Agora cada uma exibe a barra de progresso do editor enquanto acontece, e confirma ao terminar. Reiniciar termina com "servidor reiniciado", não "iniciado". Se o servidor não subir no prazo, isso é dito — antes o clique terminava em silêncio com o painel dizendo "parado" sem explicar por quê
+- **Os controles do depurador também mostram progresso** — reiniciar ou parar pela barra flutuante do editor não passava pelo painel e não exibia nada. Uma barra única acompanha o ciclo e troca de texto entre "compilando" e "reiniciando", em vez de as duas etapas aparecerem ao mesmo tempo
+- **Parar e reiniciar só aparecem quando o painel pode comandar o servidor** — com um processo de outro projeto ou de outro usuário na porta, os botões ficavam visíveis prometendo o que não fariam
+
 ## [3.5.0] - 01/09/2026
 
 ### Adicionado
