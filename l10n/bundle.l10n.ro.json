@@ -233,6 +233,7 @@
   "Depurar script Pawn (PawnPro)": "Depanează scriptul Pawn (PawnPro)",
   "Defina o caminho do `.amx` (campo \"program\") para depurar.": "Setează calea `.amx` (câmpul \"program\") pentru a depana.",
   "Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.": "Adaptor de depanare negăsit. Compilează/instalează PawnPro Debugger.",
+  "Compilando com informação de depuração...": "Se compilează cu informații de depanare...",
   "Falha ao compilar o script com informação de depuração. Verifique o painel de saída.": "Eroare la compilarea scriptului cu informații de depanare. Verifică panoul de ieșire.",
   "Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.": "Server negăsit. Configurează `server.path` sau lasă executabilul în rădăcina workspace-ului.",
   "Instale o plugin de depuração em {0}.": "Instalează plugin-ul de depanare în {0}.",

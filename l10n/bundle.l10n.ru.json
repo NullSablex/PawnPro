@@ -233,6 +233,7 @@
   "Depurar script Pawn (PawnPro)": "Отладка скрипта Pawn (PawnPro)",
   "Defina o caminho do `.amx` (campo \"program\") para depurar.": "Укажите путь к `.amx` (поле \"program\") для отладки.",
   "Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.": "Адаптер отладки не найден. Скомпилируйте/установите PawnPro Debugger.",
+  "Compilando com informação de depuração...": "Компиляция с отладочной информацией...",
   "Falha ao compilar o script com informação de depuração. Verifique o painel de saída.": "Не удалось скомпилировать скрипт с отладочной информацией. Проверьте панель вывода.",
   "Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.": "Сервер не найден. Настройте `server.path` или поместите исполняемый файл в корень workspace.",
   "Instale o plugin de depuração em {0}.": "Установите плагин отладки в {0}.",

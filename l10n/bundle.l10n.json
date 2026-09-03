@@ -233,6 +233,7 @@
   "Depurar script Pawn (PawnPro)": "Depurar script Pawn (PawnPro)",
   "Defina o caminho do `.amx` (campo \"program\") para depurar.": "Defina o caminho do `.amx` (campo \"program\") para depurar.",
   "Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.": "Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.",
+  "Compilando com informação de depuração...": "Compilando com informação de depuração...",
   "Falha ao compilar o script com informação de depuração. Verifique o painel de saída.": "Falha ao compilar o script com informação de depuração. Verifique o painel de saída.",
   "Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.": "Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.",
   "Instale o plugin de depuração em {0}.": "Instale o plugin de depuração em {0}.",

@@ -393,6 +393,8 @@
   },
   "scripts": {
     "compile": "tsc --noEmit -p .",
+    "pretest": "rm -rf out/test && tsc -p tsconfig.test.json",
+    "test": "node --test out/test/core/__tests__/*.test.js",
     "bundle": "node scripts/bundle.mjs",
     "bundle:dev": "node scripts/bundle.mjs --dev",
     "vscode:prepublish": "npm run bundle",

@@ -234,12 +234,18 @@ resolveDebugConfigurationWithSubstitutedVariables
                   (quem sobe é o adaptador, para o processo ser filho dele)
 ```
 
-### Lacuna conhecida
+`ensurePortFree` roda entre o preflight e a gravação do `serverCommand`, com o
+mesmo filtro de segurança do painel: só oferece encerrar o que é comprovadamente
+o executável do projeto e do mesmo usuário. Quem não passa no filtro rende
+aviso, e seguir é decisão do usuário. Confirma pela porta antes de liberar a
+subida — matar o processo não basta.
 
-**`prepareServer` não checa a porta.** Faz o preflight do plugin, mas não olha
-quem já está em 7777. Com um zumbi ali, o F5 sobe um servidor que disputa o
-mesmo datagrama — e o diagnóstico vira não-determinístico. O painel tem
-`resolvePortConflict` para isso; este caminho não o usa. Não corrigido ainda.
+### Ainda em aberto
+
+- **TOCTOU no encerramento.** Entre `isProjectServer(pid)` e o `kill`, o PID
+  poderia em tese ser reciclado. Explorá-lo exige vencer uma corrida de
+  milissegundos com o PID exato, e o primeiro sinal é SIGTERM. Aceito como
+  risco residual.
 
 ---
 

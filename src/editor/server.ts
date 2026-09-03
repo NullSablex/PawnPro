@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fsp from 'fs/promises';
-import { LogTailer, SampRconClient, isLoopbackHost, isProjectServer, killProcess, loadServerConfig, pidsOnPort, resolveServerConfig } from '../core/server.js';
+import { LogTailer, SampRconClient, isLoopbackHost, killProcess, loadServerConfig, projectServersOnPort, resolveServerConfig } from '../core/server.js';
 import { ServerRegistry } from './serverRegistry.js';
 import { pingServer } from '../core/server.js';
 import { PawnProConfigManager } from '../core/config.js';
@@ -8,6 +8,7 @@ import { PawnProStateManager } from '../core/state.js';
 import { ServerViewProvider } from './serverView.js';
 import { getWorkspaceRoot } from './configBridge.js';
 import { msg } from './nls.js';
+import { withProgress } from './progress.js';
 import type { SampCfgData, OutputSink } from '../core/types.js';
 
 const IS_WINDOWS = process.platform === 'win32';
@@ -48,6 +49,9 @@ class ServerController {
    */
   private debugSession: vscode.DebugSession | null = null;
   readonly registry = new ServerRegistry();
+  private readonly subscriptions: vscode.Disposable[] = [];
+  /** Sequência da consulta de posse; só a mais recente pode gravar o contexto. */
+  private ownershipSeq = 0;
 
   constructor(
     private readonly config: PawnProConfigManager,
@@ -62,15 +66,26 @@ class ServerController {
       // Segundo contexto: a porta responder não basta para o painel comandar o
       // servidor. Um processo de outro projeto, ou de outro usuário, deixa os
       // botões de parar e reiniciar visíveis prometendo o que não fazem.
-      void this.isOwnServer().then(own =>
-        vscode.commands.executeCommand('setContext', 'pawnpro.server.ours', st.alive && own),
-      );
+      void this.refreshOwnershipContext(st.alive);
       // O log é do servidor, não de quem o iniciou: se ele está no ar e há um
       // caminho de log resolvido, acompanhar. É isso que devolve a saída do
       // console durante uma sessão de depuração.
       if (st.alive) this.ensureTail();
       else { this.tailer.stop(); this.tailer.markHidden(); }
     });
+    // Um listener só, com o ciclo de vida do controlador: o terminal é um
+    // recurso único, e registrar um por `start` deixava pendurado o de cada
+    // início anterior — só o do terminal que de fato fechasse se descartava.
+    this.subscriptions.push(
+      vscode.window.onDidCloseTerminal((closed) => {
+        if (closed !== this.term) return;
+        this.term = null;
+        // Não assume que parou: o terminal fechou, mas o processo pode ter
+        // sobrevivido. A sondagem diz o que de fato aconteceu.
+        void this.currentStatus();
+      }),
+    );
+
     // A porta vem do `server.cfg`/`config.json` do projeto. Sem carregar isto
     // primeiro, a vigilância sondaria 7777 num projeto que usa outra porta e
     // reportaria "parado" com o servidor no ar.
@@ -109,6 +124,8 @@ class ServerController {
   }
 
   dispose(): void {
+    for (const d of this.subscriptions) d.dispose();
+    this.subscriptions.length = 0;
     this.registry.dispose();
   }
 
@@ -178,12 +195,12 @@ class ServerController {
     // RCON desligado no config.json: o servidor não escuta, e mandar o pacote
     // só produziria silêncio. Melhor dizer o que está acontecendo.
     if (!cfg.rconEnabled) {
-      const ligar = msg.server.btnEnableRcon();
-      const escolha = await vscode.window.showWarningMessage(
+      const enable = msg.server.btnEnableRcon();
+      const choice = await vscode.window.showWarningMessage(
         `PawnPro: ${msg.server.rconDisabled()}`,
-        ligar,
+        enable,
       );
-      if (escolha === ligar) await this.enableRcon(cfg);
+      if (choice === enable) await this.enableRcon(cfg);
       return;
     }
 
@@ -195,15 +212,10 @@ class ServerController {
         // despejou as linhas — o comando aparecia embaixo do próprio resultado.
         this.tailer.appendLine(`> ${txt}`);
         const out = await client.send(txt, 1500);
-        // O servidor grava no log toda mensagem que devolve pelo console
-        // (`ConsoleComponent::sendMessage` escreve com `logLn` antes de
-        // entregar ao remetente), então com o tail ativo a resposta já vem por
-        // ali — e com timestamp e nível, que a via RCON não tem. Repeti-la aqui
-        // duplicaria cada comando no painel.
+        // O servidor grava no log toda mensagem que devolve pelo console, então
+        // com o tail ativo a resposta já vem por ali — e com timestamp e nível,
+        // que a via RCON não tem. Repeti-la aqui duplicaria cada comando.
         if (out && out.trim()) {
-          // Só escreve a resposta quando o tail não está no ar. O aviso de
-          // "sem saída", logo abaixo, continua valendo nos dois casos: ele não
-          // vem do servidor e portanto não está no log.
           if (!this.tailer.ativo) this.tailer.appendLine(out.trim());
         } else {
           // Comandos como `gmx` e `players` (sem ninguém on-line) executam mas
@@ -214,7 +226,9 @@ class ServerController {
         this.tailer.markVisible();
         return;
       } catch (err: unknown) {
-        vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(err instanceof Error ? err.message : String(err))}`);
+        vscode.window.showErrorMessage(
+          `PawnPro: ${msg.server.rconFailed(err instanceof Error ? err.message : String(err))}`,
+        );
         return;
       }
     } else if (!local) {
@@ -232,30 +246,23 @@ class ServerController {
   }
 
   /**
-   * Executa uma etapa longa com a notificação de progresso do editor.
+   * Atualiza `pawnpro.server.ours` sem deixar respostas atrasadas vencerem.
    *
-   * Subir, parar e reiniciar levam segundos e não dão retorno visual nenhum —
-   * o painel só muda de estado quando a porta responde.
+   * `isOwnServer` custa caro: `pidsOnPort` roda `lsof`/`fuser` por `spawnSync`,
+   * ~200 ms bloqueando a thread da extensão. Duas mudanças de estado próximas
+   * lançavam duas consultas concorrentes, e quem resolvesse por último ditava o
+   * contexto — mesmo sendo a mais antiga. O contador diz qual resposta ainda
+   * interessa; as demais são descartadas.
+   *
+   * Servidor fora do ar dispensa a consulta: não há dono a apurar.
    */
-  private withProgress<T>(title: string, step: () => Promise<T>): Thenable<T> {
-    return vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: `PawnPro: ${title}`,
-        cancellable: false,
-      },
-      step,
-    );
+  private async refreshOwnershipContext(alive: boolean): Promise<void> {
+    const seq = ++this.ownershipSeq;
+    const own = alive ? await this.isOwnServer() : false;
+    if (seq !== this.ownershipSeq) return;
+    await vscode.commands.executeCommand('setContext', 'pawnpro.server.ours', own);
   }
 
-  /**
-   * A porta continua ocupada depois de parar: identifica quem a segura e
-   * oferece encerrá-lo.
-   *
-   * O terminal fecha, mas nada garante que o processo morreu — e um órfão na
-   * porta faz o painel e o RCON responderem por um servidor que já não é o do
-   * projeto. Sem isto restava pedir ao usuário que descobrisse por conta.
-   */
   /**
    * `true` se o que responde na porta é um servidor que este painel pode
    * comandar: o executável deste projeto, do mesmo usuário, ou a sessão de
@@ -265,7 +272,7 @@ class ServerController {
     if (this.debugSession) return true;
     const { port } = this.currentAddress();
     const exe = resolveServerConfig(this.config.getAll().server, getWorkspaceRoot()).exe;
-    return pidsOnPort(port).some(pid => isProjectServer(pid, exe));
+    return projectServersOnPort(port, exe).length > 0;
   }
 
   /**
@@ -290,11 +297,11 @@ class ServerController {
     // `"port": 53` transformaria o botão de encerrar numa arma contra serviços
     // do sistema.
     const exe = resolveServerConfig(this.config.getAll().server, getWorkspaceRoot()).exe;
-    const pids = pidsOnPort(port).filter(pid => isProjectServer(pid, exe));
+    const pids = projectServersOnPort(port, exe);
     if (!pids.length) {
-      // A porta responde, mas quem está ali não é o servidor deste projeto —
-      // outro programa, ou um processo de outro usuário. Dizer "sobrou um
-      // processo" seria falso, e oferecer encerrar, perigoso.
+      // A porta responde, mas nada ali passou no filtro: é outro programa, ou
+      // um processo de outro usuário. Dizer "sobrou um servidor" seria falso, e
+      // oferecer encerrar, perigoso.
       vscode.window.showWarningMessage(`PawnPro: ${msg.server.portBusyOther(port)}`);
       return 'busy';
     }
@@ -314,7 +321,7 @@ class ServerController {
     if (choice === undefined) return 'busy';
     if (choice !== kill) return 'keep';
 
-    const { survivors, free } = await this.withProgress(
+    const { survivors, free } = await withProgress(
       byCount(msg.server.killingOrphan, msg.server.killingOrphans)(),
       async () => {
         // Em paralelo: os processos são independentes, e em série cada um
@@ -334,25 +341,44 @@ class ServerController {
       vscode.window.showInformationMessage(`PawnPro: ${msg.server.killOk(port)}`);
       return 'free';
     }
-    if (survivors.length) {
-      const rest = survivors.join(', ');
-      const failed = survivors.length > 1 ? msg.server.killFailedMany : msg.server.killFailed;
-      vscode.window.showErrorMessage(`PawnPro: ${failed(rest)}`);
-    }
+    // A porta não liberou. Quem sobreviveu ao kill é nomeado; se todos morreram
+    // e a porta ainda responde, o culpado é outro — sem esta segunda forma o
+    // usuário clicava em "Encerrar", nada era reportado, e nada acontecia.
+    const rest = (survivors.length ? survivors : pids).join(', ');
+    const failed = (survivors.length ? survivors : pids).length > 1
+      ? msg.server.killFailedMany
+      : msg.server.killFailed;
+    vscode.window.showErrorMessage(`PawnPro: ${failed(rest)}`);
     return 'busy';
   }
 
 
 
   async start({ restarting = false }: { restarting?: boolean } = {}) {
+    // Antes de qualquer I/O: a sessão de depuração é um fato já conhecido, e
+    // subir outro servidor por cima dela é que seria o erro. Sondar a porta e
+    // reler o `server.cfg` para depois descartar o resultado é trabalho jogado
+    // fora.
+    if (this.debugSession) {
+      vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunningDebug()}`);
+      return;
+    }
+
+    // A porta vem do `server.cfg`/`config.json`, então recarregar vem antes de
+    // sondar — senão a sondagem iria para a porta antiga.
+    await this.refreshRconFromServerCfg();
+    // Uma sondagem só para as duas decisões abaixo: o terminal reaproveitável e
+    // o conflito de porta. Duas chamadas custavam dois datagramas e podiam ler
+    // estados diferentes no mesmo `start`.
+    const st = await this.currentStatus();
+
     // O terminal existir não significa que o servidor está no ar: ele fica
     // aberto depois que o processo morre, e antes disto um terminal vazio
     // bloqueava o start para sempre — só fechando à mão. Quem responde se há
     // servidor é a porta, e a origem diz se ele é DESTE terminal: com um órfão
     // ali, "já está rodando" seria sobre outro processo.
     const existing = this.findExistingTerminal();
-    const status = existing ? await this.currentStatus() : null;
-    if (existing && status?.responded && status.origin === 'terminal') {
+    if (existing && st.responded && st.origin === 'terminal') {
       if (this.term !== existing) this.term = existing;
       if (!restarting) {
         vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunning()}`);
@@ -361,6 +387,8 @@ class ServerController {
       return;
     }
 
+    // Só agora: fechar terminais antes da checagem acima descartaria justamente
+    // o que poderia ser reaproveitado.
     this.closeOrphanedTerminals();
 
     // Alguém já está na porta? Pode ser um processo que sobrou de uma execução
@@ -371,14 +399,6 @@ class ServerController {
     // barrar a si mesmo — mas nesse ponto o próprio servidor já foi parado, e
     // quem ainda responde na porta é outro processo. Com um órfão ali, o start
     // seguia calado e o reinício terminava sem servidor.
-    await this.refreshRconFromServerCfg();
-    const st = await this.currentStatus();
-    // Servidor da depuração é conhecido e legítimo: iniciar outro por cima é
-    // que seria o erro. O aviso aqui é para órfão ou servidor externo.
-    if (this.debugSession) {
-      vscode.window.showInformationMessage(`PawnPro: ${msg.server.alreadyRunningDebug()}`);
-      return;
-    }
     if (st.responded && st.origin !== 'terminal') {
       // Um aviso só, com o que fazer: encerrar quem está ali, ou seguir com
       // ele. Perguntar aqui e de novo dentro do método fazia o usuário decidir
@@ -428,16 +448,6 @@ class ServerController {
         this.tailer.reveal(true);
       }
 
-      const onClose = vscode.window.onDidCloseTerminal((closed) => {
-        if (closed === this.term) {
-          this.term = null;
-          onClose.dispose();
-          // Não assume que parou: o terminal fechou, mas o processo pode ter
-          // sobrevivido. A sondagem diz o que de fato aconteceu.
-          void this.currentStatus();
-        }
-      });
-
       // Sondagem em vez de prazo fixo: o servidor sobe quando sobe, e antes
       // disso o painel não deve dizer que está no ar. O progresso acompanha
       // essa espera: subir leva segundos, e sem sinal o usuário não sabe se o
@@ -446,7 +456,7 @@ class ServerController {
       // `await`, não `void`: sem ele o `start` resolvia antes de o servidor
       // subir, e o `restart` dava o ciclo por concluído com a espera ainda
       // correndo — anunciando um fim que ninguém tinha observado.
-      const isUp = await this.withProgress(title, () => this.waitForPort(true, 15000));
+      const isUp = await withProgress(title, () => this.waitForPort(true, 15000));
       if (isUp) this.registry.markOrigin('terminal');
       await this.currentStatus();
       if (isUp) {
@@ -482,7 +492,9 @@ class ServerController {
     // inteiro para receber a mesma resposta.
     if (!this.term && !(await this.isOwnServer())) {
       const { port } = this.currentAddress();
-      vscode.window.showWarningMessage(`PawnPro: ${msg.server.portBusyOther(port)}`);
+      vscode.window.showWarningMessage(
+        `PawnPro: ${msg.server.portBusyOther(port)}`,
+      );
       return false;
     }
 
@@ -511,10 +523,18 @@ class ServerController {
       // iteração do laço, mata o filho com SIGKILL e o colhe. Quem confirma a
       // parada é a porta ficar muda, logo abaixo.
       await vscode.debug.stopDebugging(this.debugSession);
+    } else {
+      // Terceiro dono possível: um servidor DESTE projeto iniciado por fora do
+      // painel (foi o que `isOwnServer` reconheceu na guarda acima). Não há
+      // terminal para fechar nem sessão para encerrar, então não existe pedido
+      // de parada a fazer — esperar a porta calar aqui seria esperar por algo
+      // que ninguém pediu, gastando o prazo inteiro antes de finalmente
+      // oferecer encerrar. Vai direto a quem sabe tratar isso.
+      return (await this.resolvePortConflict(this.currentAddress().port, { offerKeep: false })) === 'free';
     }
 
     // Confirma pela porta, não pelo terminal.
-    const stopped = await this.withProgress(msg.server.stopping(), () =>
+    const stopped = await withProgress(msg.server.stopping(), () =>
       this.waitForPort(false, 6000),
     );
     if (stopped) {
@@ -573,9 +593,11 @@ class ServerController {
    * @returns `true` se chegou ao estado dentro do prazo.
    */
   private async waitForPort(expectedAlive: boolean, timeoutMs: number): Promise<boolean> {
-    const fim = Date.now() + timeoutMs;
+    const deadline = Date.now() + timeoutMs;
+    // Endereço lido uma vez: se a config mudar de porta no meio da espera, o
+    // certo é esta espera falhar — e não passar a sondar outro alvo.
     const { host, port } = this.currentAddress();
-    while (Date.now() < fim) {
+    while (Date.now() < deadline) {
       if ((await pingServer(host, port, 500)) === expectedAlive) return true;
       await delay(400);
     }
@@ -590,20 +612,17 @@ class ServerController {
     // viva, reresolvendo os breakpoints contra o `.amx` recompilado — que é o
     // motivo mais comum de reiniciar.
     if (!this.term && this.debugSession) {
-      // O adaptador troca o processo por baixo sem fechar a sessão, então não
-      // há terminal nem evento de parada para observar: quem diz que o ciclo
-      // terminou é a porta cair e voltar a responder. Sem isto o clique ficava
-      // sem retorno nenhum — o painel só mudava quando o servidor novo subia.
-      const isUp = await this.withProgress(msg.server.restarting(), async () => {
-        await vscode.commands.executeCommand('workbench.action.debug.restart');
-        // A queda pode ser rápida demais para ser vista entre duas sondagens;
-        // o que importa é o servidor estar no ar no fim, e o prazo cobre o
-        // ciclo inteiro.
-        await this.waitForPort(false, 5000);
-        return this.waitForPort(true, 15000);
-      });
-      await this.currentStatus();
-      if (isUp) vscode.window.showInformationMessage(`PawnPro: ${msg.server.restarted()}`);
+      // Só delega. O progresso NÃO é feito aqui: este comando vira uma
+      // requisição `restart` no adaptador, e o tracker do debugAdapter já
+      // acompanha o ciclo por ela — inclusive a recompilação, que este caminho
+      // não teria como ver. Abrir uma barra aqui punha duas na tela, e esta
+      // durava mais: sondar a porta a cada 400 ms demora mais a perceber o fim
+      // do que o evento `continued` que o tracker escuta.
+      await vscode.commands.executeCommand('workbench.action.debug.restart');
+      // Sem sondar aqui: o comando só PEDE o reinício, e neste instante o
+      // servidor antigo ainda responde. Ler o estado agora registraria o de
+      // antes do ciclo. Quem mantém o painel em dia é a vigilância periódica,
+      // que sonda a cada poucos segundos.
       return;
     }
     // `restarting` silencia o aviso de parada: o ciclo é um só, e anunciar as
@@ -666,6 +685,12 @@ export function registerServerControls(
   const outputChannel = vscode.window.createOutputChannel('PawnPro Server');
   context.subscriptions.push(outputChannel);
 
+  // Os contextos nascem `false` ANTES do controlador: ele já dispara uma
+  // sondagem no construtor, e semeá-los depois sobrescreveria com `false` um
+  // estado verdadeiro que tivesse chegado primeiro.
+  void vscode.commands.executeCommand('setContext', 'pawnpro.server.running', false);
+  void vscode.commands.executeCommand('setContext', 'pawnpro.server.ours', false);
+
   const srv = new ServerController(config, outputChannel);
   context.subscriptions.push(srv);
 
@@ -710,6 +735,4 @@ export function registerServerControls(
   // `vscode.l10n` fixa o idioma pelo do editor; as WebViews seguem `ui.locale`,
   // então precisam ser re-renderizadas quando ele muda.
   config.onChange(() => provider.refresh());
-  void vscode.commands.executeCommand('setContext', 'pawnpro.server.running', false);
-  void vscode.commands.executeCommand('setContext', 'pawnpro.server.ours', false);
 }

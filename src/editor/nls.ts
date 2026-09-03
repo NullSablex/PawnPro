@@ -416,6 +416,7 @@ export function createMsg(t: Translate) {
     defaultName:     () => t('Depurar script Pawn (PawnPro)'),
     noProgram:       () => t('Defina o caminho do `.amx` (campo "program") para depurar.'),
     adapterNotFound: () => t('Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.'),
+    compiling:       () => t('Compilando com informação de depuração...'),
     compileFailed:   () => t('Falha ao compilar o script com informação de depuração. Verifique o painel de saída.'),
     programNotFound: (p: string) => t('Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo "program" no launch.json.', p),
     serverNotFound:  () => t('Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.'),

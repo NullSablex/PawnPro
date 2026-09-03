@@ -274,11 +274,16 @@ const RCON_FIELD_MAX = 0xFFFF;
  * local (que é o caso de uso: depurar o gamemode que se está escrevendo).
  */
 export function isLoopbackHost(host: string): boolean {
-  const h = host.trim().toLowerCase();
-  if (h === 'localhost' || h === '::1' || h === '0.0.0.0') return true;
+  const h = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (h === 'localhost' || h === '::1') return true;
   // Toda a faixa 127.0.0.0/8 é loopback.
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
-  return m !== null && Number(m[1]) === 127;
+  if (m === null) return false;
+  // Octetos fora de 0–255 não são um IPv4: `999.0.0.1` casaria com a regex, e
+  // aceitá-lo aqui daria loopback a um nome que o resolvedor mandaria para
+  // outro lugar.
+  if (m.slice(1).some(o => Number(o) > 255)) return false;
+  return Number(m[1]) === 127;
 }
 
 /**
@@ -523,7 +528,7 @@ export function isOfficialDebugPlugin(filePath: string): boolean {
 }
 
 /** Arquitetura de um executável ou biblioteca. */
-export type Arquitetura = 'x86' | 'x64' | 'desconhecida';
+export type Architecture = 'x86' | 'x64' | 'unknown';
 
 /**
  * Arquitetura de um binário, pelo cabeçalho ELF (Linux) ou PE (Windows).
@@ -536,33 +541,33 @@ export type Arquitetura = 'x86' | 'x64' | 'desconhecida';
  * campo `Machine` logo após a assinatura, no deslocamento que o cabeçalho DOS
  * indica.
  */
-export function architectureOf(filePath: string): Arquitetura {
+export function architectureOf(filePath: string): Architecture {
   let fd: number | undefined;
   try {
     fd = fs.openSync(filePath, 'r');
     const cab = Buffer.alloc(64);
-    if (fs.readSync(fd, cab, 0, 64, 0) < 64) return 'desconhecida';
+    if (fs.readSync(fd, cab, 0, 64, 0) < 64) return 'unknown';
 
     if (cab.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
       if (cab[4] === 1) return 'x86';
       if (cab[4] === 2) return 'x64';
-      return 'desconhecida';
+      return 'unknown';
     }
 
     if (cab[0] === 0x4d && cab[1] === 0x5a) {
       // `e_lfanew` (offset 0x3C) aponta para a assinatura PE.
       const pe = cab.readUInt32LE(0x3c);
       const maq = Buffer.alloc(6);
-      if (fs.readSync(fd, maq, 0, 6, pe) < 6) return 'desconhecida';
-      if (maq.subarray(0, 4).toString('ascii') !== 'PE\0\0') return 'desconhecida';
+      if (fs.readSync(fd, maq, 0, 6, pe) < 6) return 'unknown';
+      if (maq.subarray(0, 4).toString('ascii') !== 'PE\0\0') return 'unknown';
       const machine = maq.readUInt16LE(4);
       if (machine === 0x014c) return 'x86';
       if (machine === 0x8664) return 'x64';
-      return 'desconhecida';
+      return 'unknown';
     }
-    return 'desconhecida';
+    return 'unknown';
   } catch {
-    return 'desconhecida';
+    return 'unknown';
   } finally {
     if (fd !== undefined) {
       try { fs.closeSync(fd); } catch { /* já fechado */ }
@@ -577,11 +582,11 @@ export function architectureOf(filePath: string): Arquitetura {
  * confirma o estado pela porta, e sem saber QUEM a ocupa só resta pedir ao
  * usuário que descubra por conta própria.
  *
- * Vazio no Windows e quando nenhuma ferramenta está disponível — o chamador
- * trata isso como "não sei", não como "não há".
+ * Vazio quando nenhuma ferramenta está disponível — o chamador trata isso como
+ * "não sei", não como "não há".
  */
 export function pidsOnPort(port: number): number[] {
-  if (process.platform === 'win32') return [];
+  if (process.platform === 'win32') return udpPidsWindows(port);
 
   // Só o STDOUT: as duas ferramentas imprimem ali os PIDs e nada mais. O
   // `fuser` manda o rótulo `7777/udp:` para o stderr, e lê-lo junto faria a
@@ -619,16 +624,127 @@ export function pidsOnPort(port: number): number[] {
  * `false` quando não dá para saber — sem `/proc`, ou sem permissão de ler o
  * link. Na dúvida, não encerra.
  */
-export function isProjectServer(pid: number, serverExe: string): boolean {
-  if (process.platform !== 'linux' || !serverExe) return false;
+/**
+ * PIDs na porta que são comprovadamente o servidor deste projeto.
+ *
+ * A combinação de `pidsOnPort` com o filtro de `isProjectServer` é o que separa
+ * "encerrar o servidor do projeto" de "encerrar um serviço do sistema", e
+ * estava repetida em cada chamador — onde esquecer o filtro passaria
+ * despercebido. Aqui a regra é uma só.
+ */
+/**
+ * PIDs na porta UDP no Windows, via `netstat`.
+ *
+ * `netstat -ano -p UDP` é o análogo do `lsof -ti` — imprime uma linha por
+ * socket, com o endereço local na segunda coluna e o PID na última. O `-n`
+ * evita a resolução de nomes, que é lenta e traria `*:domain` no lugar da
+ * porta.
+ *
+ * A porta é comparada com o SUFIXO do endereço para cobrir as duas formas que
+ * aparecem ali (`0.0.0.0:7777` e `[::]:7777`), e o `:` no separador é o que
+ * impede `17777` de casar com `7777`.
+ */
+function udpPidsWindows(port: number): number[] {
+  let out: string;
   try {
-    // O executável: `/proc/PID/exe` é um link mantido pelo kernel, que o
-    // processo não pode falsificar.
-    if (fs.realpathSync(`/proc/${pid}/exe`) !== fs.realpathSync(serverExe)) return false;
-    // E o dono: numa máquina compartilhada o mesmo binário pode estar rodando
-    // sob outro usuário, e encerrá-lo não é atribuição deste editor — o `kill`
-    // falharia por permissão depois de prometer que faria.
-    return fs.statSync(`/proc/${pid}`).uid === process.getuid?.();
+    out = spawnSync('netstat', ['-ano', '-p', 'UDP'], {
+      encoding: 'utf8',
+      timeout: 4000,
+      windowsHide: true,
+    }).stdout ?? '';
+  } catch {
+    return [];
+  }
+  const pids: number[] = [];
+  for (const line of out.split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/);
+    // UDP <local> <*|estrangeiro> <pid> — o cabeçalho e as linhas em branco não
+    // têm esse formato e caem fora sozinhos.
+    if (cols.length < 3 || cols[0].toUpperCase() !== 'UDP') continue;
+    if (!cols[1].endsWith(`:${port}`)) continue;
+    const pid = Number(cols[cols.length - 1]);
+    if (Number.isInteger(pid) && pid > 1 && pid !== process.pid) pids.push(pid);
+  }
+  return [...new Set(pids)];
+}
+
+/**
+ * Caminho do executável de um PID no Windows.
+ *
+ * `Get-Process -Id N` devolve o `Path` sem depender do `wmic`, que a Microsoft
+ * removeu das versões recentes. `-NoProfile` evita carregar o perfil do usuário
+ * (lento, e pode falhar por política de execução); a saída é só o caminho.
+ */
+function executablePathWindows(pid: number): string | null {
+  try {
+    const out = spawnSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).Path`,
+      ],
+      { encoding: 'utf8', timeout: 5000, windowsHide: true },
+    ).stdout;
+    const cleaned = (out ?? '').trim();
+    return cleaned || null;
+  } catch {
+    return null;
+  }
+}
+
+export function projectServersOnPort(port: number, serverExe: string): number[] {
+  return pidsOnPort(port).filter(pid => isProjectServer(pid, serverExe));
+}
+
+export function isProjectServer(pid: number, serverExe: string): boolean {
+  if (!serverExe) return false;
+  try {
+    const target = fs.realpathSync(serverExe);
+    if (process.platform === 'linux') {
+      // `/proc/PID/exe` é um link mantido pelo kernel, que o processo não pode
+      // falsificar.
+      if (fs.realpathSync(`/proc/${pid}/exe`) !== target) return false;
+      // E o dono: numa máquina compartilhada o mesmo binário pode estar rodando
+      // sob outro usuário, e encerrá-lo não é atribuição deste editor — o
+      // `kill` falharia por permissão depois de prometer que faria.
+      return fs.statSync(`/proc/${pid}`).uid === process.getuid?.();
+    }
+    if (process.platform === 'darwin') {
+      // Não há `/proc` no macOS. `ps` dá o caminho do executável e o uid do
+      // dono num comando só; `comm=` imprime o caminho completo, e `uid=` o
+      // dono numérico, sem cabeçalho.
+      const out = spawnSync('ps', ['-o', 'uid=,comm=', '-p', String(pid)], {
+        encoding: 'utf8',
+        timeout: 2000,
+      }).stdout;
+      const m = /^\s*(\d+)\s+(.+?)\s*$/.exec(out ?? '');
+      if (!m) return false;
+      if (Number(m[1]) !== process.getuid?.()) return false;
+      // `realpath` dos dois lados: o `ps` pode devolver o caminho por um link
+      // simbólico diferente do configurado.
+      try {
+        return fs.realpathSync(m[2]) === target;
+      } catch {
+        return false;
+      }
+    }
+    if (process.platform === 'win32') {
+      const exe = executablePathWindows(pid);
+      if (!exe) return false;
+      // Sem uid no Windows: o `Get-Process` só devolve o `Path` de processos
+      // que a sessão atual consegue abrir, então o alcance já fica no que o
+      // usuário poderia encerrar de qualquer forma. O nome do volume e a caixa
+      // variam entre as duas fontes, e o sistema de arquivos não diferencia
+      // maiúsculas — comparar sem normalizar daria falso negativo.
+      try {
+        return fs.realpathSync(exe).toLowerCase() === target.toLowerCase();
+      } catch {
+        return false;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
@@ -658,17 +774,35 @@ export async function killProcess(pid: number, timeoutMs = 3000): Promise<boolea
       /* já morreu, ou é de outro usuário — `alive()` dá a resposta */
     }
   };
+  // No Windows não há sinal gracioso: `process.kill` com SIGTERM encerra na
+  // hora, e o servidor não salva nada. O `taskkill` sem `/F` pede o
+  // encerramento pela via do sistema, que é o equivalente ao SIGTERM; o `/F`
+  // fica para o prazo esgotado, no lugar do SIGKILL.
+  const terminate = (force: boolean) => {
+    if (process.platform !== 'win32') {
+      signal(force ? 'SIGKILL' : 'SIGTERM');
+      return;
+    }
+    try {
+      spawnSync('taskkill', force ? ['/PID', String(pid), '/T', '/F'] : ['/PID', String(pid)], {
+        timeout: 4000,
+        windowsHide: true,
+      });
+    } catch {
+      /* `alive()` dá a resposta */
+    }
+  };
   const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-  // SIGTERM primeiro: o servidor salva e desliga os componentes. SIGKILL só se
-  // ele ignorar o prazo.
-  signal('SIGTERM');
+  // Encerramento gracioso primeiro: o servidor salva e desliga os componentes.
+  // A força só entra se ele ignorar o prazo.
+  terminate(false);
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (!alive()) return true;
     await wait(200);
   }
-  signal('SIGKILL');
+  terminate(true);
   await wait(300);
   return !alive();
 }
@@ -705,7 +839,7 @@ export interface DebugPreflight {
    * funciona — mas o erro fica no meio das linhas de carga e o editor não
    * mostra nada. Vazio quando as duas batem ou não foi possível determinar.
    */
-  archMismatch?: { plugin: Arquitetura; servidor: Arquitetura };
+  archMismatch?: { plugin: Architecture; server: Architecture };
 }
 
 /**
@@ -734,16 +868,16 @@ function probePluginFile(cwd: string, dir: string, file: string): 'official' | '
  * Só reporta quando as duas são conhecidas e diferentes: sem o executável, ou
  * com um formato que não sabemos ler, o silêncio é melhor que um alarme falso.
  */
-function conferirArquitetura(
+function checkArchitecture(
   cwd: string,
   pluginPath: string,
-): { plugin: Arquitetura; servidor: Arquitetura } | undefined {
+): { plugin: Architecture; server: Architecture } | undefined {
   const exe = detectServerExecutable(cwd);
   if (!exe) return undefined;
   const plugin = architectureOf(pluginPath);
-  const servidor = architectureOf(exe);
-  if (plugin === 'desconhecida' || servidor === 'desconhecida') return undefined;
-  return plugin === servidor ? undefined : { plugin, servidor };
+  const server = architectureOf(exe);
+  if (plugin === 'unknown' || server === 'unknown') return undefined;
+  return plugin === server ? undefined : { plugin, server };
 }
 
 export function checkDebugPlugin(cwd: string): DebugPreflight {
@@ -766,7 +900,7 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
     } catch {
       registered = false;
     }
-    const arch = conferirArquitetura(cwd, path.join(cwd, 'plugins', file));
+    const arch = checkArchitecture(cwd, path.join(cwd, 'plugins', file));
     return {
       ok: plugins === 'official' && registered && !arch,
       pluginFilePresent: plugins === 'official',
@@ -781,7 +915,7 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
 
   // open.mp: componente nativo OFICIAL em components/ é auto-descoberto.
   if (components === 'official') {
-    const arch = conferirArquitetura(cwd, path.join(cwd, 'components', file));
+    const arch = checkArchitecture(cwd, path.join(cwd, 'components', file));
     return {
       ok: !arch,
       pluginFilePresent: true,
@@ -807,7 +941,7 @@ export function checkDebugPlugin(cwd: string): DebugPreflight {
   }
 
   // Aqui `components` nunca é 'official' (já retornou acima nesse caso).
-  const arch = conferirArquitetura(cwd, path.join(cwd, 'plugins', file));
+  const arch = checkArchitecture(cwd, path.join(cwd, 'plugins', file));
   return {
     ok: plugins === 'official' && legacyRegistered && !arch,
     pluginFilePresent: plugins === 'official',
