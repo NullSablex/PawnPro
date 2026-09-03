@@ -5,15 +5,13 @@ import { pingServer } from '../core/server.js';
 export type ServerOrigin =
   /** Pelo painel: existe um terminal do editor por trás. */
   | 'terminal'
-  /** Por uma sessão de depuração: o processo é filho do adaptador. */
-  | 'debug'
-  /** Estava no ar antes, ou foi iniciado fora do editor. */
-  | 'externo'
+  /** Estava no ar antes, iniciado fora do painel — inclusive pelo depurador. */
+  | 'external'
   /** Nada respondendo na porta. */
-  | 'nenhum';
+  | 'none';
 
 export interface ServerStatus {
-  vivo: boolean;
+  alive: boolean;
   /**
    * `true` só quando a porta respondeu **nesta** sondagem.
    *
@@ -21,8 +19,8 @@ export interface ServerStatus {
    * não serve para decidir bloquear uma ação do usuário: quem for barrar um
    * `start` precisa de resposta de fato, não de inércia.
    */
-  respondeu: boolean;
-  origem: ServerOrigin;
+  responded: boolean;
+  origin: ServerOrigin;
   host: string;
   port: number;
 }
@@ -46,11 +44,11 @@ export interface ServerStatus {
  * intervalo de 4 s, são ~12 s de silêncio — bem acima de qualquer perda
  * isolada, e ainda rápido para quem desliga o servidor.
  */
-const FALHAS_ATE_MORTO = 3;
+const FAILURES_UNTIL_DEAD = 3;
 
 export class ServerRegistry implements vscode.Disposable {
-  private origem: ServerOrigin = 'nenhum';
-  private ultimo: ServerStatus | null = null;
+  private origin: ServerOrigin = 'none';
+  private last: ServerStatus | null = null;
   private timer: NodeJS.Timeout | null = null;
   /**
    * Sondagens sem resposta desde a última bem-sucedida.
@@ -60,15 +58,15 @@ export class ServerRegistry implements vscode.Disposable {
    * `false` isolado fazia o painel oscilar, e cada oscilação reiniciava o tail
    * do log — que limpava a saída do console.
    */
-  private falhasSeguidas = 0;
+  private consecutiveFailures = 0;
 
   private readonly _onChange = new vscode.EventEmitter<ServerStatus>();
   /** Dispara quando o servidor sobe, cai ou muda de origem. */
   readonly onChange = this._onChange.event;
 
   /** Quem iniciou declara a origem; a vida continua sendo sondada. */
-  marcarOrigem(origem: ServerOrigin): void {
-    this.origem = origem;
+  markOrigin(origin: ServerOrigin): void {
+    this.origin = origin;
   }
 
   /**
@@ -76,33 +74,53 @@ export class ServerRegistry implements vscode.Disposable {
    * resposta — um servidor morto não tem origem.
    */
   async status(host: string, port: number): Promise<ServerStatus> {
-    const respondeu = await pingServer(host, port);
-    this.falhasSeguidas = respondeu ? 0 : this.falhasSeguidas + 1;
+    const responded = await pingServer(host, port);
+    this.consecutiveFailures = responded ? 0 : this.consecutiveFailures + 1;
     // A tolerância só vale para quem já esteve no ar: uma falha isolada é
     // indistinguível de um datagrama perdido, mas sem nunca ter respondido não
     // há nada a preservar — insistir ali daria "no ar" para um servidor que não
     // existe, e a origem herdada travaria o próximo `start`.
-    const respondeuAntes = this.ultimo?.vivo === true;
-    const vivo = respondeu || (respondeuAntes && this.falhasSeguidas < FALHAS_ATE_MORTO);
+    const respondeuAntes = this.last?.alive === true;
+    const alive = responded || (respondeuAntes && this.consecutiveFailures < FAILURES_UNTIL_DEAD);
     const st: ServerStatus = {
-      vivo,
-      respondeu,
-      origem: vivo ? (this.origem === 'nenhum' ? 'externo' : this.origem) : 'nenhum',
+      alive,
+      responded,
+      origin: alive ? (this.origin === 'none' ? 'external' : this.origin) : 'none',
       host,
       port,
     };
-    if (!vivo) this.origem = 'nenhum';
+    if (!alive) this.origin = 'none';
 
     const mudou =
-      !this.ultimo || this.ultimo.vivo !== st.vivo || this.ultimo.origem !== st.origem;
-    this.ultimo = st;
+      !this.last || this.last.alive !== st.alive || this.last.origin !== st.origin;
+    this.last = st;
     if (mudou) this._onChange.fire(st);
     return st;
   }
 
   /** Último estado conhecido, sem sondar. */
-  ultimoConhecido(): ServerStatus | null {
-    return this.ultimo;
+  lastKnown(): ServerStatus | null {
+    return this.last;
+  }
+
+  /**
+   * Dá o servidor por parado agora, sem esperar a tolerância expirar.
+   *
+   * A tolerância de `FALHAS_ATE_MORTO` existe para a vigilância periódica, onde
+   * uma sondagem perdida é indistinguível de um servidor caído. Quando é o
+   * painel que manda parar, não há essa dúvida: a porta já foi confirmada muda
+   * por quem chamou. Sem isto o estado seguia `vivo` por ~12 s depois da
+   * parada, e o `start` do reinício encontrava origem e vida de um servidor que
+   * já não existia — e tratava o resto como órfão na porta.
+   */
+  markStopped(): void {
+    this.origin = 'none';
+    this.consecutiveFailures = FAILURES_UNTIL_DEAD;
+    if (this.last?.alive) {
+      const st: ServerStatus = { ...this.last, alive: false, responded: false, origin: 'none' };
+      this.last = st;
+      this._onChange.fire(st);
+    }
   }
 
   /**
@@ -113,18 +131,18 @@ export class ServerRegistry implements vscode.Disposable {
    * intervalo é folgado de propósito — a sondagem custa um datagrama, mas não
    * há razão para saber em menos de alguns segundos.
    */
-  vigiar(host: () => { host: string; port: number }, intervaloMs = 4000): void {
-    this.parar();
+  watch(host: () => { host: string; port: number }, intervalMs = 4000): void {
+    this.stopWatching();
     // Contagem nova a cada vigilância: falhas de um ciclo anterior não podem
     // fazer a nova começar já perto do limite.
-    this.falhasSeguidas = 0;
+    this.consecutiveFailures = 0;
     this.timer = setInterval(() => {
       const { host: h, port: p } = host();
       void this.status(h, p);
-    }, intervaloMs);
+    }, intervalMs);
   }
 
-  parar(): void {
+  stopWatching(): void {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -132,7 +150,7 @@ export class ServerRegistry implements vscode.Disposable {
   }
 
   dispose(): void {
-    this.parar();
+    this.stopWatching();
     this._onChange.dispose();
   }
 }

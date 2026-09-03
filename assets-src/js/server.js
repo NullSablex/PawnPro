@@ -3,6 +3,19 @@ const vscode = acquireVsCodeApi();
 // Ícones e traduções vêm do <script type="application/json"> no HTML: são
 // dados da extensão, e um script externo não pode interpolá-los.
 const _dados = JSON.parse(document.getElementById('dados-painel').textContent);
+
+// Os ícones são SVG da própria extensão, mas passam pelo DOMParser em vez de
+// `innerHTML`: o navegador constrói os nós sem executar script, e a origem
+// deixa de importar. Era o que o CodeQL apontava como xss-through-dom.
+//
+// `text/html`, e não `image/svg+xml`: o parser XML exige `xmlns` no elemento,
+// que os ícones não declaram — sem ele o nó sai fora do namespace SVG e não
+// renderiza. Em HTML o namespace é aplicado pelo próprio parser.
+function setIcon(el, svg) {
+  el.textContent = '';
+  const doc = new DOMParser().parseFromString(svg, 'text/html');
+  for (const node of [...doc.body.childNodes]) el.appendChild(node);
+}
 // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
 const ICON_MARKUP = _dados.icons.send;
 const ICON_STAR = { on: _dados.icons.starOn, off: _dados.icons.starOff };
@@ -52,7 +65,7 @@ function mkCmdRow(text, opts = {}) {
     const star = document.createElement('button');
     star.className = 'mini ghost icon-btn star-btn';
     if (opts.star) star.classList.add('is-on');
-    star.innerHTML = opts.star ? ICON_STAR.on : ICON_STAR.off;
+    setIcon(star, opts.star ? ICON_STAR.on : ICON_STAR.off);
     star.title = opts.star ? T.removeFavorite : T.addFavorite;
     star.setAttribute('aria-label', star.title);
     star.setAttribute('aria-pressed', String(!!opts.star));
@@ -66,7 +79,7 @@ function mkCmdRow(text, opts = {}) {
   if (opts.send !== false) {
     const send = document.createElement('button');
     send.className = 'mini';
-    send.innerHTML = ICON_MARKUP;
+    setIcon(send, ICON_MARKUP);
     send.classList.add('icon-btn');
     send.title = T.send;
     send.setAttribute('aria-label', T.send);
@@ -92,7 +105,7 @@ function mkEmpty(tipo, title, hint) {
   box.className = 'empty';
   const ico = document.createElement('div');
   ico.className = 'empty-icon ' + tipo;
-  ico.innerHTML = ICON_EMPTY[tipo];
+  setIcon(ico, ICON_EMPTY[tipo]);
   const t = document.createElement('div');
   t.className = 'empty-title';
   t.textContent = title;
@@ -104,7 +117,7 @@ function mkEmpty(tipo, title, hint) {
 }
 
 function renderList(container, kind, list, emptyText, hintText, starOf) {
-  container.innerHTML = '';
+  container.textContent = '';
   const items = filtered(list);
   if (!items.length) {
     // Distingue "não há nada" de "a busca não achou nada": a saída para

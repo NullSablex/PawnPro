@@ -56,9 +56,18 @@ function applyI18n(i18n) {
 
   const note = document.getElementById('note-text');
   if (note) {
-    note.innerHTML = i18n.noteText
-      .replace('.pawnpro/config.json', '<code>.pawnpro/config.json</code>')
-      .replace('~/.pawnpro/config.json', '<code>~/.pawnpro/config.json</code>');
+    // Nós montados, não innerHTML: o texto vem de um bundle de tradução, e
+    // interpretá-lo como HTML deixaria um bundle alterado injetar marcação.
+    note.textContent = '';
+    const configPaths = /(~?\/?\.pawnpro\/config\.json)/g;
+    for (const [i, part] of (i18n.noteText || '').split(configPaths).entries()) {
+      if (!part) continue;
+      // Os índices ímpares são os grupos capturados — os caminhos.
+      note.appendChild(
+        i % 2 ? Object.assign(document.createElement('code'), { textContent: part })
+              : document.createTextNode(part),
+      );
+    }
   }
 }
 
@@ -346,12 +355,18 @@ function literalPrefixes(raw) {
   // literal, e uma barra simples antes do parêntese seria consumida no escape
   // da string — a regex chegaria ao navegador sem ela, casando qualquer início
   // e devolvendo o padrão inteiro como se fosse prefixo.
-  const group = /^\\(([^()|]+(?:\\|[^()|]+)+)\\)/.exec(body);
+  // Sem grupo aninhado: `(?:\|[^()|]+)+` dentro de `[^()|]+` faz o motor
+  // tentar divisões exponenciais da entrada — o CodeQL apontou, e 26
+  // repetições já levavam 2 s. A verificação da barra passa para o código.
+  const group = /^\(([^()]+)\)/.exec(body);
   if (group) {
     // O que vem depois do grupo pode ser literal também: em (g|s)_ o
     // sublinhado pertence aos dois ramos.
     const rest = leadingLiteral(body.slice(group[0].length));
     const seen = [];
+    // O grupo só vale como alternância se tiver barra: `(abc)` é agrupamento
+    // simples, e tratá-lo como ramo daria um prefixo que o padrão não aceita.
+    if (!group[1].includes('|')) return [];
     for (const branch of group[1].split('|')) {
       const p = (branch + rest).slice(0, MAX_PREFIX);
       if (p && !seen.includes(p)) seen.push(p);

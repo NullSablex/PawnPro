@@ -318,17 +318,17 @@
       "view/title": [
         {
           "command": "pawnpro.server.start",
-          "when": "view == pawnpro.serverView && !pawnpro.server.running",
+          "when": "view == pawnpro.serverView && !pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.stop",
-          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "when": "view == pawnpro.serverView && pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.restart",
-          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "when": "view == pawnpro.serverView && pawnpro.server.ours",
           "group": "navigation@1"
         },
         {
@@ -343,17 +343,17 @@
         },
         {
           "command": "pawnpro.server.start",
-          "when": "view == pawnpro.serverView.explorer && !pawnpro.server.running",
+          "when": "view == pawnpro.serverView.explorer && !pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.stop",
-          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.restart",
-          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.ours",
           "group": "navigation@1"
         },
         {

@@ -609,6 +609,32 @@ export function pidsOnPort(port: number): number[] {
 }
 
 /**
+ * `true` se o processo é o executável do servidor deste projeto.
+ *
+ * A porta vem do `config.json` do PROJETO, que é arquivo do repositório: um
+ * gamemode malicioso poderia apontá-la para 53 ou 631 e transformar o botão de
+ * encerrar numa arma contra serviços do sistema. Encerrar só o que casa com o
+ * executável configurado fecha essa porta.
+ *
+ * `false` quando não dá para saber — sem `/proc`, ou sem permissão de ler o
+ * link. Na dúvida, não encerra.
+ */
+export function isProjectServer(pid: number, serverExe: string): boolean {
+  if (process.platform !== 'linux' || !serverExe) return false;
+  try {
+    // O executável: `/proc/PID/exe` é um link mantido pelo kernel, que o
+    // processo não pode falsificar.
+    if (fs.realpathSync(`/proc/${pid}/exe`) !== fs.realpathSync(serverExe)) return false;
+    // E o dono: numa máquina compartilhada o mesmo binário pode estar rodando
+    // sob outro usuário, e encerrá-lo não é atribuição deste editor — o `kill`
+    // falharia por permissão depois de prometer que faria.
+    return fs.statSync(`/proc/${pid}`).uid === process.getuid?.();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Encerra um processo pelo PID: `SIGTERM` primeiro, `SIGKILL` se insistir.
  *
  * Devolve `false` quando não foi possível — processo de outro usuário, ou que
