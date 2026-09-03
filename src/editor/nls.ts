@@ -316,7 +316,7 @@ export function createMsg(t: Translate) {
     panelTitle:      () => t('PawnPro — Ajuda e informações'),
     subtitle:        () => t('Componentes, links e guia do depurador'),
     compilerTitle:   () => t('Compiladores recomendados'),
-    compilerBody:    () => t('Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux e macOS. Verificado no Linux; nos demais sistemas ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.'),
+    compilerBody:    () => t('Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux. Verificado no Linux; no Windows ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.'),
     compilerLink:    () => t('Baixar o compilador do open.mp'),
     compilerListLink: () => t('Ver os compiladores verificados'),
     componentsTitle: () => t('Componentes'),

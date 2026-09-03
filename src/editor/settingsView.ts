@@ -73,8 +73,12 @@ export function registerSettingsView(
       const brandJsUri = panel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, 'out', 'assets', 'js', 'brand-animation.min.js'),
       );
+      // Capturado agora: `render` é chamado depois, e ali o painel pode já ter
+      // sido descartado — o valor não muda enquanto ele vive.
+      const cspSource = panel.webview.cspSource;
       const render = () =>
         getHtml(
+          cspSource,
           logoUri.toString(),
           cssUri.toString(),
           jsUri.toString(),
@@ -466,6 +470,7 @@ const ENCODING_OPTIONS = /* html */`
 const MAX_EXAMPLES_UI = 300;
 
 function getHtml(
+  cspSource: string,
   logoUri: string,
   cssUri: string,
   jsUri: string,
@@ -480,6 +485,11 @@ function getHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Sem 'unsafe-inline' em script-src: com o nonce, só o que a extensão gerou
+     executa. O estilo ainda precisa dele por causa do <style> com a cor de
+     destaque, que depende da configuração. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource}; script-src 'nonce-${nonce}';">
 <title>PawnPro</title>
 <!-- O estilo estático vive em assets-src/css/settings.css e é minificado para
      out/assets/ (ver assets.manifest.json). Em arquivo próprio o editor dá

@@ -12,18 +12,19 @@ significa que falhe — significa que ninguém confirmou.
 
 | Compilador | Versão | Linux | Windows | macOS |
 |---|---|---|---|---|
-| [open.mp](https://github.com/openmultiplayer/compiler) | 3.10.10 (i386) | sim | não testado | não testado |
-| SA-MP (Pawno) | 3.10.x (i386) | não existe | não testado | não existe |
+| [open.mp](https://github.com/openmultiplayer/compiler) | 3.10.10 (i386) | sim | não testado | não há build |
+| SA-MP (Pawno) | 3.10.x (i386) | não há build | não testado | não há build |
 
-As colunas são por **sistema**, não por arquitetura: os compiladores são todos
-de 32 bits e rodam em máquina de 64.
+As colunas são por **sistema**, não por arquitetura: os compiladores são de 32
+bits e rodam em máquina de 64.
 
-!!! warning "Apple Silicon"
+!!! warning "macOS"
 
-    O Rosetta 2 não executa código de 32 bits. Num Mac com chip da Apple o
-    compilador provavelmente não roda — falta verificar.
+    Nenhum dos dois publica build para macOS. Quem depura num Mac precisa
+    compilar o `.amx` noutra máquina, ou construir o compilador do open.mp a
+    partir do fonte — caminho não verificado aqui.
 
-O compilador do open.mp é o único com build para Linux e macOS, e serve tanto a
+O compilador do open.mp é o único com build para Linux, e serve tanto a
 gamemodes open.mp quanto SA-MP — o fork mantém a compatibilidade. O do SA-MP
 vem no Pawno, só para Windows.
 

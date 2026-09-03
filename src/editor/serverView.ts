@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { randomBytes } from 'crypto';
 import { PawnProStateManager } from '../core/state.js';
 import type { PawnProConfigManager } from '../core/config.js';
 import { webviewThemeCss } from './webviewTheme.js';
@@ -293,10 +294,16 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     const cssUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'out', 'assets', 'css', 'server.min.css'),
     );
+    const jsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'out', 'assets', 'js', 'server.min.js'),
+    );
+    // Nonce por render: com ele o CSP libera SÓ o script que a extensão gerou,
+    // em vez do 'unsafe-inline', que permitiria qualquer injeção.
+    const nonce = randomBytes(16).toString('base64');
     const msg = createWebviewMsg(this.context, this.config);
     // `cspSource` libera a folha de estilo servida de out/assets/; o
     // 'unsafe-inline' permanece para o <style> com a cor de destaque.
-    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource}; script-src 'unsafe-inline';`;
+    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource}; script-src 'nonce-${nonce}';`;
     return `<!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -338,258 +345,33 @@ ${webviewThemeCss(this.config)}
     <button id="loadMore" class="mini ghost load-more" hidden>${esc(msg.serverView.loadMore())}</button>
   </div>
 
-<script>
-  const vscode = acquireVsCodeApi();
-  // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
-  const ICON_MARKUP = ${JSON.stringify(ICON_SEND)};
-  const ICON_STAR = { on: ${JSON.stringify(ICON_STAR_ON)}, off: ${JSON.stringify(ICON_STAR_OFF)} };
-  const ICON_EMPTY = {
-    hist: ${JSON.stringify(ICON_EMPTY_HISTORY)},
-    fav: ${JSON.stringify(ICON_EMPTY_STAR)},
-    search: ${JSON.stringify(ICON_EMPTY_SEARCH)},
-  };
-  const T = ${JSON.stringify({
-    send: msg.serverView.send(),
-    emptyHistory: msg.serverView.emptyHistory(),
-    emptyFavorites: msg.serverView.emptyFavorites(),
-    addFavorite: msg.serverView.addFavorite(),
-    removeFavorite: msg.serverView.removeFavorite(),
-    noMatches: msg.serverView.noMatches(),
-    noMatchesHint: msg.serverView.noMatchesHint(),
-    emptyHistoryHint: msg.serverView.emptyHistoryHint(),
-    emptyFavoritesHint: msg.serverView.emptyFavoritesHint(),
-  })};
-  const $ = sel => document.querySelector(sel);
-  const input = $('#cmd');
-  const btn = $('#send');
-  const histItems = $('#histItems');
-  const favItems  = $('#favItems');
-  const histClear = $('#histClear');
-  const favClear  = $('#favClear');
-  const search    = $('#search');
-  const searchBox = $('#searchBox');
-  const searchClear = $('#searchClear');
-  const loadMore  = $('#loadMore');
-  const tabHist   = $('#tabHist');
-  const tabFav    = $('#tabFav');
-  const histCount = $('#histCount');
-  const favCount  = $('#favCount');
-
-  let history = [];
-  let favorites = [];
-  let cursor = -1;
-  let tab = 'hist';
-  let query = '';
-  // Quantos itens a lista mostra de uma vez. Cresce ao pedir mais, e volta ao
-  // início a cada troca de aba ou busca — a página não faz sentido sobre outro
-  // conjunto.
-  const PAGE = 20;
-  let shown = PAGE;
-
-  function escapeAttr(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  function mkCmdRow(text, opts = {}) {
-    const safeText = String(text || '');
-    const row = document.createElement('div');
-    row.className = 'cmd-row';
-    const span = document.createElement('div');
-    span.className = 'cmd-text';
-    span.setAttribute('title', escapeAttr(safeText));
-    span.textContent = safeText;
-    row.appendChild(span);
-
-    if (opts.star !== undefined) {
-      const star = document.createElement('button');
-      star.className = 'mini ghost icon-btn star-btn';
-      if (opts.star) star.classList.add('is-on');
-      star.innerHTML = opts.star ? ICON_STAR.on : ICON_STAR.off;
-      star.title = opts.star ? T.removeFavorite : T.addFavorite;
-      star.setAttribute('aria-label', star.title);
-      star.setAttribute('aria-pressed', String(!!opts.star));
-      star.addEventListener('click', (e) => {
-        e.stopPropagation();
-        vscode.postMessage({ type: opts.star ? 'removeFavorite' : 'addFavorite', command: safeText });
-      });
-      row.appendChild(star);
-    }
-
-    if (opts.send !== false) {
-      const send = document.createElement('button');
-      send.className = 'mini';
-      send.innerHTML = ICON_MARKUP;
-      send.classList.add('icon-btn');
-      send.title = T.send;
-      send.setAttribute('aria-label', T.send);
-      send.addEventListener('click', (e) => { e.stopPropagation(); sendCmd(safeText); });
-      row.appendChild(send);
-    }
-
-    row.addEventListener('click', () => {
-      input.value = safeText;
-      input.focus();
-      setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
-    });
-    return row;
-  }
-
-  function filtered(list) {
-    const q = query.trim().toLowerCase();
-    return q ? list.filter(c => c.toLowerCase().includes(q)) : list;
-  }
-
-  function mkEmpty(tipo, title, hint) {
-    const box = document.createElement('div');
-    box.className = 'empty';
-    const ico = document.createElement('div');
-    ico.className = 'empty-icon ' + tipo;
-    ico.innerHTML = ICON_EMPTY[tipo];
-    const t = document.createElement('div');
-    t.className = 'empty-title';
-    t.textContent = title;
-    const h = document.createElement('div');
-    h.className = 'empty-hint';
-    h.textContent = hint;
-    box.append(ico, t, h);
-    return box;
-  }
-
-  function renderList(container, kind, list, emptyText, hintText, starOf) {
-    container.innerHTML = '';
-    const items = filtered(list);
-    if (!items.length) {
-      // Distingue "não há nada" de "a busca não achou nada": a saída para
-      // cada caso é diferente.
-      const buscando = list.length > 0;
-      container.appendChild(mkEmpty(
-        buscando ? 'search' : kind,
-        buscando ? T.noMatches : emptyText,
-        buscando ? T.noMatchesHint : hintText,
-      ));
-      return 0;
-    }
-    items.slice(0, shown).forEach(cmd => {
-      container.appendChild(mkCmdRow(cmd, { star: starOf(cmd) }));
-    });
-    return items.length;
-  }
-
-  function renderFavorites() {
-    return renderList(favItems, 'fav', favorites, T.emptyFavorites, T.emptyFavoritesHint, () => true);
-  }
-
-  function renderHistory() {
-    return renderList(histItems, 'hist', history, T.emptyHistory, T.emptyHistoryHint, cmd => favorites.includes(cmd));
-  }
-
-  function render() {
-    const total = tab === 'fav' ? renderFavorites() : renderHistory();
-    loadMore.hidden = total <= shown;
-    renderCounts();
-  }
-
-  // A aba escolhida sobrevive ao re-render; o botão "Limpar" segue a aba
-  // visível, para não haver dois com o mesmo rótulo e alvos diferentes.
-  function selectTab(which) {
-    const fav = which === 'fav';
-    tab = which;
-    shown = PAGE;
-    query = '';
-    search.value = '';
-    searchClear.hidden = true;
-    tabFav.setAttribute('aria-selected', String(fav));
-    tabHist.setAttribute('aria-selected', String(!fav));
-    favItems.hidden = !fav;
-    histItems.hidden = fav;
-    favClear.hidden = !fav;
-    histClear.hidden = fav;
-    updateSearchVisibility();
-    render();
-  }
-
-  // A busca só aparece quando há o que buscar.
-  function updateSearchVisibility() {
-    const list = tab === 'fav' ? favorites : history;
-    searchBox.hidden = list.length <= PAGE / 2;
-  }
-
-  // Acima de 99 o número deixa de informar e só rouba espaço do rótulo.
-  function badge(n) {
-    return n ? '(' + (n > 99 ? '99+' : n) + ')' : '';
-  }
-
-  function renderCounts() {
-    histCount.textContent = badge(history.length);
-    favCount.textContent = badge(favorites.length);
-  }
-
-  function applyState(payload) {
-    const p = payload || {};
-    history = Array.isArray(p.history) ? p.history : [];
-    favorites = Array.isArray(p.favorites) ? p.favorites : [];
-    cursor = -1;
-    updateSearchVisibility();
-    render();
-  }
-
-  function sendCmd(text) {
-    const trimmed = (text || '').trim();
-    if (!trimmed) return;
-    vscode.postMessage({ type: 'send', text: trimmed });
-  }
-
-  function sendFromInput() {
-    const text = input.value.trim();
-    if (!text) return;
-    sendCmd(text);
-    input.value = '';
-    cursor = -1;
-    input.focus();
-  }
-
-  btn.addEventListener('click', sendFromInput);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); sendFromInput(); return; }
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!history.length) return;
-      if (e.key === 'ArrowUp') { if (cursor < history.length - 1) cursor++; }
-      else { if (cursor > -1) cursor--; }
-      input.value = cursor === -1 ? '' : history[cursor];
-      setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
-    }
-  });
-
-  search.addEventListener('input', () => {
-    query = search.value;
-    searchClear.hidden = !query;
-    shown = PAGE;
-    render();
-  });
-  searchClear.addEventListener('click', () => {
-    search.value = '';
-    query = '';
-    searchClear.hidden = true;
-    shown = PAGE;
-    render();
-    search.focus();
-  });
-  loadMore.addEventListener('click', () => { shown += PAGE; render(); });
-
-  tabHist.addEventListener('click', () => selectTab('hist'));
-  tabFav.addEventListener('click', () => selectTab('fav'));
-
-  histClear.addEventListener('click', () => { vscode.postMessage({ type: 'clearHistory' }); input.focus(); });
-  favClear.addEventListener('click', () => { vscode.postMessage({ type: 'clearFavorites' }); input.focus(); });
-
-  window.addEventListener('message', (ev) => {
-    const { type, payload } = ev.data || {};
-    if (type === 'state') applyState(payload);
-  });
-
-  vscode.postMessage({ type: 'requestState' });
-  input.focus();
-</script>
+<!-- Dados para o script: ícones e traduções são da extensão, e um arquivo
+     externo não pode interpolá-los. O tipo application/json não é executável,
+     então o CSP o permite sem nonce. -->
+<script id="dados-painel" type="application/json">${JSON.stringify({
+      icons: {
+        send: ICON_SEND,
+        starOn: ICON_STAR_ON,
+        starOff: ICON_STAR_OFF,
+        empty: {
+          hist: ICON_EMPTY_HISTORY,
+          fav: ICON_EMPTY_STAR,
+          search: ICON_EMPTY_SEARCH,
+        },
+      },
+      i18n: {
+        send: msg.serverView.send(),
+        emptyHistory: msg.serverView.emptyHistory(),
+        emptyFavorites: msg.serverView.emptyFavorites(),
+        addFavorite: msg.serverView.addFavorite(),
+        removeFavorite: msg.serverView.removeFavorite(),
+        noMatches: msg.serverView.noMatches(),
+        noMatchesHint: msg.serverView.noMatchesHint(),
+        emptyHistoryHint: msg.serverView.emptyHistoryHint(),
+        emptyFavoritesHint: msg.serverView.emptyFavoritesHint(),
+      },
+    })}</script>
+<script nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;
   }

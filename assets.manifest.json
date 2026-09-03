@@ -31,6 +31,10 @@
       "out": "js/settings.min.js"
     },
     {
+      "src": "assets-src/js/server.js",
+      "out": "js/server.min.js"
+    },
+    {
       "src": "assets-src/js/brand-animation.js",
       "out": "js/brand-animation.min.js"
     }

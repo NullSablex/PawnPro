@@ -341,6 +341,6 @@
   "{0} pacotes": "{0} packages",
   "Adaptador do depurador (pawnpro-debugger)": "Debug adapter (pawnpro-debugger)",
   "Compiladores recomendados": "Recommended compilers",
-  "Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux e macOS. Verificado no Linux; nos demais sistemas ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.": "Use the **open.mp compiler** — it serves both open.mp and SA-MP, and is the only one with a Linux and macOS build. Verified on Linux; on other systems it has not been tested. Other compilers may produce debug information the debugger cannot read.",
-  "Ver os compiladores verificados": "See the verified compilers"
+  "Ver os compiladores verificados": "See the verified compilers",
+  "Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux. Verificado no Linux; no Windows ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.": "Use the **open.mp compiler** — it serves both open.mp and SA-MP, and is the only one with a Linux build. Verified on Linux; on Windows it has not been tested. Other compilers may produce debug information the debugger cannot read."
 }
