@@ -4,20 +4,26 @@ const vscode = acquireVsCodeApi();
 // dados da extensão, e um script externo não pode interpolá-los.
 const _dados = JSON.parse(document.getElementById('dados-painel').textContent);
 
-// Os ícones são SVG da própria extensão, mas passam pelo DOMParser em vez de
-// `innerHTML`: o navegador constrói os nós sem executar script, e a origem
-// deixa de importar. Era o que o CodeQL apontava como xss-through-dom.
-//
-// `text/html`, e não `image/svg+xml`: o parser XML exige `xmlns` no elemento,
-// que os ícones não declaram — sem ele o nó sai fora do namespace SVG e não
-// renderiza. Em HTML o namespace é aplicado pelo próprio parser.
-function setIcon(el, svg) {
+// Os ícones chegam como dados (`{ d, attrs }`), não como markup: montar os nós
+// dispensa parsear HTML, que é o padrão que o CodeQL sinaliza.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function setIcon(el, paths) {
   el.textContent = '';
-  const doc = new DOMParser().parseFromString(svg, 'text/html');
-  for (const node of [...doc.body.childNodes]) el.appendChild(node);
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (const { d, attrs } of paths) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    for (const [k, v] of Object.entries(attrs || {})) path.setAttribute(k, v);
+    svg.appendChild(path);
+  }
+  el.appendChild(svg);
 }
 // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
-const ICON_MARKUP = _dados.icons.send;
+const ICON_SEND = _dados.icons.send;
 const ICON_STAR = { on: _dados.icons.starOn, off: _dados.icons.starOff };
 const ICON_EMPTY = _dados.icons.empty;
 const T = _dados.i18n;
@@ -79,7 +85,7 @@ function mkCmdRow(text, opts = {}) {
   if (opts.send !== false) {
     const send = document.createElement('button');
     send.className = 'mini';
-    setIcon(send, ICON_MARKUP);
+    setIcon(send, ICON_SEND);
     send.classList.add('icon-btn');
     send.title = T.send;
     send.setAttribute('aria-label', T.send);

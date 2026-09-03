@@ -12,9 +12,28 @@ import { createWebviewMsg } from './webviewNls.js';
  * `default-src 'none'`, sem `font-src`), então o traço vem no próprio HTML.
  * `currentColor` faz o ícone acompanhar a cor do botão em qualquer tema.
  */
-const ICON_SEND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M1.7 1.2 14.8 7.6a.45.45 0 0 1 0 .8L1.7 14.8a.45.45 0 0 1-.64-.5l1.3-5.2L8.6 8 2.36 6.9l-1.3-5.2a.45.45 0 0 1 .64-.5Z"/>
-</svg>`;
+const STAR_PATH =
+  'M8 1.6l1.9 4 4.3.6-3.1 3 .75 4.3L8 11.5l-3.85 2 .75-4.3-3.1-3 4.3-.6z';
+
+/**
+ * Os ícones como dados, não como markup.
+ *
+ * A WebView monta os nós SVG a partir disto. Entregar a string pronta exigiria
+ * que o script a parseasse, e parsear markup — mesmo o nosso — é o padrão que
+ * o CodeQL sinaliza e que não vale defender caso a caso.
+ */
+type IconPath = { d: string; attrs?: Record<string, string> };
+
+const STROKE = (width: string): Record<string, string> => ({
+  fill: 'none',
+  stroke: 'currentColor',
+  'stroke-width': width,
+  'stroke-linejoin': 'round',
+});
+
+const ICON_SEND: IconPath[] = [
+  { d: 'M1.7 1.2 14.8 7.6a.45.45 0 0 1 0 .8L1.7 14.8a.45.45 0 0 1-.64-.5l1.3-5.2L8.6 8 2.36 6.9l-1.3-5.2a.45.45 0 0 1 .64-.5Z' },
+];
 
 /**
  * Estrela dos favoritos, em dois estados.
@@ -23,35 +42,40 @@ const ICON_SEND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"
  * de sumir no fundo do painel — daí o traço próprio, preenchido quando marcado
  * e contornado quando não.
  */
-const STAR_PATH =
-  'M8 1.6l1.9 4 4.3.6-3.1 3 .75 4.3L8 11.5l-3.85 2 .75-4.3-3.1-3 4.3-.6z';
-const ICON_STAR_ON = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="${STAR_PATH}"/>
-</svg>`;
-const ICON_STAR_OFF = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-</svg>`;
+const ICON_STAR_ON: IconPath[] = [{ d: STAR_PATH }];
+const ICON_STAR_OFF: IconPath[] = [{ d: STAR_PATH, attrs: STROKE('1.3') }];
 
 /** Estrela contornada, em tamanho grande, para o estado vazio dos favoritos. */
-const ICON_EMPTY_STAR = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-</svg>`;
+const ICON_EMPTY_STAR: IconPath[] = [{ d: STAR_PATH, attrs: STROKE('1') }];
 
 /** Terminal, para o estado vazio do histórico. */
-const ICON_EMPTY_HISTORY = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1h9A1.5 1.5 0 0 1 14 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5v-11Zm1.5-.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9Z"/>
-  <path d="M4.6 5.15a.5.5 0 0 1 .7-.05L7.9 7.3a.5.5 0 0 1 0 .76L5.3 10.3a.5.5 0 0 1-.65-.76L6.8 7.68 4.65 5.85a.5.5 0 0 1-.05-.7ZM8.5 10a.5.5 0 0 1 .5-.5h2.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5Z"/>
-</svg>`;
+const ICON_EMPTY_HISTORY: IconPath[] = [
+  { d: 'M2 2.5A1.5 1.5 0 0 1 3.5 1h9A1.5 1.5 0 0 1 14 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5v-11Zm1.5-.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9Z' },
+  { d: 'M4.6 5.15a.5.5 0 0 1 .7-.05L7.9 7.3a.5.5 0 0 1 0 .76L5.3 10.3a.5.5 0 0 1-.65-.76L6.8 7.68 4.65 5.85a.5.5 0 0 1-.05-.7ZM8.5 10a.5.5 0 0 1 .5-.5h2.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5Z' },
+];
 
 /** Lupa, para quando a busca não encontra nada. */
-const ICON_EMPTY_SEARCH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M6.75 1.5a5.25 5.25 0 1 0 3.2 9.41l3.42 3.42a.75.75 0 0 0 1.06-1.06l-3.42-3.42A5.25 5.25 0 0 0 6.75 1.5Zm-3.75 5.25a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z"/>
-</svg>`;
+const ICON_EMPTY_SEARCH: IconPath[] = [
+  { d: 'M6.75 1.5a5.25 5.25 0 1 0 3.2 9.41l3.42 3.42a.75.75 0 0 0 1.06-1.06l-3.42-3.42A5.25 5.25 0 0 0 6.75 1.5Zm-3.75 5.25a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z' },
+];
 
 /** X: limpar o texto da busca. */
-const ICON_CLOSE = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z"/>
-</svg>`;
+const ICON_CLOSE: IconPath[] = [
+  { d: 'M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z' },
+];
+
+/** O mesmo ícone como markup, para os pontos do HTML servido pela extensão. */
+function iconMarkup(paths: IconPath[]): string {
+  const body = paths
+    .map((p) => {
+      const attrs = Object.entries(p.attrs ?? {})
+        .map(([k, v]) => ` ${k}="${v}"`)
+        .join('');
+      return `<path d="${p.d}"${attrs}/>`;
+    })
+    .join('');
+  return `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">${body}</svg>`;
+}
 
 /** Lixeira: limpar a lista da aba visível. */
 const ICON_TRASH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -319,7 +343,7 @@ ${webviewThemeCss(this.config)}
   <div class="row">
     <input id="cmd" type="text" placeholder="${esc(msg.serverView.inputPlaceholder())}" />
     <button id="send" class="icon-btn" title="${esc(msg.serverView.send())}" aria-label="${esc(msg.serverView.send())}">
-      ${ICON_SEND}
+      ${iconMarkup(ICON_SEND)}
     </button>
   </div>
 
@@ -338,7 +362,7 @@ ${webviewThemeCss(this.config)}
     </div>
     <div id="searchBox" class="search-box" hidden>
       <input id="search" class="search" type="text" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" />
-      <button id="searchClear" class="search-clear" title="${esc(msg.serverView.clearSearch())}" aria-label="${esc(msg.serverView.clearSearch())}" hidden>${ICON_CLOSE}</button>
+      <button id="searchClear" class="search-clear" title="${esc(msg.serverView.clearSearch())}" aria-label="${esc(msg.serverView.clearSearch())}" hidden>${iconMarkup(ICON_CLOSE)}</button>
     </div>
     <div id="histItems" class="items" role="tabpanel"></div>
     <div id="favItems" class="items" role="tabpanel" hidden></div>
