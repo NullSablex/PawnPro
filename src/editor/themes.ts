@@ -192,5 +192,7 @@ export async function cleanupThemeCustomizations() {
       );
     }
     await clearSemanticTokenColors(vscfg);
-  } catch {}
+  } catch {
+    /* Ajuste de tema é cosmético: falhar aqui não pode interromper o comando. */
+  }
 }

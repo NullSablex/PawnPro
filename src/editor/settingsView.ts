@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { randomBytes } from 'crypto';
 import { PawnProConfigManager } from '../core/config.js';
 import { ACCENTS } from '../core/accent.js';
 import { webviewThemeCss } from './webviewTheme.js';
@@ -49,8 +50,12 @@ export function registerSettingsView(
         {
           enableScripts: true,
           retainContextWhenHidden: true,
-          // Permite à webview carregar o logo de images/ via asWebviewUri.
-          localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'images')],
+          // Permite à webview carregar o logo de images/ e a folha de estilo de
+          // media/ via asWebviewUri.
+          localResourceRoots: [
+            vscode.Uri.joinPath(context.extensionUri, 'images'),
+            vscode.Uri.joinPath(context.extensionUri, 'out', 'assets'),
+          ],
         },
       );
       // Ícone da aba (em vez do genérico de arquivo).
@@ -59,7 +64,28 @@ export function registerSettingsView(
       const logoUri = panel.webview.asWebviewUri(
         vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg'),
       );
-      panel.webview.html = getHtml(logoUri.toString(), webviewThemeCss(config));
+      const cssUri = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, 'out', 'assets', 'css', 'settings.min.css'),
+      );
+      const jsUri = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, 'out', 'assets', 'js', 'settings.min.js'),
+      );
+      const brandJsUri = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, 'out', 'assets', 'js', 'brand-animation.min.js'),
+      );
+      // Capturado agora: `render` é chamado depois, e ali o painel pode já ter
+      // sido descartado — o valor não muda enquanto ele vive.
+      const cspSource = panel.webview.cspSource;
+      const render = () =>
+        getHtml(
+          cspSource,
+          logoUri.toString(),
+          cssUri.toString(),
+          jsUri.toString(),
+          brandJsUri.toString(),
+          webviewThemeCss(config),
+        );
+      panel.webview.html = render();
       sendState(panel, config, context);
 
       // Re-envia o estado (e re-traduz via ui.locale) sempre que a config muda —
@@ -74,7 +100,7 @@ export function registerSettingsView(
         const accent = config.getAll().ui?.accent ?? '';
         if (accent !== lastAccent) {
           lastAccent = accent;
-          panel.webview.html = getHtml(logoUri.toString(), webviewThemeCss(config));
+          panel.webview.html = render();
         }
         sendState(panel, config, context);
       });
@@ -288,7 +314,13 @@ function buildI18n(m: Msg) {
     uiAccentAuto:                s.uiAccentAuto(),
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
-    namingRegexMatchesNothing:   s.namingRegexMatchesNothing(),
+    namingRegexNoPreview:        s.namingRegexNoPreview(),
+    namingSemRegra:              s.namingSemRegra(),
+    namingAlsoAccepts:           s.namingAlsoAccepts(),
+    fechar:                      s.fechar(),
+    buscarExemplos:              s.buscarExemplos(),
+    nenhumExemploBusca:          s.nenhumExemploBusca(),
+    exemplosCortados:            s.exemplosCortados(MAX_EXAMPLES_UI),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -385,6 +417,12 @@ function namingStyleRow(category: string): string {
       <div class="row-label" data-i18n="namingStyle.${category}"></div>
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
+        <button type="button" class="naming-more" id="naming-more-${category}" hidden></button>
+        <p class="naming-vazio" id="naming-vazio-${category}" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm0 1.2a5.3 5.3 0 0 1 3.2 1.08L3.78 11.2A5.3 5.3 0 0 1 8 2.7Zm0 10.6a5.3 5.3 0 0 1-3.2-1.08l7.42-7.42A5.3 5.3 0 0 1 8 13.3Z"/></svg>
+          <span id="naming-vazio-texto-${category}"></span>
+        </p>
+        <p class="regex-erro" id="naming-regex-erro-${category}" role="alert" hidden></p>
       </div>
     </div>
     <div class="row-control style-checks">
@@ -422,436 +460,48 @@ const ENCODING_OPTIONS = /* html */`
         <option value="windows1257" data-i18n="encodingWin1257"></option>
         <option value="latin1"      data-i18n="encodingLatin1"></option>`;
 
-function getHtml(logoUri: string, themeCss: string): string {
+/**
+ * Teto da lista de exemplos do modal de nomenclatura.
+ *
+ * A rolagem dá conta do volume, mas uma lista sem fim não ajuda ninguém a
+ * entender o padrão. Declarado aqui, e não no script da WebView, para a
+ * mensagem de corte citar o mesmo número sem duplicar a constante.
+ */
+const MAX_EXAMPLES_UI = 300;
+
+function getHtml(
+  cspSource: string,
+  logoUri: string,
+  cssUri: string,
+  jsUri: string,
+  brandJsUri: string,
+  themeCss: string,
+): string {
+  // Nonce por render: com ele o CSP libera SÓ os scripts que a extensão gerou,
+  // em vez do 'unsafe-inline', que permitiria qualquer injeção.
+  const nonce = randomBytes(16).toString('base64');
   return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Sem 'unsafe-inline' em script-src: com o nonce, só o que a extensão gerou
+     executa. O estilo ainda precisa dele por causa do <style> com a cor de
+     destaque, que depende da configuração. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource}; script-src 'nonce-${nonce}';">
 <title>PawnPro</title>
+<!-- O estilo estático vive em assets-src/css/settings.css e é minificado para
+     out/assets/ (ver assets.manifest.json). Em arquivo próprio o editor dá
+     realce e validação, e a folha sai 40% menor. Só o que depende de dados
+     fica aqui — a cor de destaque e a animação da marca. -->
+<link rel="stylesheet" href="${cssUri}">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  /* O display do user-agent para [hidden] tem especificidade mínima e perde de
-     qualquer classe que declare display — .naming-preview é display:block, e o
-     elemento seguia visível com o atributo posto. */
-  [hidden] { display: none !important; }
-
-  /* Padding horizontal fluido: encolhe em painéis estreitos sem breakpoints. */
-  :root { --pad-x: clamp(14px, 5vw, 36px); }
-
-  body {
-    font-family: var(--vscode-font-family);
-    font-size: 14px;
-    color: var(--vscode-foreground);
-    background: var(--vscode-editor-background);
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  nav {
-    width: 180px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--vscode-panel-border, #333);
-    padding: 20px 0;
-    overflow-y: auto;
-    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
-  }
-
-  nav .logo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.95em;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-    padding: 0 16px 16px;
-    border-bottom: 1px solid var(--vscode-panel-border, #333);
-    margin-bottom: 8px;
-    letter-spacing: 0.02em;
-  }
-  nav .logo img {
-    width: 22px;
-    height: 22px;
-    flex-shrink: 0;
-  }
-
-  nav a {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    /* O recuo perde os 2px que a borda esquerda ocupa, para o ícone do item
-       ativo não deslizar para a direita ao ganhar a borda. */
-    padding: 7px 16px 7px 14px;
-    font-size: 0.98em;
-    color: var(--vscode-foreground);
-    text-decoration: none;
-    cursor: pointer;
-    border-left: 2px solid transparent;
-    opacity: 0.7;
-    transition: opacity 0.1s, border-color 0.1s;
-  }
-  /* O ícone herda a cor e a opacidade do item: acompanha ativo e hover sem
-     precisar de regra própria para cada estado. */
-  nav a svg {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 auto;
-    fill: currentColor;
-  }
-  /* O rótulo cede primeiro quando a navegação aperta; o ícone permanece. */
-  nav a span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  nav a:hover { opacity: 1; background: var(--vscode-list-hoverBackground, #ffffff10); }
-  nav a.active { opacity: 1; border-left-color: var(--pp-accent); font-weight: 600; }
-
-  main {
-    flex: 1;
-    overflow-y: auto;
-    padding: 28px var(--pad-x) 24px;
-    scroll-behavior: smooth;
-  }
-
-  .section { margin-bottom: 40px; scroll-margin-top: 28px; }
-  /* Última seção: sem a margem inferior extra, evitando vão exagerado no fim. */
-  .section:last-of-type { margin-bottom: 0; }
-
-  h2 {
-    font-size: 1.1em;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-    margin-bottom: 4px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--vscode-panel-border, #333);
-  }
-
-  .row {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--vscode-panel-border, #1e1e1e);
-  }
-  .row:last-child { border-bottom: none; }
-
-  .row-info { flex: 1; min-width: 0; }
-
-  .row-label {
-    font-weight: 500;
-    font-size: 1em;
-    margin-bottom: 3px;
-  }
-
-  .row-desc {
-    font-size: 0.875em;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.5;
-    margin-top: 2px;
-  }
-
-  .row-control {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    min-width: 200px;
-    justify-content: flex-end;
-  }
-
-  /* Seleção de preset de formatação como cartões com preview visual. */
-  .preset-header { padding: 14px 0 4px; }
-  .preset-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
-    gap: 12px;
-    padding: 10px 0 24px;
-  }
-  .preset-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    background: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border, #555);
-    border-radius: 6px;
-    cursor: pointer;
-    text-align: left;
-    font: inherit;
-    color: var(--vscode-foreground);
-    transition: border-color 0.12s, background 0.12s;
-  }
-  .preset-card:hover { background: var(--vscode-list-hoverBackground, #ffffff10); }
-  .preset-card.selected {
-    border-color: var(--pp-accent);
-    box-shadow: 0 0 0 1px var(--pp-accent);
-  }
-  .preset-preview {
-    margin: 0;
-    padding: 8px 10px;
-    min-height: 72px;
-    background: var(--vscode-editor-background);
-    border-radius: 4px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 0.8em;
-    line-height: 1.4;
-    color: var(--vscode-editor-foreground, var(--vscode-foreground));
-    white-space: pre;
-    overflow: hidden;
-    pointer-events: none;
-  }
-  /* Cada exemplo em sua linha, mas o fundo do <code> acompanha o texto: como
-     bloco de largura total ele ia até a borda da coluna, e o exemplo do padrão
-     logo abaixo — mais curto — desenhava uma caixa visivelmente diferente. */
-  .naming-preview {
-    display: block;
-    width: fit-content;
-    max-width: 100%;
-    white-space: pre;
-    font-family: var(--vscode-editor-font-family, monospace);
-    color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
-    opacity: 0.85;
-  }
-  .style-checks {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(min(110px, 100%), 1fr));
-    grid-auto-flow: column;
-    grid-template-rows: repeat(3, auto);
-    gap: 6px 8px;
-    min-width: min(240px, 100%);
-  }
-  .style-badge { cursor: pointer; }
-  .style-badge input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .style-badge span {
-    display: block;
-    text-align: center;
-    font-size: 0.85em;
-    padding: 4px 8px;
-    border-radius: 12px;
-    border: 1px solid var(--vscode-input-border, #555);
-    opacity: 0.65;
-    user-select: none;
-    transition: background 0.12s, opacity 0.12s, border-color 0.12s;
-  }
-  .style-badge:hover span { opacity: 0.9; }
-  .style-badge input:checked + span {
-    opacity: 1;
-    border-color: var(--pp-accent);
-    background: var(--pp-accent);
-    color: var(--pp-accent-fg);
-  }
-  .style-badge input:focus-visible + span {
-    box-shadow: 0 0 0 2px var(--pp-accent);
-  }
-  /* O campo de padrão próprio fica sob as etiquetas da mesma categoria: é uma
-     alternativa a elas, não um ajuste de outra seção. */
-  /* O campo fecha a grade de etiquetas ocupando as duas colunas: é o mesmo
-     grupo de critérios, e a linha da categoria não se divide. */
-  .style-checks .regex-input {
-    /* A grade preenche por coluna (3 linhas fixas), então o campo é colocado
-       explicitamente numa quarta linha própria, cruzando as duas colunas — sem
-       isso ele entraria como sexta etiqueta, ao lado das outras. */
-    grid-row: 4;
-    grid-column: 1 / -1;
-    width: 100%;
-    margin-top: 2px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 0.85em;
-  }
-  /* Só colore quando há o que dizer: vazio é o estado normal, não um erro. */
-  .regex-input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
-  /* O exemplo do padrão é o mesmo trecho de código Pawn dos estilos embutidos
-     (.naming-preview, de onde herda a aparência): as duas respondem à mesma
-     pergunta e ficam na mesma coluna, uma sob a outra. */
-  /* Sem overflow próprio: overflow != visible cria um contexto que encolhe a
-     caixa até o conteúdo, e o fundo do <code> ficava mais curto que o do
-     exemplo dos estilos logo acima. Os dois são o mesmo tipo de informação e
-     têm de ter a mesma caixa; nomes de identificador cabem na coluna. */
-
-  /* Seletor de cor: as amostras mostram a própria cor, e o "Automático" é
-     texto porque não tem cor própria — ele segue o tema do editor. */
-  .accent-picker { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .accent-swatch { cursor: pointer; }
-  .accent-swatch input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .accent-swatch > span {
-    display: block;
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    background: var(--sw);
-    border: 2px solid transparent;
-    box-shadow: 0 0 0 1px var(--vscode-input-border, #555);
-    transition: box-shadow 0.12s;
-  }
-  .accent-swatch.auto > span {
-    width: auto; height: auto;
-    border-radius: 11px;
-    background: transparent;
-    padding: 3px 10px;
-    font-size: 0.85em;
-    white-space: nowrap;
-  }
-  .accent-swatch:hover > span { box-shadow: 0 0 0 2px var(--vscode-descriptionForeground); }
-  /* A marca de escolhido é um anel, não um preenchimento: a cor da amostra
-     precisa continuar visível. */
-  .accent-swatch input:checked + span,
-  .accent-swatch input:focus-visible + span {
-    box-shadow: 0 0 0 2px var(--vscode-foreground);
-  }
-
-  .naming-styles { padding: 10px 0; }
-  .naming-styles > summary {
-    cursor: pointer;
-    list-style: none;
-    padding: 2px 0;
-    /* Grade de duas colunas: o chevron ocupa a primeira nas duas linhas, e a
-       descrição alinha com o título sem depender de um recuo fixo. */
-    display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: 6px;
-    align-items: center;
-  }
-  .naming-styles > summary::-webkit-details-marker { display: none; }
-  /* Antes era o caractere '▸': o desenho vinha da fonte do sistema e destoava
-     dos ícones da página, que são traços SVG de peso uniforme. */
-  .naming-styles .disclosure {
-    grid-row: 1 / 3;
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-    opacity: 1;
-    transition: transform 0.15s;
-  }
-  .naming-styles[open] .disclosure { transform: rotate(90deg); }
-  .naming-styles-title { font-weight: 600; }
-  .naming-styles-desc { opacity: 0.7; font-size: 0.85em; }
-  .naming-styles[open] > .naming-style-row:last-child { border-bottom: none; }
-  .preset-name {
-    font-size: 0.9em;
-    font-weight: 600;
-    text-align: center;
-  }
-
-  input[type="text"], input[type="number"], select {
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, #555);
-    border-radius: 3px;
-    padding: 5px 8px;
-    font-family: inherit;
-    font-size: inherit;
-    width: 100%;
-    outline: none;
-    transition: border-color 0.1s;
-  }
-  input[type="text"]:focus, input[type="number"]:focus, select:focus {
-    border-color: var(--pp-accent);
-  }
-
-  code {
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 0.9em;
-    background: var(--vscode-textCodeBlock-background, #ffffff18);
-    border-radius: 3px;
-    padding: 1px 4px;
-  }
-
-  .toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    cursor: pointer;
-    user-select: none;
-  }
-  .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .toggle-track {
-    width: 36px; height: 20px;
-    background: var(--vscode-input-border, #555);
-    border-radius: 10px;
-    transition: background 0.15s;
-    flex-shrink: 0;
-  }
-  .toggle input:checked + .toggle-track {
-    background: var(--pp-accent);
-  }
-  .toggle-thumb {
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 14px; height: 14px;
-    background: #fff;
-    border-radius: 50%;
-    transition: left 0.15s;
-    pointer-events: none;
-  }
-  .toggle input:checked ~ .toggle-thumb { left: 19px; }
-
-  .array-editor { width: 100%; }
-  .array-items { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
-  .array-item { display: flex; gap: 4px; align-items: center; }
-  .array-item input { flex: 1; }
-  .btn-remove {
-    background: transparent;
-    color: var(--vscode-descriptionForeground);
-    border: 1px solid var(--vscode-input-border, #555);
-    border-radius: 3px;
-    width: 26px; height: 26px;
-    cursor: pointer;
-    font-size: 0.9em;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    line-height: 1;
-    transition: background 0.1s, color 0.1s;
-  }
-  .btn-remove:hover {
-    background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
-    color: var(--vscode-foreground);
-    border-color: transparent;
-  }
-  .migrate-banner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    background: var(--vscode-inputValidation-warningBackground, rgba(255,200,0,0.1));
-    border: 1px solid var(--vscode-inputValidation-warningBorder, #cc9900);
-    font-size: 0.9em;
-  }
-  .migrate-banner span { flex: 1; }
-  .btn-add, .btn-file {
-    background: var(--pp-accent);
-    color: var(--pp-accent-fg);
-    border: none;
-    border-radius: 3px;
-    padding: 5px 12px;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-family: inherit;
-    transition: background 0.1s;
-  }
-  .btn-add:hover { background: var(--pp-accent-hover); }
-
-  .wide .row-control { min-width: 100%; margin-top: 8px; flex-direction: column; align-items: stretch; }
-  .wide { flex-wrap: wrap; }
-
-  .note {
-    font-size: 0.875em;
-    color: var(--vscode-descriptionForeground);
-    margin-bottom: 24px;
-    padding: 8px 12px;
-    border-left: 2px solid var(--pp-accent);
-    background: var(--vscode-textBlockQuote-background, #ffffff08);
-    border-radius: 0 3px 3px 0;
-  }
-
 ${brandAnimationCss()}
 ${themeCss}
 </style>
 </head>
-<body>
+<body data-max-examples="${MAX_EXAMPLES_UI}">
 
 <nav>
   <div class="logo"><img src="${logoUri}" alt="" /><span class="brand" id="brand">PawnPro</span></div>
@@ -1400,485 +1050,32 @@ ${ENCODING_OPTIONS}
 
 </main>
 
-<script>
-const vscode = acquireVsCodeApi();
-let _i18n = {};
-const STYLE_OPTIONS = ['camelCase', 'snake_case', 'PascalCase', 'UPPER_CASE', 'Capitalized_Snake'];
+<dialog class="exemplos-modal" id="exemplos-modal">
+  <div class="exemplos-modal-corpo">
+    <div class="exemplos-modal-topo">
+      <code id="exemplos-modal-titulo"></code>
+    </div>
+    <div class="search-box">
+      <input id="exemplos-modal-busca" class="search" type="text"
+        data-i18n-ph="buscarExemplos" data-i18n-aria="buscarExemplos" />
+      <span class="exemplos-modal-conta" id="exemplos-modal-conta"></span>
+    </div>
+    <ul id="exemplos-modal-lista"></ul>
+    <p class="exemplos-modal-vazio" id="exemplos-modal-vazio" hidden
+       data-i18n="nenhumExemploBusca"></p>
+    <p class="exemplos-modal-corte" id="exemplos-modal-corte" hidden
+       data-i18n="exemplosCortados"></p>
+    <div class="exemplos-modal-rodape">
+      <button type="button" id="exemplos-modal-fechar" data-i18n="fechar"></button>
+    </div>
+  </div>
+</dialog>
 
-function set(key, value) {
-  vscode.postMessage({ type: 'set', key, value });
-}
-
-// Detecção automática ligada: o caminho manual é irrelevante (válido é usado,
-// inválido/vazio cai na detecção), então o campo é ocultado.
-function onAutoDetectChange(on) {
-  set('compiler.autoDetect', on);
-  toggleCompilerPath(on);
-}
-function toggleCompilerPath(autoOn) {
-  const row = document.querySelector('.compiler-path-row');
-  if (row) row.style.display = autoOn ? 'none' : '';
-}
-
-${brandAnimationJs()}
-
-window.addEventListener('message', e => {
-  const msg = e.data;
-  if (msg.type === 'state') {
-    if (msg.i18n) applyI18n(msg.i18n);
-    applyState(msg.payload);
-    const banner = document.getElementById('naming-migrate-banner');
-    if (banner) banner.style.display = msg.hasInlineNaming ? '' : 'none';
-    // Recalcula o espaçador após o conteúdo assentar.
-    requestAnimationFrame(sizeScrollSpacer);
-  }
-});
-
-function migrateNaming() {
-  vscode.postMessage({ type: 'migrateNaming' });
-}
-
-vscode.postMessage({ type: 'requestState' });
-
-function applyI18n(i18n) {
-  _i18n = i18n;
-
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.getAttribute('data-i18n');
-    if (i18n[key] !== undefined) el.textContent = i18n[key];
-  });
-  // Campos sem rótulo visível levam o nome em aria-label, que textContent não
-  // alcança.
-  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
-    const key = el.getAttribute('data-i18n-aria');
-    if (i18n[key] !== undefined) el.setAttribute('aria-label', i18n[key]);
-  });
-
-  const note = document.getElementById('note-text');
-  if (note) {
-    note.innerHTML = i18n.noteText
-      .replace('.pawnpro/config.json', '<code>.pawnpro/config.json</code>')
-      .replace('~/.pawnpro/config.json', '<code>~/.pawnpro/config.json</code>');
-  }
-}
-
-function applyState(cfg) {
-  applyBrandAnimation(cfg.ui?.animateTitle ?? false);
-  setCheck('ui-animateTitle', cfg.ui?.animateTitle ?? false);
-  setInput('compiler-path',     cfg.compiler?.path ?? '');
-  const autoDetect = cfg.compiler?.autoDetect ?? true;
-  setCheck('compiler-autoDetect', autoDetect);
-  toggleCompilerPath(autoDetect);
-  setArray('compiler-args-editor', 'compiler.args', cfg.compiler?.args ?? []);
-  setArray('includePaths-editor',  'includePaths',   cfg.includePaths ?? []);
-  setCheck('build-showCommand',  cfg.build?.showCommand ?? false);
-  setSelect('output-encoding',   cfg.output?.encoding ?? 'windows1252');
-  setCheck('analysis-warnUnusedInInc',          cfg.analysis?.warnUnusedInInc ?? false);
-  setCheck('analysis-suppressDiagnosticsInInc', cfg.analysis?.suppressDiagnosticsInInc ?? false);
-  setSelect('analysis-sdk-platform', cfg.analysis?.sdk?.platform ?? 'omp');
-  setInput('analysis-sdk-filePath',  cfg.analysis?.sdk?.filePath ?? '');
-  const fmtPreset = cfg.format?.preset ?? 'allman';
-  markPresetCard(fmtPreset);
-  setSelect('format-braceStyle',            cfg.format?.braceStyle ?? 'nextLine');
-  setCheck('format-spaceAroundOperators',   cfg.format?.spaceAroundOperators ?? true);
-  setCheck('format-emptyBlockSameLine',     cfg.format?.emptyBlockSameLine ?? true);
-  setCheck('format-preserveArrayAlignment', cfg.format?.preserveArrayAlignment ?? false);
-  toggleFormatCustom(fmtPreset);
-  const naming = cfg.analysis?.naming ?? {};
-  setCheck('naming-enabled', naming.enabled ?? false);
-  setInput('naming-minLength', naming.minLength ?? 2);
-  setInput('naming-maxListMb', Math.round((naming.maxListFileBytes ?? 33554432) / 1048576));
-  for (const cat of ['functions', 'globals', 'locals', 'constants', 'macros', 'parameters']) {
-    const accepted = Array.isArray(naming.style?.[cat]) ? naming.style[cat] : [];
-    for (const st of STYLE_OPTIONS) {
-      setCheck('naming-style-' + cat + '-' + st, accepted.includes(st));
-    }
-    // O padrão próprio é o item entre barras; os demais são os embutidos.
-    setInput('naming-regex-' + cat, accepted.find(isRegexRule) ?? '');
-    updateRegexStatus(cat, true);
-    updateNamingPreview(cat, accepted);
-  }
-  setSelect('syntax-scheme',        cfg.syntax?.scheme ?? 'none');
-  setCheck('syntax-applyOnStartup', cfg.syntax?.applyOnStartup ?? false);
-  const accent = cfg.ui?.accent ?? '';
-  const accentRadio = document.querySelector('input[name="accent"][value="' + accent + '"]');
-  if (accentRadio) accentRadio.checked = true;
-  setCheck('ui-showIncludePaths',   cfg.ui?.showIncludePaths ?? false);
-  setSelect('ui-locale',            cfg.ui?.locale ?? '');
-  setSelect('locale',               cfg.locale ?? '');
-  setSelect('server-type',          cfg.server?.type ?? 'auto');
-  setInput('server-path',           cfg.server?.path ?? '');
-  setInput('server-cwd',            cfg.server?.cwd ?? '\${workspaceFolder}');
-  setArray('server-args-editor',    'server.args', cfg.server?.args ?? []);
-  setArray('server-sensitive-editor', 'server.history.sensitiveCommands', cfg.server?.history?.sensitiveCommands ?? []);
-
-  setCheck('server-clearOnStart',   cfg.server?.clearOnStart ?? true);
-  setCheck('server-history-enabled', cfg.server?.history?.enabled ?? true);
-  setSelect('server-output-follow', cfg.server?.output?.follow ?? 'visible');
-  setInput('server-logPath',        cfg.server?.logPath ?? '');
-  setSelect('server-logEncoding',   cfg.server?.logEncoding ?? 'windows1252');
-}
-
-function setInput(id, value) {
-  const el = document.getElementById(id);
-  if (el && document.activeElement !== el) el.value = value;
-}
-function setCheck(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.checked = !!value;
-}
-function setSelect(id, value) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  for (const opt of el.options) opt.selected = opt.value === value;
-}
-// Seleção de preset via cartão: persiste, marca o cartão e mostra/oculta os
-// ajustes finos (que só valem no 'custom').
-function selectPreset(preset) {
-  set('format.preset', preset);
-  markPresetCard(preset);
-  toggleFormatCustom(preset);
-}
-
-// Realça o cartão do preset ativo.
-function markPresetCard(preset) {
-  for (const card of document.querySelectorAll('.preset-card')) {
-    card.classList.toggle('selected', card.getAttribute('data-preset') === preset);
-  }
-}
-
-// Ajustes finos de formatação só fazem sentido no preset 'custom'; nos presets
-// prontos eles são definidos pela engine, então ficam ocultos.
-function toggleFormatCustom(preset) {
-  const show = preset === 'custom';
-  for (const el of document.querySelectorAll('.format-custom')) {
-    el.style.display = show ? '' : 'none';
-  }
-}
-
-// Palavras-base por categoria — identificadores temáticos do mundo SA-MP/RP em
-// vez de um genérico "player_score" repetido em toda categoria. Cada item é uma
-// lista de palavras minúsculas que styleSample combina conforme a convenção.
-const NAMING_WORDS = {
-  functions:  ['carregar', 'lixeiras'],
-  globals:    ['total', 'jogadores'],
-  locals:     ['caixa', 'eletronico'],
-  constants:  ['vida', 'maxima'],
-  macros:     ['nome', 'servidor'],
-  parameters: ['prot', 'z'],
-};
-
-// Combina as palavras-base de uma categoria na convenção de caixa escolhida,
-// para ilustrar concretamente cada estilo no preview.
-function styleSample(category, style) {
-  const words = NAMING_WORDS[category] ?? ['player', 'score'];
-  const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
-  switch (style) {
-    case 'camelCase':  return words.map((w, i) => i === 0 ? w : cap(w)).join('');
-    case 'snake_case': return words.join('_');
-    case 'PascalCase': return words.map(cap).join('');
-    case 'UPPER_CASE': return words.join('_').toUpperCase();
-    case 'Capitalized_Snake': return words.map(cap).join('_');
-    default:           return null; // estilo desconhecido — ignorado no preview
-  }
-}
-
-// Cada categoria mostra um trecho de código Pawn REAL daquela categoria, com o
-// identificador no estilo escolhido — assim fica claro o que a regra pega.
-// O marcador chaveado é substituído pelo identificador de exemplo.
-const NAMING_TEMPLATE = {
-  functions:  'stock {}() { }',
-  globals:    'new {};',
-  locals:     'new {} = 0;',
-  constants:  'const {} = 100;',
-  macros:     '#define {} ...',
-  parameters: 'foo({})',
-};
-
-// Lê os critérios de uma categoria: as etiquetas marcadas mais o padrão
-// próprio, quando houver um válido. A engine aceita o nome que casar com
-// QUALQUER item da lista, então os dois convivem.
-function readAcceptedStyles(category) {
-  const styles = STYLE_OPTIONS.filter(st => {
-    const el = document.getElementById('naming-style-' + category + '-' + st);
-    return el && el.checked;
-  });
-  const input = document.getElementById('naming-regex-' + category);
-  const raw = input ? input.value.trim() : '';
-  if (raw && isRegexRule(raw) && compileRule(raw)) styles.push(raw);
-  return styles;
-}
-
-// Marca/desmarca um estilo aceito e persiste a lista resultante da categoria.
-function toggleNamingStyle(category, style, checked) {
-  const accepted = readAcceptedStyles(category);
-  set('analysis.naming.style.' + category, accepted);
-  updateNamingPreview(category, accepted);
-}
-
-// Um critério é regex quando vem entre barras — mesma convenção da engine.
-function isRegexRule(v) {
-  return typeof v === 'string' && v.length >= 2 && v.startsWith('/') && v.endsWith('/');
-}
-
-// Compila o padrão como a engine faz: âncora ^(?:...)$ para descrever o nome
-// inteiro, e o agrupamento impede que uma alternância ancore só os extremos.
-// Devolve null se o padrão for inválido.
-//
-// Limite de tamanho: o motor de regex do JS faz backtracking, então um padrão
-// como (a+)+ leva tempo exponencial no comprimento da entrada. A engine (crate
-// regex do Rust) tem tempo linear garantido e não se importa; quem precisa se
-// defender é esta pré-visualização. Um padrão de nome de identificador não
-// precisa ser longo.
-const MAX_PATTERN_LEN = 200;
-
-function compileRule(raw) {
-  const body = raw.slice(1, -1);
-  if (!body || body.length > MAX_PATTERN_LEN) return null;
-  try {
-    return new RegExp('^(?:' + body + ')$');
-  } catch {
-    return null;
-  }
-}
-
-// Comprimento máximo do nome testado. É o limite que de fato protege: uma vez
-// iniciado, re.test roda até o fim — não há como interromper JS de fora —, e
-// o custo do backtracking cresce com o tamanho da ENTRADA. Cortá-la é o que
-// impede o congelamento; o orçamento abaixo só evita somar muitos testes caros.
-// Nome de identificador não passa disto.
-const MAX_PROBE_LEN = 40;
-
-// Testa um nome contra o padrão. Só a pré-visualização passa por aqui: um
-// padrão patológico deixa de responder em vez de travar a página. O resultado
-// que vale é sempre o da engine, cujo motor tem tempo linear garantido.
-function testWithBudget(re, name, budget) {
-  if (budget.left <= 0 || name.length > MAX_PROBE_LEN) return null;
-  const t0 = Date.now();
-  let hit;
-  try {
-    hit = re.test(name);
-  } catch {
-    return null;
-  }
-  budget.left -= Date.now() - t0;
-  return hit;
-}
-
-// Nomes testados contra o padrão do usuário: os cinco estilos embutidos daquela
-// categoria, mais variantes com prefixo, que é o caso real mais comum.
-function regexProbes(category, raw) {
-  const out = [];
-  for (const st of STYLE_OPTIONS) {
-    const sample = styleSample(category, st);
-    if (sample) out.push(sample);
-  }
-  const base = out[0];
-  if (!base) return out;
-  // O prefixo sai do próprio padrão quando ele começa por um literal (o caso
-  // comum: /^g_[a-z].../). Sem isso o exemplo prefixado usaria uma letra fixa
-  // e não casaria com o padrão que o usuário acabou de escrever.
-  // Teto no prefixo: é por ele que o padrão do usuário alonga o nome testado,
-  // e entrada longa é o que torna caro um padrão com backtracking.
-  const prefix = literalPrefix(raw).slice(0, 12);
-  if (prefix && !out.includes(prefix + base)) out.push(prefix + base);
-  out.push('_' + base);
-  return out;
-}
-
-// Trecho literal no início do padrão, antes de qualquer metacaractere. Devolve
-// '' quando não há um — aí não há prefixo a exemplificar.
-function literalPrefix(raw) {
-  if (!isRegexRule(raw)) return '';
-  let body = raw.slice(1, -1);
-  if (body.startsWith('^')) body = body.slice(1);
-  const m = /^[A-Za-z0-9_]+/.exec(body);
-  if (!m) return '';
-  // Um literal seguido de quantificador pertence ao quantificador, não ao
-  // prefixo: em ab* o b é opcional.
-  const lit = m[0];
-  const next = body.charAt(lit.length);
-  const trimmed = '*?+{'.includes(next) ? lit.slice(0, -1) : lit;
-  return trimmed;
-}
-
-// Mostra se o padrão é válido e quais exemplos ele aceita — o usuário vê o
-// efeito da regra antes de salvá-la.
-//
-// O parâmetro settled distingue quem está digitando de quem terminou: na
-// digitação o texto passa por estados incompletos (a barra final é o último
-// caractere), e acusá-los como erro a cada tecla seria ruído. O que não
-// pode acontecer em nenhum dos dois casos é o preview mostrar exemplos de um
-// padrão diferente do que está no campo.
-function updateRegexStatus(category, settled) {
-  const input = document.getElementById('naming-regex-' + category);
-  if (!input) return;
-  const raw = input.value.trim();
-
-  // A validação marca o CAMPO; o exemplo do padrão sai junto dos demais, no
-  // preview da categoria. Enquanto se digita não há erro a apontar: o texto
-  // passa por estados incompletos até a barra final.
-  let erro = '';
-  if (raw && settled) {
-    if (!isRegexRule(raw)) erro = T.namingRegexNeedsSlashes;
-    else if (!compileRule(raw)) erro = T.namingRegexInvalid;
-    else if (regexSample(category, raw) === null) erro = T.namingRegexMatchesNothing;
-  }
-  input.classList.toggle('invalid', erro !== '');
-  input.title = erro;
-}
-
-// Enquanto digita: mostra o efeito do que já é um padrão completo, sem gravar
-// a cada tecla e sem acusar como erro o que ainda está pela metade.
-function onNamingRegexInput(category) {
-  updateRegexStatus(category, false);
-  // O exemplo acompanha a digitação: readAcceptedStyles só inclui o padrão
-  // quando ele já é válido, então enquanto está pela metade a linha some.
-  updateNamingPreview(category, readAcceptedStyles(category));
-}
-
-// Ao confirmar: grava junto dos estilos marcados. Um padrão inválido não é
-// persistido — gravá-lo faria a engine descartá-lo em silêncio, e o usuário
-// ficaria com uma regra que não existe.
-function commitNamingRegex(category) {
-  const input = document.getElementById('naming-regex-' + category);
-  if (!input) return;
-  const raw = input.value.trim();
-  // Agora sim vale apontar o que está errado: o usuário terminou de escrever.
-  updateRegexStatus(category, true);
-  if (raw && (!isRegexRule(raw) || !compileRule(raw))) return;
-  const accepted = readAcceptedStyles(category);
-  set('analysis.naming.style.' + category, accepted);
-  updateNamingPreview(category, accepted);
-}
-
-// Pede ao host para abrir o arquivo de lista (.ban / .allow), criando-o se
-// ainda não existir.
-function openNamingFile(which) {
-  vscode.postMessage({ type: 'openNamingFile', which });
-}
-
-// Mostra um exemplo de código por estilo aceito (um por linha). Vazio = oculta.
-function updateNamingPreview(category, accepted) {
-  const el = document.getElementById('naming-preview-' + category);
-  if (!el) return;
-  const tpl = NAMING_TEMPLATE[category] ?? '{}';
-  // Uma linha por critério aceito, embutido ou padrão próprio: são a mesma
-  // configuração e saem na mesma caixa. Para o regex o nome não se deriva do
-  // estilo — vem do primeiro exemplo que o padrão aceita.
-  const lines = (accepted ?? [])
-    .map(st => (isRegexRule(st) ? regexSample(category, st) : styleSample(category, st)))
-    .filter(Boolean)
-    .map(ident => tpl.replace('{}', ident));
-  el.hidden = lines.length === 0;
-  el.textContent = lines.join('\\n');
-}
-
-// Primeiro nome de exemplo que o padrão aceita, ou null se nenhum passa (ou se
-// o padrão é caro demais para testar aqui — a análise real é da engine).
-function regexSample(category, raw) {
-  const re = compileRule(raw);
-  if (!re) return null;
-  const budget = { left: 50 };
-  for (const probe of regexProbes(category, raw)) {
-    const hit = testWithBudget(re, probe, budget);
-    if (hit === null) return null;
-    if (hit) return probe;
-  }
-  return null;
-}
-
-const arrayState = {};
-
-function setArray(containerId, key, items) {
-  arrayState[key] = [...items];
-  renderArray(containerId, key);
-}
-
-function renderArray(containerId, key) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  const items = arrayState[key] ?? [];
-  container.innerHTML = '';
-
-  const list = document.createElement('div');
-  list.className = 'array-items';
-
-  items.forEach((item, idx) => {
-    const row = document.createElement('div');
-    row.className = 'array-item';
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = item;
-    input.addEventListener('change', () => {
-      arrayState[key][idx] = input.value;
-      set(key, [...arrayState[key]]);
-    });
-
-    const del = document.createElement('button');
-    del.className = 'btn-remove';
-    del.title = _i18n.btnRemove || 'Remove';
-    del.textContent = 'x';
-    del.addEventListener('click', () => {
-      arrayState[key].splice(idx, 1);
-      set(key, [...arrayState[key]]);
-      renderArray(containerId, key);
-    });
-
-    row.appendChild(input);
-    row.appendChild(del);
-    list.appendChild(row);
-  });
-
-  const add = document.createElement('button');
-  add.className = 'btn-add';
-  add.textContent = _i18n.btnAdd || '+ Add';
-  add.addEventListener('click', () => {
-    arrayState[key].push('');
-    renderArray(containerId, key);
-    const inputs = container.querySelectorAll('input');
-    if (inputs.length) inputs[inputs.length - 1].focus();
-  });
-
-  container.appendChild(list);
-  container.appendChild(add);
-}
-
-const sections = document.querySelectorAll('.section');
-const navLinks = document.querySelectorAll('.nav-link');
-const mainEl = document.querySelector('main');
-
-// Espaçador final dimensionado para a última seção poder subir ao topo (e ser
-// destacada na nav) sem deixar um vão exagerado. = altura visível − altura da
-// última seção − folga; nunca negativo.
-function sizeScrollSpacer() {
-  const spacer = document.getElementById('scroll-spacer');
-  const last = sections[sections.length - 1];
-  if (!spacer || !last) return;
-  const need = mainEl.clientHeight - last.offsetHeight - 28;
-  spacer.style.height = Math.max(0, need) + 'px';
-}
-window.addEventListener('resize', sizeScrollSpacer);
-
-navLinks.forEach(a => {
-  a.addEventListener('click', () => {
-    const id = a.getAttribute('data-target');
-    const target = document.getElementById(id);
-    if (target) mainEl.scrollTo({ top: target.offsetTop - 28, behavior: 'smooth' });
-  });
-});
-
-mainEl.addEventListener('scroll', () => {
-  let current = '';
-  sections.forEach(s => {
-    if (s.offsetTop - mainEl.scrollTop <= 60) current = s.id;
-  });
-  navLinks.forEach(a => {
-    a.classList.toggle('active', a.getAttribute('data-target') === current);
-  });
-});
-</script>
+<!-- A lógica vive em assets-src/js/settings.js e é minificada para
+     out/assets/ (ver assets.manifest.json). A animação da marca é módulo
+     próprio; o teto de exemplos chega por data-attribute no <body>. -->
+<script nonce="${nonce}" src="${brandJsUri}"></script>
+<script nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;
 }

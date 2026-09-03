@@ -205,13 +205,17 @@ export interface CompileArgs {
   removedFlags: string[];
 }
 
-export type ServerRunState = 'stopped' | 'starting' | 'running';
-
 export interface SampCfgData {
   rconPassword: string;
   port: number;
   host: string;
   cfgPath: string;
+  /**
+   * `false` quando o `config.json` do open.mp traz `rcon.enable: false` — o
+   * servidor não escuta comandos RCON. No SA-MP é sempre `true`: não há chave
+   * equivalente.
+   */
+  rconEnabled: boolean;
 }
 
 export type ThemeKind = 'dark' | 'light' | 'highContrast';

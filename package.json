@@ -2,7 +2,7 @@
   "name": "pawnpro",
   "displayName": "PawnPro",
   "description": "%text.description%",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "publisher": "NullSablex",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -42,7 +42,7 @@
   "icon": "images/logo.png",
   "engineVersion": "1.4.0",
   "engineRepository": "https://github.com/NullSablex/PawnPro-Engine",
-  "debuggerVersion": "0.2.0",
+  "debuggerVersion": "0.2.1",
   "debuggerRepository": "https://github.com/NullSablex/PawnPro-Debugger",
   "author": {
     "name": "NullSablex",
@@ -295,7 +295,7 @@
             "type": "pawn",
             "request": "launch",
             "name": "Depurar script Pawn (PawnPro)",
-            "program": "${workspaceFolder}/gamemodes/main.amx",
+            "program": "${fileDirname}/${fileBasenameNoExtension}.amx",
             "cwd": "${workspaceFolder}"
           }
         ],
@@ -307,7 +307,7 @@
               "type": "pawn",
               "request": "launch",
               "name": "Depurar script Pawn (PawnPro)",
-              "program": "^\"\\${workspaceFolder}/gamemodes/main.amx\"",
+              "program": "^\"\\${fileDirname}/\\${fileBasenameNoExtension}.amx\"",
               "cwd": "^\"\\${workspaceFolder}\""
             }
           }
@@ -318,17 +318,17 @@
       "view/title": [
         {
           "command": "pawnpro.server.start",
-          "when": "view == pawnpro.serverView && !pawnpro.server.running",
+          "when": "view == pawnpro.serverView && !pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.stop",
-          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "when": "view == pawnpro.serverView && pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.restart",
-          "when": "view == pawnpro.serverView && pawnpro.server.running",
+          "when": "view == pawnpro.serverView && pawnpro.server.ours",
           "group": "navigation@1"
         },
         {
@@ -343,17 +343,17 @@
         },
         {
           "command": "pawnpro.server.start",
-          "when": "view == pawnpro.serverView.explorer && !pawnpro.server.running",
+          "when": "view == pawnpro.serverView.explorer && !pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.stop",
-          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.ours",
           "group": "navigation"
         },
         {
           "command": "pawnpro.server.restart",
-          "when": "view == pawnpro.serverView.explorer && pawnpro.server.running",
+          "when": "view == pawnpro.serverView.explorer && pawnpro.server.ours",
           "group": "navigation@1"
         },
         {
@@ -393,6 +393,8 @@
   },
   "scripts": {
     "compile": "tsc --noEmit -p .",
+    "pretest": "rm -rf out/test && tsc -p tsconfig.test.json",
+    "test": "node --test out/test/core/__tests__/*.test.js",
     "bundle": "node scripts/bundle.mjs",
     "bundle:dev": "node scripts/bundle.mjs --dev",
     "vscode:prepublish": "npm run bundle",
@@ -429,10 +431,10 @@
     "pawnpro-engine-darwin-arm64": "99c7d59cc70dd6274354ef68afb088e0389d8b7a65d7255caa8f47f16f46b3cd"
   },
   "debuggerChecksums": {
-    "pawnpro-dap-adapter-linux-x64": "494bfc9eb5e725f877ae956ba45912fb6bd2b151ece78b3299d25f1ec0723a7f",
-    "pawnpro-dap-adapter-linux-arm64": "a93b3cdd97015b8fec3d8d90bb64429a472566175c71e5dd69cb6b42acff2c19",
-    "pawnpro-dap-adapter-win32-x64.exe": "0d41d41dcc156d2f1dadba289e2eab6df8a31a7fc6135adc596d5e6a409dfadc",
-    "pawnpro-dap-adapter-darwin-x64": "4cacdbc45c286f03a77c70c4d9cbb988743d633d4e61c1af4658087c46dfc95f",
-    "pawnpro-dap-adapter-darwin-arm64": "d44963efc3efb56057e7fc79f1df0293be79657b7e06418a40883b48de527eac"
+    "pawnpro-dap-adapter-linux-x64": "e47de22f735372300fc0a93b6818a0ba817e3b5fa22b147c24e5b7234b8b3b15",
+    "pawnpro-dap-adapter-linux-arm64": "3812e2143c4717af72addcbac97ae754958e0fadf901d84c48debbe271a4f472",
+    "pawnpro-dap-adapter-win32-x64.exe": "12afb135142ca8aa61e3b0bab3566440a3ebb25e1343e62e2553428e18e9d240",
+    "pawnpro-dap-adapter-darwin-x64": "5d42af130c20a1d0c1037a074365a1a7736f581a0d62293c596ce35566323145",
+    "pawnpro-dap-adapter-darwin-arm64": "3f93257558d9c08c6ce9eaf2435a9c5eb8f7000c08831cff246ba2636d5422ca"
   }
 }

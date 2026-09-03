@@ -121,6 +121,14 @@ function substituteWorkspace(value: unknown, workspaceRoot: string): unknown {
   return value;
 }
 
+/**
+ * Pasta de configuração do PawnPro, no projeto e no diretório do usuário.
+ *
+ * O nome estava repetido em oito lugares, entre o core e a camada do editor:
+ * renomeá-la exigiria achar todos.
+ */
+export const PAWNPRO_DIR = '.pawnpro';
+
 export class PawnProConfigManager {
   private globalPath: string;
   private projectPath: string;
@@ -132,8 +140,8 @@ export class PawnProConfigManager {
   private listeners: Listener[] = [];
 
   constructor(private projectRoot: string) {
-    this.globalPath = path.join(os.homedir(), '.pawnpro', 'config.json');
-    this.projectPath = path.join(projectRoot, '.pawnpro', 'config.json');
+    this.globalPath = path.join(os.homedir(), PAWNPRO_DIR, 'config.json');
+    this.projectPath = path.join(projectRoot, PAWNPRO_DIR, 'config.json');
     this.reload();
   }
 

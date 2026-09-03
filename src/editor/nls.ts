@@ -13,6 +13,16 @@ export type Translate = (ptKey: string, ...args: (string | number)[]) => string;
  *   estado global e sem interferência entre contextos. A string PT é a mesma
  *   fonte para ambos; não há duplicação de textos.
  */
+/**
+ * Escolhe entre a forma singular e a plural pela contagem.
+ *
+ * O `vscode-l10n` não pluraliza, e a saída fácil — "{0} item(ns) movido(s)" —
+ * não é português: cada forma vira uma chave própria, traduzida por inteiro.
+ */
+function plural(n: number, um: string, muitos: string): string {
+  return n === 1 ? um : muitos;
+}
+
 export function createMsg(t: Translate) {
   return {
   compiler: {
@@ -21,11 +31,8 @@ export function createMsg(t: Translate) {
     success: (file: string) => t('Compilação bem-sucedida: {0}', file),
     failed: (file: string) => t('Compilação falhou: {0}', file),
     notPawnFile: () => t('Abra um arquivo .pwn para compilar.'),
-    noCompiler: () => t('Compilador não configurado. Use "PawnPro: Detectar compilador" ou configure em .pawnpro/config.json'),
     compilerNotFound: (path: string) => t('Falha ao iniciar pawncc: {0}', path),
-    detecting: () => t('Detectando compilador...'),
     detected: (path: string) => t('pawncc detectado: {0}', path),
-    notDetected: () => t('Compilador não detectado automaticamente.'),
   },
 
   server: {
@@ -34,8 +41,9 @@ export function createMsg(t: Translate) {
     stopping: () => t('Parando servidor...'),
     stopped: () => t('Servidor parado'),
     restarting: () => t('Reiniciando servidor...'),
+    restarted: () => t('Servidor reiniciado'),
+    startTimeout: () => t('O servidor não respondeu na porta a tempo. Verifique o console para ver o que houve.'),
     notConfigured: () => t('Configure "server.path" em .pawnpro/config.json (executável do servidor).'),
-    notFound: (path: string) => t('Servidor não encontrado: {0}', path),
     alreadyRunning: () => t('Servidor já está em execução.'),
     notRunning: () => t('Servidor não está em execução.'),
     failedStart: (err: string) => t('Falha ao iniciar servidor: {0}', err),
@@ -43,6 +51,26 @@ export function createMsg(t: Translate) {
     rconInvalidPassword: () => t('Senha RCON vazia ou inválida ("changename"). Comando não enviado.'),
     rconRemoteBlocked:  () => t('O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.'),
     rconHint: () => t('Envie apenas o comando, ex.: "gmx" ou "say oii".'),
+    portInUse: (porta: number) => t('Já existe um servidor respondendo na porta {0}.', String(porta)),
+    rconDisabled: () => t('O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.'),
+    btnEnableRcon: () => t('Ligar o RCON'),
+    alreadyRunningDebug: () => t('O servidor já está no ar pela sessão de depuração.'),
+    rconEnabledNow: () => t('RCON ligado no config.json. Reinicie o servidor para valer.'),
+    rconEnableFailed: (e: string) => t('Não foi possível editar o config.json: {0}', e),
+    stopTimeout: () => t('O servidor continua respondendo na porta. Pode ter sobrado um processo — verifique antes de iniciar outro.'),
+    // Uma chave por número: o `vscode-l10n` não pluraliza, e um texto só ficava
+    // incoerente com dois processos na porta.
+    portBusyOther: (port: number) => t('A porta {0} está ocupada por outro programa. Configure outra porta ou libere essa.', String(port)),
+    orphanOnPort: (port: number, pids: string) => t('A porta {0} continua ocupada pelo processo {1}.', String(port), pids),
+    orphansOnPort: (port: number, pids: string) => t('A porta {0} continua ocupada pelos processos {1}.', String(port), pids),
+    btnKillOrphan: () => t('Encerrar'),
+    btnUseRunning: () => t('Usar esse servidor'),
+    killingOrphan: () => t('Encerrando o processo...'),
+    killingOrphans: () => t('Encerrando os processos...'),
+    killOk: (port: number) => t('Porta {0} liberada.', String(port)),
+    killFailed: (pids: string) => t('Não foi possível encerrar o processo {0}.', pids),
+    killFailedMany: (pids: string) => t('Não foi possível encerrar os processos {0}.', pids),
+    rconSentNoOutput: (cmd: string) => t('{0} — enviado (este comando não devolve texto)', cmd),
   },
 
   themes: {
@@ -69,14 +97,26 @@ export function createMsg(t: Translate) {
     noFilePath: () => t('PawnPro: caminho do arquivo de lista não configurado.'),
     migrateConfirm: (sizeMb: string) => t('As listas a migrar somam {0} MB, acima do limite configurado. Migrar mesmo assim?', sizeMb),
     migrateProceed: () => t('Migrar'),
-    migratedBlocklist: (n: number) => t('{0} nome(s) proibido(s) → .ban', n),
-    migratedLoopIndices: (n: number) => t('{0} índice(s) de loop → .allow', n),
+    migratedBlocklist: (n: number) =>
+      plural(n, t('{0} nome proibido → .ban', n), t('{0} nomes proibidos → .ban', n)),
+    migratedLoopIndices: (n: number) =>
+      plural(n, t('{0} índice de loop → .allow', n), t('{0} índices de loop → .allow', n)),
     migrateDone: (summary: string) => t('PawnPro: migração concluída ({0}).', summary),
     migrateDoneBackup: (summary: string, path: string) => t('PawnPro: migração concluída ({0}). Backup dos itens em {1} — confira e apague quando quiser.', summary, path),
     migrateFailed: () => t('PawnPro: falha ao migrar as listas. O config.json não foi alterado.'),
     recoverNothing: () => t('PawnPro: nada a recuperar no config.json.'),
-    recoverDone: (n: number) => t('PawnPro: {0} item(ns) movido(s) do config.json para os arquivos .ban/.allow.', n),
-    recoverDoneBackup: (n: number, path: string) => t('PawnPro: {0} item(ns) movido(s) do config.json. Backup em {1} — confira e apague quando quiser.', n, path),
+    recoverDone: (n: number) =>
+      plural(
+        n,
+        t('PawnPro: {0} item movido do config.json para os arquivos .ban/.allow.', n),
+        t('PawnPro: {0} itens movidos do config.json para os arquivos .ban/.allow.', n),
+      ),
+    recoverDoneBackup: (n: number, path: string) =>
+      plural(
+        n,
+        t('PawnPro: {0} item movido do config.json. Backup em {1} — confira e apague quando quiser.', n, path),
+        t('PawnPro: {0} itens movidos do config.json. Backup em {1} — confira e apague quando quiser.', n, path),
+      ),
   },
 
   settings: {
@@ -153,7 +193,12 @@ export function createMsg(t: Translate) {
     namingRegex:           () => t('Padrão próprio'),
     namingRegexNeedsSlashes: () => t('Escreva o padrão entre barras, como /^g_[a-z]+$/.'),
     namingRegexInvalid:    () => t('Expressão regular inválida.'),
-    namingRegexMatchesNothing: () => t('Nenhum dos exemplos passa neste padrão.'),
+    namingRegexNoPreview: () => t('Padrão complexo: sem exemplos aqui. Continua valendo na análise.'),
+    namingAlsoAccepts: () => t('Ver exemplos aceitos'),
+    fechar: () => t('Fechar'),
+    buscarExemplos: () => t('Filtrar exemplos'),
+    nenhumExemploBusca: () => t('Nenhum exemplo corresponde ao filtro.'),
+    exemplosCortados: (n: number) => t('Limite de exibição atingido: mostrando apenas {0} exemplos.', String(n)),
     uiAccent:              () => t('Cor de destaque'),
     uiAccentDesc:          () => t('Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.'),
     uiAccentAuto:          () => t('Automático'),
@@ -169,7 +214,8 @@ export function createMsg(t: Translate) {
     namingMigrate:         () => t('Migrar para arquivos'),
     namingMigrateNote:     () => t('Há listas de nomes salvas no formato antigo (no config.json).'),
     namingStyleGroup:      () => t('Estilos de nomenclatura por categoria'),
-    namingStyleGroupDesc:  () => t('Convenções de caixa aceitas para cada tipo de identificador. Vazio = sem checagem.'),
+    namingStyleGroupDesc:  () => t('Convenções de caixa aceitas para cada tipo de identificador.'),
+    namingSemRegra:        () => t('Nenhuma regra selecionada.'),
     namingStyleFunctions:  () => t('Estilo de funções'),
     namingStyleGlobals:    () => t('Estilo de variáveis globais'),
     namingStyleLocals:     () => t('Estilo de variáveis locais'),
@@ -267,13 +313,14 @@ export function createMsg(t: Translate) {
   help: {
     panelTitle:      () => t('PawnPro — Ajuda e informações'),
     subtitle:        () => t('Componentes, links e guia do depurador'),
-    compilerTitle:   () => t('Compilador recomendado'),
-    compilerBody:    () => t('Compile seus scripts com o **compilador do open.mp** — a versão **3.10.11** é a recomendada, e a **3.10.10** também foi testada (no Windows, a depuração ainda não foi verificada). É o compilador recomendado tanto para a análise da engine quanto para a depuração; outros podem gerar código ou informação de depuração incompatíveis.'),
+    compilerTitle:   () => t('Compiladores recomendados'),
+    compilerBody:    () => t('Use o **compilador do open.mp** — ele serve tanto a open.mp quanto a SA-MP, e é o único com build para Linux. Verificado no Linux; no Windows ainda não houve testes. Outros compiladores podem gerar informação de depuração que o depurador não lê.'),
     compilerLink:    () => t('Baixar o compilador do open.mp'),
+    compilerListLink: () => t('Ver os compiladores verificados'),
     componentsTitle: () => t('Componentes'),
     extensionLabel:  () => t('Extensão PawnPro'),
     engineLabel:     () => t('Engine LSP (pawnpro-engine)'),
-    debuggerLabel:   () => t('Adaptador do depurador (dap-adapter)'),
+    debuggerLabel:   () => t('Adaptador do depurador (pawnpro-debugger)'),
     linksTitle:      () => t('Links'),
     linkDocs:        () => t('Documentação'),
     linkServerGuide: () => t('Guia do servidor: comandos, favoritos e log'),
@@ -341,7 +388,9 @@ export function createMsg(t: Translate) {
     sortDownloads:     () => t('Downloads'),
     sortUpdated:       () => t('Atualização'),
     clearSearch:       () => t('Limpar'),
-    resultCount:       (n: string) => t('{0} pacote(s)', n),
+    // Duas formas: a página escolhe pela contagem, que só ela conhece.
+    resultCount:       (n: string) => t('{0} pacote', n),
+    resultCountMany:   (n: string) => t('{0} pacotes', n),
     secDescription:    () => t('Descrição'),
     secScreenshots:    () => t('Capturas de tela'),
     secDependencies:   () => t('Dependências'),
@@ -367,9 +416,13 @@ export function createMsg(t: Translate) {
     defaultName:     () => t('Depurar script Pawn (PawnPro)'),
     noProgram:       () => t('Defina o caminho do `.amx` (campo "program") para depurar.'),
     adapterNotFound: () => t('Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.'),
+    compiling:       () => t('Compilando com informação de depuração...'),
     compileFailed:   () => t('Falha ao compilar o script com informação de depuração. Verifique o painel de saída.'),
+    programNotFound: (p: string) => t('Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo "program" no launch.json.', p),
     serverNotFound:  () => t('Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.'),
     missingPluginFile: (p: string) => t('Instale o plugin de depuração em {0}.', p),
+    pluginArchMismatch: (plugin: string, servidor: string) =>
+      t('O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.', plugin, servidor),
     pluginNameClash: (p: string) =>
       t('Há um arquivo em {0}, mas não é o plugin de depuração do PawnPro (nome em conflito). Substitua-o pelo plugin oficial.', p),
     missingPluginReg:  (kind: string) =>

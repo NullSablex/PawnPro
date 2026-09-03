@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { randomBytes } from 'crypto';
 import { PawnProStateManager } from '../core/state.js';
 import type { PawnProConfigManager } from '../core/config.js';
 import { webviewThemeCss } from './webviewTheme.js';
@@ -11,9 +12,28 @@ import { createWebviewMsg } from './webviewNls.js';
  * `default-src 'none'`, sem `font-src`), então o traço vem no próprio HTML.
  * `currentColor` faz o ícone acompanhar a cor do botão em qualquer tema.
  */
-const ICON_SEND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M1.7 1.2 14.8 7.6a.45.45 0 0 1 0 .8L1.7 14.8a.45.45 0 0 1-.64-.5l1.3-5.2L8.6 8 2.36 6.9l-1.3-5.2a.45.45 0 0 1 .64-.5Z"/>
-</svg>`;
+const STAR_PATH =
+  'M8 1.6l1.9 4 4.3.6-3.1 3 .75 4.3L8 11.5l-3.85 2 .75-4.3-3.1-3 4.3-.6z';
+
+/**
+ * Os ícones como dados, não como markup.
+ *
+ * A WebView monta os nós SVG a partir disto. Entregar a string pronta exigiria
+ * que o script a parseasse, e parsear markup — mesmo o nosso — é o padrão que
+ * o CodeQL sinaliza e que não vale defender caso a caso.
+ */
+type IconPath = { d: string; attrs?: Record<string, string> };
+
+const STROKE = (width: string): Record<string, string> => ({
+  fill: 'none',
+  stroke: 'currentColor',
+  'stroke-width': width,
+  'stroke-linejoin': 'round',
+});
+
+const ICON_SEND: IconPath[] = [
+  { d: 'M1.7 1.2 14.8 7.6a.45.45 0 0 1 0 .8L1.7 14.8a.45.45 0 0 1-.64-.5l1.3-5.2L8.6 8 2.36 6.9l-1.3-5.2a.45.45 0 0 1 .64-.5Z' },
+];
 
 /**
  * Estrela dos favoritos, em dois estados.
@@ -22,35 +42,40 @@ const ICON_SEND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"
  * de sumir no fundo do painel — daí o traço próprio, preenchido quando marcado
  * e contornado quando não.
  */
-const STAR_PATH =
-  'M8 1.6l1.9 4 4.3.6-3.1 3 .75 4.3L8 11.5l-3.85 2 .75-4.3-3.1-3 4.3-.6z';
-const ICON_STAR_ON = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="${STAR_PATH}"/>
-</svg>`;
-const ICON_STAR_OFF = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-</svg>`;
+const ICON_STAR_ON: IconPath[] = [{ d: STAR_PATH }];
+const ICON_STAR_OFF: IconPath[] = [{ d: STAR_PATH, attrs: STROKE('1.3') }];
 
 /** Estrela contornada, em tamanho grande, para o estado vazio dos favoritos. */
-const ICON_EMPTY_STAR = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-</svg>`;
+const ICON_EMPTY_STAR: IconPath[] = [{ d: STAR_PATH, attrs: STROKE('1') }];
 
 /** Terminal, para o estado vazio do histórico. */
-const ICON_EMPTY_HISTORY = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1h9A1.5 1.5 0 0 1 14 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5v-11Zm1.5-.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9Z"/>
-  <path d="M4.6 5.15a.5.5 0 0 1 .7-.05L7.9 7.3a.5.5 0 0 1 0 .76L5.3 10.3a.5.5 0 0 1-.65-.76L6.8 7.68 4.65 5.85a.5.5 0 0 1-.05-.7ZM8.5 10a.5.5 0 0 1 .5-.5h2.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5Z"/>
-</svg>`;
+const ICON_EMPTY_HISTORY: IconPath[] = [
+  { d: 'M2 2.5A1.5 1.5 0 0 1 3.5 1h9A1.5 1.5 0 0 1 14 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5v-11Zm1.5-.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9Z' },
+  { d: 'M4.6 5.15a.5.5 0 0 1 .7-.05L7.9 7.3a.5.5 0 0 1 0 .76L5.3 10.3a.5.5 0 0 1-.65-.76L6.8 7.68 4.65 5.85a.5.5 0 0 1-.05-.7ZM8.5 10a.5.5 0 0 1 .5-.5h2.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5Z' },
+];
 
 /** Lupa, para quando a busca não encontra nada. */
-const ICON_EMPTY_SEARCH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M6.75 1.5a5.25 5.25 0 1 0 3.2 9.41l3.42 3.42a.75.75 0 0 0 1.06-1.06l-3.42-3.42A5.25 5.25 0 0 0 6.75 1.5Zm-3.75 5.25a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z"/>
-</svg>`;
+const ICON_EMPTY_SEARCH: IconPath[] = [
+  { d: 'M6.75 1.5a5.25 5.25 0 1 0 3.2 9.41l3.42 3.42a.75.75 0 0 0 1.06-1.06l-3.42-3.42A5.25 5.25 0 0 0 6.75 1.5Zm-3.75 5.25a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z' },
+];
 
 /** X: limpar o texto da busca. */
-const ICON_CLOSE = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-  <path d="M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z"/>
-</svg>`;
+const ICON_CLOSE: IconPath[] = [
+  { d: 'M4.3 3.3 8 7l3.7-3.7a.7.7 0 1 1 1 1L9 8l3.7 3.7a.7.7 0 1 1-1 1L8 9l-3.7 3.7a.7.7 0 1 1-1-1L7 8 3.3 4.3a.7.7 0 0 1 1-1Z' },
+];
+
+/** O mesmo ícone como markup, para os pontos do HTML servido pela extensão. */
+function iconMarkup(paths: IconPath[]): string {
+  const body = paths
+    .map((p) => {
+      const attrs = Object.entries(p.attrs ?? {})
+        .map(([k, v]) => ` ${k}="${v}"`)
+        .join('');
+      return `<path d="${p.d}"${attrs}/>`;
+    })
+    .join('');
+  return `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">${body}</svg>`;
+}
 
 /** Lixeira: limpar a lista da aba visível. */
 const ICON_TRASH = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -79,7 +104,7 @@ function esc(value: string): string {
  * dentro do projeto — um `login` ali seria commitado junto. O comando ainda é
  * enviado; só não fica registrado.
  */
-const COMANDOS_SENSIVEIS = [
+const SENSITIVE_COMMANDS = [
   /^login(\s|$)/i,
   /^rcon_password(\s|$)/i,
   /^password(\s|$)/i,
@@ -91,7 +116,7 @@ const COMANDOS_SENSIVEIS = [
  * Palavras que, num argumento, anunciam que o próximo termo é credencial —
  * `meucomando --senha 1234`, `auth token abc`.
  */
-const ROTULOS_DE_SEGREDO =
+const SECRET_LABELS =
   /^-{0,2}(pass|passwd|password|senha|pwd|token|key|chave|secret|segredo|auth|apikey)$/i;
 
 /**
@@ -102,7 +127,7 @@ const ROTULOS_DE_SEGREDO =
  * são argumentos comuns e não podem sumir do histórico por engano — o custo
  * de um falso positivo aqui é o recurso deixar de servir.
  */
-function pareceSegredo(termo: string): boolean {
+function looksLikeSecret(termo: string): boolean {
   if (termo.length < 8) return false;
   if (/^[\d.,:-]+$/.test(termo)) return false;          // números, ip, coordenada
   if (!/[a-z]/i.test(termo) || !/\d/.test(termo)) return false;
@@ -119,19 +144,19 @@ function pareceSegredo(termo: string): boolean {
 export function isSensitiveCommand(cmd: string, extras: string[] = []): boolean {
   const t = cmd.trim().replace(/^\/?rcon\s+/i, '');
   if (!t) return false;
-  if (COMANDOS_SENSIVEIS.some(rx => rx.test(t))) return true;
+  if (SENSITIVE_COMMANDS.some(rx => rx.test(t))) return true;
 
-  const termos = t.split(/\s+/);
-  const nome = termos[0].toLowerCase();
-  if (extras.some(e => e.trim().toLowerCase() === nome)) return true;
+  const parts = t.split(/\s+/);
+  const head = parts[0].toLowerCase();
+  if (extras.some(e => e.trim().toLowerCase() === head)) return true;
 
-  for (let i = 1; i < termos.length; i++) {
+  for (let i = 1; i < parts.length; i++) {
     // `--senha 1234`: o rótulo entrega o próximo termo.
-    if (ROTULOS_DE_SEGREDO.test(termos[i]) && i + 1 < termos.length) return true;
+    if (SECRET_LABELS.test(parts[i]) && i + 1 < parts.length) return true;
     // `--senha=1234` num termo só.
-    const [chave, ...resto] = termos[i].split('=');
-    if (resto.length > 0 && ROTULOS_DE_SEGREDO.test(chave)) return true;
-    if (pareceSegredo(termos[i])) return true;
+    const [key, ...rest] = parts[i].split('=');
+    if (rest.length > 0 && SECRET_LABELS.test(key)) return true;
+    if (looksLikeSecret(parts[i])) return true;
   }
   return false;
 }
@@ -247,7 +272,11 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     this.views.add(view);
     view.onDidDispose(() => this.views.delete(view));
 
-    view.webview.options = { enableScripts: true };
+    view.webview.options = {
+      enableScripts: true,
+      // Permite carregar a folha de estilo minificada de out/assets/.
+      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'out', 'assets')],
+    };
     view.webview.html = this.getHtml(view.webview);
     this.postState(view);
 
@@ -286,254 +315,27 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtml(webview: vscode.Webview) {
+    const cssUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'out', 'assets', 'css', 'server.min.css'),
+    );
+    const jsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'out', 'assets', 'js', 'server.min.js'),
+    );
+    // Nonce por render: com ele o CSP libera SÓ o script que a extensão gerou,
+    // em vez do 'unsafe-inline', que permitiria qualquer injeção.
+    const nonce = randomBytes(16).toString('base64');
     const msg = createWebviewMsg(this.context, this.config);
-    const csp = `default-src 'none'; style-src 'unsafe-inline'; img-src ${webview.cspSource}; script-src 'unsafe-inline';`;
+    // `cspSource` libera a folha de estilo servida de out/assets/; o
+    // 'unsafe-inline' permanece para o <style> com a cor de destaque.
+    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource}; script-src 'nonce-${nonce}';`;
     return `<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8" />
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="${cssUri}">
 <style>
-  :root {
-    --pad: 8px;
-    /* Escala de espaçamento: os valores eram avulsos (6, 10, 4...) e o
-       ritmo vertical saía irregular. */
-    --gap-xs: 4px;
-    --gap-sm: 6px;
-    --gap-md: 10px;
-    /* Altura dos controles da primeira linha e recuo do texto dentro deles —
-       a legenda alinha por este mesmo valor. */
-    --control-h: 28px;
-    --control-pad: 9px;
-    /* Altura mínima de uma linha da lista, para todas ficarem iguais. */
-    --row-h: 30px;
-    --radius: 8px;
-    --bg: var(--vscode-sideBar-background);
-    --fg: var(--vscode-foreground);
-    --border: var(--vscode-panel-border);
-    --btn-bg: var(--pp-accent);
-    --btn-fg: var(--vscode-button-foreground);
-    --btn-hover: var(--pp-accent-hover);
-    --input-bg: var(--vscode-input-background);
-    --input-fg: var(--vscode-input-foreground);
-    --list-bg: var(--vscode-editorWidget-background);
-    --list-border: var(--vscode-widget-border);
-    --muted: var(--vscode-descriptionForeground);
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin:0; padding: var(--pad); background: var(--bg); color: var(--fg);
-    font: 12px/1.4 var(--vscode-font-family);
-    /* O painel inteiro é uma coluna: a lista fica com a altura que sobra, e
-       só ela rola. Sem isso o body rolava por fora enquanto a lista rolava
-       por dentro — dois scrolls concorrendo no mesmo gesto. */
-    display: flex; flex-direction: column; overflow: hidden;
-    /* A unidade vw mede a janela inteira, não este painel: numa janela
-       estreita as fontes encolhiam mesmo havendo espaço aqui. Declarar o
-       container faz as consultas abaixo medirem o painel. */
-    container-type: inline-size;
-  }
-  .row { display: flex; gap: var(--gap-sm); align-items: stretch; flex: 0 0 auto; }
-  input[type="text"]{
-    flex: 1 1 auto; min-width: 0; height: var(--control-h);
-    padding: 0 var(--control-pad);
-    border-radius: var(--radius);
-    border: 1px solid var(--vscode-input-border, var(--border));
-    background: var(--input-bg); color: var(--input-fg); outline: none;
-  }
-  button {
-    padding: var(--gap-sm) var(--gap-md); border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--btn-bg); color: var(--btn-fg); cursor: pointer;
-  }
-  button:hover { background: var(--btn-hover); }
-  .section {
-    /* O recuo interno vive numa variável própria porque as abas se estendem
-       até a borda cancelando-o; mudar um sem o outro desalinharia a régua. */
-    --section-pad: var(--gap-sm);
-    margin-top: var(--gap-md); border: 1px solid var(--list-border);
-    border-radius: var(--radius); background: var(--list-bg);
-    padding: var(--section-pad);
-    /* Ocupa a altura restante e não deixa o conteúdo empurrá-lo além dela. */
-    display: flex; flex-direction: column;
-    flex: 1 1 auto; min-height: 0;
-  }
-  /* A barra usa as cores do tema, em vez da padrão do navegador — larga e
-     clara, destoando do painel. */
-  .items {
-    display: grid; gap: var(--gap-xs); align-content: start;
-    /* A altura vem do espaço disponível, não de um número fixo de linhas:
-       alargar o painel faz o scroll sumir sozinho. */
-    flex: 1 1 auto; min-height: 0;
-    overflow-y: auto; overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
-  }
-  .items::-webkit-scrollbar { width: 10px; }
-  .items::-webkit-scrollbar-track { background: transparent; }
-  .items::-webkit-scrollbar-thumb {
-    background: var(--vscode-scrollbarSlider-background);
-    border: 3px solid transparent; border-radius: 6px; background-clip: content-box;
-  }
-  .items::-webkit-scrollbar-thumb:hover {
-    background: var(--vscode-scrollbarSlider-hoverBackground);
-    background-clip: content-box;
-  }
-  .items::-webkit-scrollbar-thumb:active {
-    background: var(--vscode-scrollbarSlider-activeBackground);
-    background-clip: content-box;
-  }
-  /* Ocupa a área da lista em vez de ficar encolhido num canto: o vazio é a
-     primeira coisa que se vê num painel novo. */
-  /* A lista é uma grade alinhada ao topo, então o vazio ficava encostado no
-     campo de busca com a área toda livre abaixo. Ocupar a altura inteira o
-     mantém centrado no espaço da lista, que é onde o olho procura. */
-  .empty {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: var(--gap-sm);
-    height: 100%; min-height: 96px; padding: var(--gap-md);
-    text-align: center;
-  }
-  /* Cada ícone recebe a cor do que representa: a estrela dos favoritos usa o
-     mesmo amarelo da estrela marcada, e a lupa da busca sem resultado o tom
-     de aviso. As cores vêm da paleta de gráficos do tema, que existe para
-     acentos assim e acompanha o claro e o escuro. */
-  .empty svg { width: 28px; height: 28px; fill: currentColor; opacity: .55; }
-  .empty-icon { line-height: 0; }
-  .empty-icon.hist   { color: var(--vscode-charts-blue, #4a9eff); }
-  .empty-icon.fav    { color: var(--vscode-charts-yellow, #d7ba7d); }
-  .empty-icon.search { color: var(--vscode-charts-orange, #d18616); }
-  /* O título usa a cor normal do texto: é a resposta à pergunta "o que há
-     aqui?" e precisa ser lido primeiro. */
-  .empty-title { color: var(--fg); font-size: 12px; font-weight: 600; }
-  /* A dica é secundária, mas legível — antes somava a cor apagada com mais
-     opacidade por cima, e o texto quase sumia. */
-  .empty-hint {
-    color: var(--muted); font-size: 11px;
-    max-width: 28ch; line-height: 1.5;
-  }
-  .cmd-row {
-    display: flex; gap: var(--gap-sm); align-items: center;
-    min-height: var(--row-h);
-    padding: var(--gap-xs) var(--gap-sm); border-radius: 6px;
-    border: 1px solid transparent;
-    background: transparent;
-  }
-  .cmd-row:hover { border-color: var(--border); background: rgba(255,255,255,.04); }
-  /* Um comando longo encolhe com reticências em vez de empurrar os botões
-     para fora da linha; o texto inteiro fica no title. O min-width é o que
-     autoriza o flex a encolher abaixo do conteúdo. */
-  .cmd-text {
-    flex: 1 1 auto; min-width: 0;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .mini { padding: 3px var(--gap-sm); font-size: 11px; border-radius: 6px; }
-  .ghost { background: transparent; border-color: var(--list-border); color: var(--fg); }
-  .ghost:hover { background: rgba(255,255,255,.06); }
-  .muted { color: var(--muted); }
-
-  /* Botão de enviar: só o ícone, quadrado e alinhado à altura do input. */
-  .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: var(--control-h); padding: 0; flex: 0 0 auto;
-  }
-  .icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
-  /* Nas linhas da lista os botões são menores, e o ícone acompanha — sem
-     isso o traço fica maior que o botão. */
-  .cmd-row .icon-btn { width: 24px; height: 22px; }
-  .cmd-row .icon-btn svg { width: 13px; height: 13px; }
-
-  /* A estrela precisa se distinguir do fundo em ambos os estados: contorno
-     apagado quando não é favorito, cheia e destacada quando é. */
-  .star-btn { color: var(--muted); }
-  .star-btn:hover { color: var(--fg); }
-  .star-btn.is-on { color: var(--vscode-charts-yellow, #d7ba7d); }
-  .star-btn.is-on:hover { color: var(--vscode-charts-yellow, #d7ba7d); opacity: .8; }
-
-  /* Abas: Recentes e Favoritos dividem o mesmo espaço.
-     O painel lateral pode ficar bem estreito, então os rótulos encolhem
-     truncam antes de empurrar o "Limpar" para fora. */
-  .tabs {
-    display: flex; align-items: stretch; gap: 2px;
-    /* Puxa a régua até as bordas do bloco: a aba ativa passa a sentar sobre
-       uma linha que atravessa o painel, em vez de flutuar num traço curto. */
-    margin: calc(var(--section-pad) * -1) calc(var(--section-pad) * -1) var(--gap-sm);
-    padding: 0 var(--section-pad);
-    flex: 0 0 auto;
-    border-bottom: 1px solid var(--list-border);
-  }
-  .tab {
-    min-width: 0; flex: 0 1 auto;
-    padding: 5px var(--gap-md);
-    border: none; border-bottom: 2px solid transparent; border-radius: 0;
-    background: transparent; color: var(--muted);
-    font-size: 12px; font-weight: 600;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    cursor: pointer;
-  }
-  .tab:hover { background: rgba(255,255,255,.04); color: var(--fg); }
-  .tab[aria-selected="true"] {
-    color: var(--fg);
-    border-bottom-color: var(--pp-accent);
-  }
-  /* Cabe até 3 dígitos (o histórico vai a 200) sem empurrar o rótulo. */
-  .tab-count { margin-left: var(--gap-xs); opacity: .7; font-weight: 400; font-variant-numeric: tabular-nums; }
-
-  /* O X é um botão nosso, e não o nativo do input de busca: aquele vive no
-     shadow DOM, onde nem a cor do tema nem uma máscara declarada aqui chegam
-     — ficava azul do sistema ou invisível. */
-  .search-box { position: relative; margin-bottom: var(--gap-sm); flex: 0 0 auto; }
-  /* Ancorado no elemento: 'search' também é o tipo do ícone do estado vazio
-     (empty-icon search), e o seletor solto vestia o ícone de input. */
-  input.search {
-    width: 100%; height: 24px;
-    padding: 0 25px 0 var(--control-pad); border-radius: var(--radius);
-    border: 1px solid var(--vscode-input-border, var(--border));
-    background: var(--input-bg); color: var(--input-fg);
-    font-size: 11px; outline: none;
-  }
-  input.search:focus { border-color: var(--pp-accent); }
-  .search-clear {
-    position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; padding: 0;
-    border: none; border-radius: 3px; background: transparent;
-    color: var(--vscode-errorForeground, #f14c4c);
-    cursor: pointer; opacity: .8;
-  }
-  .search-clear:hover { opacity: 1; background: rgba(255,255,255,.1); }
-  .search-clear svg { width: 10px; height: 10px; fill: currentColor; }
-  .load-more { width: 100%; margin-top: var(--gap-sm); flex: 0 0 auto; }
-  .tab-actions { margin-left: auto; display: flex; align-items: center; flex: 0 0 auto; }
-  /* Antes o botão acumulava as classes mini (recuo próprio) e icon-btn
-     (medida fixa) ao mesmo tempo, e as duas brigavam. Aqui tem medida única,
-     discreta como as abas e destacando-se só ao passar o mouse. */
-  .tab-action {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 26px; padding: 0;
-    border: none; border-radius: 5px;
-    background: transparent; color: var(--muted);
-    cursor: pointer;
-  }
-  .tab-action:hover {
-    background: rgba(255,255,255,.07);
-    color: var(--vscode-errorForeground, var(--fg));
-  }
-  .tab-action svg { width: 16px; height: 16px; fill: currentColor; }
-  [hidden] { display: none !important; }
-
-  /* Só quando o painel em si aperta é que algo cede — primeiro o respiro
-     lateral, depois a contagem, que é o menos essencial. O rótulo mantém o
-     tamanho: é ele que identifica a aba. */
-  @container (max-width: 230px) {
-    .tab { padding: 5px var(--gap-sm); }
-    .tab-action { width: 24px; }
-  }
-  @container (max-width: 190px) {
-    .tab-count { display: none; }
-  }
 ${webviewThemeCss(this.config)}
 </style>
 </head>
@@ -541,7 +343,7 @@ ${webviewThemeCss(this.config)}
   <div class="row">
     <input id="cmd" type="text" placeholder="${esc(msg.serverView.inputPlaceholder())}" />
     <button id="send" class="icon-btn" title="${esc(msg.serverView.send())}" aria-label="${esc(msg.serverView.send())}">
-      ${ICON_SEND}
+      ${iconMarkup(ICON_SEND)}
     </button>
   </div>
 
@@ -560,265 +362,40 @@ ${webviewThemeCss(this.config)}
     </div>
     <div id="searchBox" class="search-box" hidden>
       <input id="search" class="search" type="text" placeholder="${esc(msg.serverView.search())}" aria-label="${esc(msg.serverView.search())}" />
-      <button id="searchClear" class="search-clear" title="${esc(msg.serverView.clearSearch())}" aria-label="${esc(msg.serverView.clearSearch())}" hidden>${ICON_CLOSE}</button>
+      <button id="searchClear" class="search-clear" title="${esc(msg.serverView.clearSearch())}" aria-label="${esc(msg.serverView.clearSearch())}" hidden>${iconMarkup(ICON_CLOSE)}</button>
     </div>
     <div id="histItems" class="items" role="tabpanel"></div>
     <div id="favItems" class="items" role="tabpanel" hidden></div>
     <button id="loadMore" class="mini ghost load-more" hidden>${esc(msg.serverView.loadMore())}</button>
   </div>
 
-<script>
-  const vscode = acquireVsCodeApi();
-  // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
-  const ICON_MARKUP = ${JSON.stringify(ICON_SEND)};
-  const ICON_STAR = { on: ${JSON.stringify(ICON_STAR_ON)}, off: ${JSON.stringify(ICON_STAR_OFF)} };
-  const ICON_EMPTY = {
-    hist: ${JSON.stringify(ICON_EMPTY_HISTORY)},
-    fav: ${JSON.stringify(ICON_EMPTY_STAR)},
-    search: ${JSON.stringify(ICON_EMPTY_SEARCH)},
-  };
-  const T = ${JSON.stringify({
-    send: msg.serverView.send(),
-    emptyHistory: msg.serverView.emptyHistory(),
-    emptyFavorites: msg.serverView.emptyFavorites(),
-    addFavorite: msg.serverView.addFavorite(),
-    removeFavorite: msg.serverView.removeFavorite(),
-    noMatches: msg.serverView.noMatches(),
-    noMatchesHint: msg.serverView.noMatchesHint(),
-    emptyHistoryHint: msg.serverView.emptyHistoryHint(),
-    emptyFavoritesHint: msg.serverView.emptyFavoritesHint(),
-  })};
-  const $ = sel => document.querySelector(sel);
-  const input = $('#cmd');
-  const btn = $('#send');
-  const histItems = $('#histItems');
-  const favItems  = $('#favItems');
-  const histClear = $('#histClear');
-  const favClear  = $('#favClear');
-  const search    = $('#search');
-  const searchBox = $('#searchBox');
-  const searchClear = $('#searchClear');
-  const loadMore  = $('#loadMore');
-  const tabHist   = $('#tabHist');
-  const tabFav    = $('#tabFav');
-  const histCount = $('#histCount');
-  const favCount  = $('#favCount');
-
-  let history = [];
-  let favorites = [];
-  let cursor = -1;
-  let tab = 'hist';
-  let query = '';
-  // Quantos itens a lista mostra de uma vez. Cresce ao pedir mais, e volta ao
-  // início a cada troca de aba ou busca — a página não faz sentido sobre outro
-  // conjunto.
-  const PAGE = 20;
-  let shown = PAGE;
-
-  function escapeAttr(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  function mkCmdRow(text, opts = {}) {
-    const safeText = String(text || '');
-    const row = document.createElement('div');
-    row.className = 'cmd-row';
-    const span = document.createElement('div');
-    span.className = 'cmd-text';
-    span.setAttribute('title', escapeAttr(safeText));
-    span.textContent = safeText;
-    row.appendChild(span);
-
-    if (opts.star !== undefined) {
-      const star = document.createElement('button');
-      star.className = 'mini ghost icon-btn star-btn';
-      if (opts.star) star.classList.add('is-on');
-      star.innerHTML = opts.star ? ICON_STAR.on : ICON_STAR.off;
-      star.title = opts.star ? T.removeFavorite : T.addFavorite;
-      star.setAttribute('aria-label', star.title);
-      star.setAttribute('aria-pressed', String(!!opts.star));
-      star.addEventListener('click', (e) => {
-        e.stopPropagation();
-        vscode.postMessage({ type: opts.star ? 'removeFavorite' : 'addFavorite', command: safeText });
-      });
-      row.appendChild(star);
-    }
-
-    if (opts.send !== false) {
-      const send = document.createElement('button');
-      send.className = 'mini';
-      send.innerHTML = ICON_MARKUP;
-      send.classList.add('icon-btn');
-      send.title = T.send;
-      send.setAttribute('aria-label', T.send);
-      send.addEventListener('click', (e) => { e.stopPropagation(); sendCmd(safeText); });
-      row.appendChild(send);
-    }
-
-    row.addEventListener('click', () => {
-      input.value = safeText;
-      input.focus();
-      setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
-    });
-    return row;
-  }
-
-  function filtered(list) {
-    const q = query.trim().toLowerCase();
-    return q ? list.filter(c => c.toLowerCase().includes(q)) : list;
-  }
-
-  function mkEmpty(tipo, title, hint) {
-    const box = document.createElement('div');
-    box.className = 'empty';
-    const ico = document.createElement('div');
-    ico.className = 'empty-icon ' + tipo;
-    ico.innerHTML = ICON_EMPTY[tipo];
-    const t = document.createElement('div');
-    t.className = 'empty-title';
-    t.textContent = title;
-    const h = document.createElement('div');
-    h.className = 'empty-hint';
-    h.textContent = hint;
-    box.append(ico, t, h);
-    return box;
-  }
-
-  function renderList(container, kind, list, emptyText, hintText, starOf) {
-    container.innerHTML = '';
-    const items = filtered(list);
-    if (!items.length) {
-      // Distingue "não há nada" de "a busca não achou nada": a saída para
-      // cada caso é diferente.
-      const buscando = list.length > 0;
-      container.appendChild(mkEmpty(
-        buscando ? 'search' : kind,
-        buscando ? T.noMatches : emptyText,
-        buscando ? T.noMatchesHint : hintText,
-      ));
-      return 0;
-    }
-    items.slice(0, shown).forEach(cmd => {
-      container.appendChild(mkCmdRow(cmd, { star: starOf(cmd) }));
-    });
-    return items.length;
-  }
-
-  function renderFavorites() {
-    return renderList(favItems, 'fav', favorites, T.emptyFavorites, T.emptyFavoritesHint, () => true);
-  }
-
-  function renderHistory() {
-    return renderList(histItems, 'hist', history, T.emptyHistory, T.emptyHistoryHint, cmd => favorites.includes(cmd));
-  }
-
-  function render() {
-    const total = tab === 'fav' ? renderFavorites() : renderHistory();
-    loadMore.hidden = total <= shown;
-    renderCounts();
-  }
-
-  // A aba escolhida sobrevive ao re-render; o botão "Limpar" segue a aba
-  // visível, para não haver dois com o mesmo rótulo e alvos diferentes.
-  function selectTab(which) {
-    const fav = which === 'fav';
-    tab = which;
-    shown = PAGE;
-    query = '';
-    search.value = '';
-    searchClear.hidden = true;
-    tabFav.setAttribute('aria-selected', String(fav));
-    tabHist.setAttribute('aria-selected', String(!fav));
-    favItems.hidden = !fav;
-    histItems.hidden = fav;
-    favClear.hidden = !fav;
-    histClear.hidden = fav;
-    updateSearchVisibility();
-    render();
-  }
-
-  // A busca só aparece quando há o que buscar.
-  function updateSearchVisibility() {
-    const list = tab === 'fav' ? favorites : history;
-    searchBox.hidden = list.length <= PAGE / 2;
-  }
-
-  // Acima de 99 o número deixa de informar e só rouba espaço do rótulo.
-  function badge(n) {
-    return n ? '(' + (n > 99 ? '99+' : n) + ')' : '';
-  }
-
-  function renderCounts() {
-    histCount.textContent = badge(history.length);
-    favCount.textContent = badge(favorites.length);
-  }
-
-  function applyState(payload) {
-    const p = payload || {};
-    history = Array.isArray(p.history) ? p.history : [];
-    favorites = Array.isArray(p.favorites) ? p.favorites : [];
-    cursor = -1;
-    updateSearchVisibility();
-    render();
-  }
-
-  function sendCmd(text) {
-    const trimmed = (text || '').trim();
-    if (!trimmed) return;
-    vscode.postMessage({ type: 'send', text: trimmed });
-  }
-
-  function sendFromInput() {
-    const text = input.value.trim();
-    if (!text) return;
-    sendCmd(text);
-    input.value = '';
-    cursor = -1;
-    input.focus();
-  }
-
-  btn.addEventListener('click', sendFromInput);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); sendFromInput(); return; }
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!history.length) return;
-      if (e.key === 'ArrowUp') { if (cursor < history.length - 1) cursor++; }
-      else { if (cursor > -1) cursor--; }
-      input.value = cursor === -1 ? '' : history[cursor];
-      setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
-    }
-  });
-
-  search.addEventListener('input', () => {
-    query = search.value;
-    searchClear.hidden = !query;
-    shown = PAGE;
-    render();
-  });
-  searchClear.addEventListener('click', () => {
-    search.value = '';
-    query = '';
-    searchClear.hidden = true;
-    shown = PAGE;
-    render();
-    search.focus();
-  });
-  loadMore.addEventListener('click', () => { shown += PAGE; render(); });
-
-  tabHist.addEventListener('click', () => selectTab('hist'));
-  tabFav.addEventListener('click', () => selectTab('fav'));
-
-  histClear.addEventListener('click', () => { vscode.postMessage({ type: 'clearHistory' }); input.focus(); });
-  favClear.addEventListener('click', () => { vscode.postMessage({ type: 'clearFavorites' }); input.focus(); });
-
-  window.addEventListener('message', (ev) => {
-    const { type, payload } = ev.data || {};
-    if (type === 'state') applyState(payload);
-  });
-
-  vscode.postMessage({ type: 'requestState' });
-  input.focus();
-</script>
+<!-- Dados para o script: ícones e traduções são da extensão, e um arquivo
+     externo não pode interpolá-los. O tipo application/json não é executável,
+     então o CSP o permite sem nonce. -->
+<script id="dados-painel" type="application/json">${JSON.stringify({
+      icons: {
+        send: ICON_SEND,
+        starOn: ICON_STAR_ON,
+        starOff: ICON_STAR_OFF,
+        empty: {
+          hist: ICON_EMPTY_HISTORY,
+          fav: ICON_EMPTY_STAR,
+          search: ICON_EMPTY_SEARCH,
+        },
+      },
+      i18n: {
+        send: msg.serverView.send(),
+        emptyHistory: msg.serverView.emptyHistory(),
+        emptyFavorites: msg.serverView.emptyFavorites(),
+        addFavorite: msg.serverView.addFavorite(),
+        removeFavorite: msg.serverView.removeFavorite(),
+        noMatches: msg.serverView.noMatches(),
+        noMatchesHint: msg.serverView.noMatchesHint(),
+        emptyHistoryHint: msg.serverView.emptyHistoryHint(),
+        emptyFavoritesHint: msg.serverView.emptyFavoritesHint(),
+      },
+    })}</script>
+<script nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;
   }

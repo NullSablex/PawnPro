@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { PAWNPRO_DIR } from './config.js';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import type { NativeEntry, PawnProConfig } from './types.js';
@@ -29,6 +30,9 @@ function findIncludeRootsFromDir(startDir: string, stopAt: string): string[] {
   }
   return found;
 }
+
+/** Pastas que a varredura de includes nunca desce. */
+const IGNORED_DIRS = new Set(['node_modules', '.git', '.vscode', PAWNPRO_DIR]);
 
 export function buildIncludePaths(config: PawnProConfig, workspaceRoot: string, fileDir?: string): string[] {
   const fromSettings = config.includePaths;
@@ -79,7 +83,7 @@ export async function listIncFilesRecursive(root: string, maxDepth = 20): Promis
     for (const e of entries) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
-        if (e.name === 'node_modules' || e.name === '.git' || e.name === '.vscode' || e.name === '.pawnpro') continue;
+        if (IGNORED_DIRS.has(e.name)) continue;
         await walk(p, depth + 1);
       } else if (e.isFile() && e.name.toLowerCase().endsWith('.inc')) {
         out.push(p);

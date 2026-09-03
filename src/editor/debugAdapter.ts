@@ -3,9 +3,17 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type { PawnProConfigManager } from '../core/config.js';
 import { buildCompileArgs, runCompile } from '../core/compiler.js';
-import { resolveServerConfig, checkDebugPlugin } from '../core/server.js';
+import {
+  resolveServerConfig,
+  checkDebugPlugin,
+  loadServerConfig,
+  pingServer,
+  projectServersOnPort,
+  killProcess,
+} from '../core/server.js';
 import { resolveLocale } from './locale.js';
 import { msg } from './nls.js';
+import { withProgress, newDebugPhase, type DebugPhase } from './progress.js';
 
 /**
  * Integração do debugger Pawn (tipo `pawn`). A extensão NÃO hospeda o código Rust
@@ -17,6 +25,18 @@ import { msg } from './nls.js';
  * mata/relança o adaptador) derruba e recria o servidor automaticamente — sem a
  * extensão precisar rastrear processos. Ver o repositório `pawnpro-debugger`.
  */
+/**
+ * Barra de progresso do ciclo em andamento, por sessão.
+ *
+ * Reiniciar com o fonte alterado é um ciclo só para o usuário, mas por baixo
+ * são duas etapas em processos diferentes: o adaptador pede o rebuild, a
+ * extensão compila e reenvia o restart. Com uma barra por etapa apareciam duas
+ * ao mesmo tempo, e a de "reiniciando" mentia enquanto o compilador rodava — o
+ * restart só começa depois dele. O mapa é o que permite ao compilador reusar a
+ * barra que o pedido de restart já abriu.
+ */
+const cyclePhases = new Map<string, DebugPhase>();
+
 export function registerDebugAdapter(
   context: vscode.ExtensionContext,
   config: PawnProConfigManager,
@@ -26,6 +46,72 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider('pawn', provider),
     vscode.debug.registerDebugAdapterDescriptorFactory('pawn', new PawnAdapterFactory(context)),
+    // Reiniciar recompila quando o fonte mudou.
+    //
+    // Quem detecta é o adaptador, no `on_restart`: é o ponto por onde todo
+    // restart passa, venha do botão nativo do editor, da tecla ou da paleta —
+    // por isso não é preciso comando próprio nem interceptar o do editor.
+    // Compilar, porém, é atribuição daqui: o compilador e as flags são
+    // configuração do projeto. Ele pede por evento, compilamos e devolvemos o
+    // `restart`, que então segue o caminho normal.
+    vscode.debug.onDidReceiveDebugSessionCustomEvent(async (e) => {
+      if (e.session.type !== 'pawn' || e.event !== 'pawnproRebuild') return;
+      const body = e.body as { program?: unknown } | undefined;
+      const amx = typeof body?.program === 'string' ? body.program : '';
+      if (amx && !(await provider.ensureDebugBuild(amx, false, cyclePhases.get(e.session.id)))) {
+        // Compilação falhou: `ensureDebugBuild` já avisou. Não reenviar o
+        // restart é o que impede o servidor de subir com o binário velho — mas
+        // o ciclo acaba aqui, e sem fechar a barra ela ficaria girando até o
+        // teto, contradizendo o erro que o usuário acabou de ver.
+        cyclePhases.get(e.session.id)?.done();
+        return;
+      }
+      await e.session.customRequest('restart');
+    }),
+    // Os controles NATIVOS (barra flutuante, F5, Shift+F5) não passam pelo
+    // painel, então nada avisava o usuário: o restart do adaptador troca o
+    // processo sem encerrar a sessão, e por isso não há nem
+    // `onDidTerminateDebugSession` para observar. O tracker lê o tráfego DAP
+    // sem interferir nele.
+    vscode.debug.registerDebugAdapterTrackerFactory('pawn', {
+      createDebugAdapterTracker(session: vscode.DebugSession) {
+        // Uma barra só para o ciclo inteiro, com o título acompanhando a fase.
+        // Com duas (uma aqui, outra na compilação) o usuário via "Reiniciando"
+        // e "Compilando" ao mesmo tempo — e "reiniciando" era falso enquanto o
+        // compilador rodava: o restart de verdade só começa depois dele.
+        const begin = (title: string) => {
+          const open = cyclePhases.get(session.id);
+          if (open) { open.retitle(title); return; }
+          cyclePhases.set(
+            session.id,
+            newDebugPhase(title, () => cyclePhases.delete(session.id)),
+          );
+        };
+        const phase = () => cyclePhases.get(session.id);
+        return {
+          onWillReceiveMessage(m: unknown) {
+            const req = m as { type?: string; command?: string };
+            if (req?.type !== 'request') return;
+            // `restart` e `disconnect` são as ações longas que o usuário dispara
+            // e fica sem retorno. `launch` já tem a barra da compilação, e o
+            // editor mostra a sua própria ao iniciar.
+            if (req.command === 'restart') begin(msg.server.restarting());
+            else if (req.command === 'disconnect') begin(msg.server.stopping());
+          },
+          onDidSendMessage(m: unknown) {
+            const ev = m as { type?: string; event?: string };
+            if (ev?.type !== 'event') return;
+            // Fim real do ciclo: `continued` (servidor novo rodando) ou
+            // `terminated` (sessão encerrada). O rebuild NÃO fecha: quem
+            // compila reusa esta mesma barra, trocando o título.
+            if (ev.event === 'continued' || ev.event === 'terminated') phase()?.done();
+          },
+          onExit() {
+            phase()?.done();
+          },
+        };
+      },
+    }),
   );
 }
 
@@ -207,7 +293,13 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     const pre = checkDebugPlugin(cwd);
     if (!pre.ok) {
       const missing: string[] = [];
-      if (pre.pluginNameClash) {
+      if (pre.archMismatch) {
+        // O servidor recusa o plugin no boot, mas o erro se perde entre as
+        // linhas de carga — sem isto, a depuração falha sem nada no editor.
+        missing.push(
+          msg.debug.pluginArchMismatch(pre.archMismatch.plugin, pre.archMismatch.server),
+        );
+      } else if (pre.pluginNameClash) {
         missing.push(msg.debug.pluginNameClash(pre.recommendedPath));
       } else if (!pre.pluginFilePresent) {
         missing.push(msg.debug.missingPluginFile(pre.recommendedPath));
@@ -223,6 +315,13 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
       }
     }
 
+    // A porta precisa estar livre ANTES de o adaptador subir o servidor. Sem
+    // isto o F5 sobe um segundo servidor sobre um zumbi de uma execução
+    // anterior: os dois disputam o mesmo datagrama UDP, o depurador anexa ao
+    // que atender primeiro, e o diagnóstico vira não-determinístico. O painel
+    // já tratava isso ao iniciar; este caminho não passava por lá.
+    if (!(await this.ensurePortFree(cwd))) return false;
+
     // O adaptador sobe isto como processo filho (kill-on-drop).
     config.serverCommand = {
       exe: resolved.exe,
@@ -233,15 +332,98 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
   }
 
   /**
+   * Libera a porta do servidor antes de o adaptador subir o filho.
+   *
+   * Só oferece encerrar o que é comprovadamente o executável deste projeto e do
+   * mesmo usuário (`isProjectServer`): a porta vem do `config.json` do
+   * repositório, e sem esse filtro um `"port": 53` transformaria o F5 numa arma
+   * contra serviços do sistema. Quem está na porta sem passar no filtro só
+   * rende aviso — a decisão de seguir é do usuário.
+   *
+   * @returns `false` para abortar a sessão.
+   */
+  private async ensurePortFree(cwd: string): Promise<boolean> {
+    const cfg = this.config.getAll();
+    const srvCfg = await loadServerConfig(cwd, cfg.server.type);
+    const host = srvCfg?.host ?? '127.0.0.1';
+    const port = srvCfg?.port ?? 7777;
+    if (!(await pingServer(host, port))) return true;
+
+    const exe = resolveServerConfig(cfg.server, this.workspaceRoot() ?? cwd).exe;
+    const pids = projectServersOnPort(port, exe);
+    if (!pids.length) {
+      // Outro programa, ou processo de outro usuário: dizer "sobrou um
+      // servidor" seria falso, e oferecer encerrar, perigoso.
+      const go = msg.debug.btnStartAnyway();
+      const choice = await vscode.window.showWarningMessage(
+        `PawnPro: ${msg.server.portBusyOther(port)}`,
+        go,
+        msg.debug.btnCancel(),
+      );
+      return choice === go;
+    }
+
+    const kill = msg.server.btnKillOrphan();
+    const many = pids.length > 1;
+    const text = (many ? msg.server.orphansOnPort : msg.server.orphanOnPort)(port, pids.join(', '));
+    const choice = await vscode.window.showWarningMessage(
+      `PawnPro: ${text}`,
+      kill,
+      msg.debug.btnCancel(),
+    );
+    if (choice !== kill) return false;
+
+    return withProgress(
+      (many ? msg.server.killingOrphans : msg.server.killingOrphan)(),
+      async () => {
+        await Promise.all(pids.map(pid => killProcess(pid)));
+        // A porta é a confirmação real: um processo pode morrer sem liberá-la
+        // de imediato. Subir o servidor sobre uma porta ainda ocupada só
+        // recriaria o conflito que acabamos de tentar resolver.
+        for (let i = 0; i < 10; i++) {
+          if (!(await pingServer(host, port, 500))) return true;
+          await new Promise(r => setTimeout(r, 400));
+        }
+        void vscode.window.showErrorMessage(`PawnPro: ${msg.server.killFailed(pids.join(', '))}`);
+        return false;
+      },
+    );
+  }
+
+  /**
    * Garante que o `.amx` exista com debug info: localiza o `.pwn` de mesmo nome
    * e o compila com `-d3` (injetado só se ausente). Se não houver source, segue
    * com o `.amx` existente (assume já compilado com `-d3`).
    */
-  private async ensureDebugBuild(amxPath: string): Promise<boolean> {
+  async ensureDebugBuild(
+    amxPath: string,
+    onlyIfChanged = false,
+    /**
+     * Barra do ciclo em andamento, quando há uma. O reinício já mostra a sua
+     * desde o pedido do usuário; abrir outra aqui poria duas na tela ao mesmo
+     * tempo. Sem ela (o caso do F5), a compilação abre a sua própria.
+     */
+    phase?: DebugPhase,
+  ): Promise<boolean> {
     const source = amxPath.replace(/\.amx$/i, '.pwn');
+    // `onlyIfChanged`: no restart, recompilar um binário que já está em dia só
+    // custaria tempo. O fonte ser mais novo que o `.amx` é o que distingue
+    // "mudei o código" de "só quero subir o servidor de novo".
+    if (onlyIfChanged && fs.existsSync(source) && fs.existsSync(amxPath)) {
+      try {
+        if (fs.statSync(source).mtimeMs <= fs.statSync(amxPath).mtimeMs) return true;
+      } catch {
+        /* sem stat, compila — é o lado seguro */
+      }
+    }
     if (!fs.existsSync(source)) {
       // Sem source ao lado — não há o que compilar; usa o `.amx` como está.
-      return fs.existsSync(amxPath);
+      if (fs.existsSync(amxPath)) return true;
+      // Nem source nem binário: abortar aqui calado deixava o F5 sem reação
+      // nenhuma, e o motivo mais comum é o `program` do launch.json apontar
+      // para o palpite do template (`gamemodes/main.amx`), que nunca existiu.
+      void vscode.window.showErrorMessage(msg.debug.programNotFound(amxPath));
+      return false;
     }
     const ws = this.workspaceRoot() ?? path.dirname(source);
     const args = buildCompileArgs({
@@ -250,12 +432,17 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
       workspaceRoot: ws,
       forceDebug: true,
     });
-    const result = await runCompile(
-      args.exe,
-      args.args,
-      args.cwd,
-      this.config.getAll().output.encoding,
-    );
+    // Compilar é a etapa mais lenta e roda antes de qualquer sinal na tela:
+    // sem isto o usuário aperta F5 e não vê nada até a sessão subir ou falhar.
+    const compile = () =>
+      runCompile(args.exe, args.args, args.cwd, this.config.getAll().output.encoding);
+    let result;
+    if (phase) {
+      phase.retitle(msg.debug.compiling());
+      result = await compile();
+    } else {
+      result = await withProgress(msg.debug.compiling(), compile);
+    }
     if (result.exitCode !== 0) {
       void vscode.window.showErrorMessage(msg.debug.compileFailed());
       return false;

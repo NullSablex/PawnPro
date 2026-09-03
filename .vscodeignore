@@ -10,9 +10,15 @@ CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 changelogs/**
 mkdocs.yml
+notes/**
 
 # Source maps
 out/**/*.map
+out/test/**
+
+# CSS fonte: no VSIX vai só a versão minificada, em out/assets/
+assets-src/**
+assets.manifest.json
 
 # Configuração de build e dev
 tsconfig.json

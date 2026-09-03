@@ -9,3 +9,6 @@ site/
 /docs/store-plan.md
 # Rascunhos locais (posts, anotações) — não versionados
 notes/
+
+# Marcadores da migração para o pawnpro-core: trabalho local, não versionado.
+*.ts.bak

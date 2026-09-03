@@ -1,0 +1,664 @@
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* O display do user-agent para [hidden] tem especificidade mínima e perde de
+     qualquer classe que declare display — .naming-preview é display:block, e o
+     elemento seguia visível com o atributo posto. */
+  [hidden] { display: none !important; }
+
+  /* Padding horizontal fluido: encolhe em painéis estreitos sem breakpoints. */
+  :root { --pad-x: clamp(14px, 5vw, 36px); }
+
+  body {
+    font-family: var(--vscode-font-family);
+    font-size: 14px;
+    color: var(--vscode-foreground);
+    background: var(--vscode-editor-background);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  nav {
+    width: 180px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--vscode-panel-border, #333);
+    padding: 20px 0;
+    overflow-y: auto;
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  }
+
+  nav .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95em;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    padding: 0 16px 16px;
+    border-bottom: 1px solid var(--vscode-panel-border, #333);
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+  nav .logo img {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    /* O recuo perde os 2px que a borda esquerda ocupa, para o ícone do item
+       ativo não deslizar para a direita ao ganhar a borda. */
+    padding: 7px 16px 7px 14px;
+    font-size: 0.98em;
+    color: var(--vscode-foreground);
+    text-decoration: none;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    opacity: 0.7;
+    transition: opacity 0.1s, border-color 0.1s;
+  }
+  /* O ícone herda a cor e a opacidade do item: acompanha ativo e hover sem
+     precisar de regra própria para cada estado. */
+  nav a svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    fill: currentColor;
+  }
+  /* O rótulo cede primeiro quando a navegação aperta; o ícone permanece. */
+  nav a span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  nav a:hover { opacity: 1; background: var(--vscode-list-hoverBackground, #ffffff10); }
+  nav a.active { opacity: 1; border-left-color: var(--pp-accent); font-weight: 600; }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px var(--pad-x) 24px;
+    scroll-behavior: smooth;
+  }
+
+  .section { margin-bottom: 40px; scroll-margin-top: 28px; }
+  /* Última seção: sem a margem inferior extra, evitando vão exagerado no fim. */
+  .section:last-of-type { margin-bottom: 0; }
+
+  h2 {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    margin-bottom: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-panel-border, #333);
+  }
+
+  .row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--vscode-panel-border, #1e1e1e);
+  }
+  .row:last-child { border-bottom: none; }
+
+  .row-info { flex: 1; min-width: 0; }
+
+  .row-label {
+    font-weight: 500;
+    font-size: 1em;
+    margin-bottom: 3px;
+  }
+
+  .row-desc {
+    font-size: 0.875em;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.5;
+    margin-top: 2px;
+  }
+
+  .row-control {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    min-width: 200px;
+    justify-content: flex-end;
+  }
+
+  /* Seleção de preset de formatação como cartões com preview visual. */
+  .preset-header { padding: 14px 0 4px; }
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+    gap: 12px;
+    padding: 10px 0 24px;
+  }
+  .preset-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: var(--vscode-foreground);
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .preset-card:hover { background: var(--vscode-list-hoverBackground, #ffffff10); }
+  .preset-card.selected {
+    border-color: var(--pp-accent);
+    box-shadow: 0 0 0 1px var(--pp-accent);
+  }
+  .preset-preview {
+    margin: 0;
+    padding: 8px 10px;
+    min-height: 72px;
+    background: var(--vscode-editor-background);
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.8em;
+    line-height: 1.4;
+    color: var(--vscode-editor-foreground, var(--vscode-foreground));
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  /* Cada exemplo em sua linha, mas o fundo do <code> acompanha o texto: como
+     bloco de largura total ele ia até a borda da coluna, e o exemplo do padrão
+     logo abaixo — mais curto — desenhava uma caixa visivelmente diferente. */
+  .naming-preview {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    white-space: pre;
+    font-family: var(--vscode-editor-font-family, monospace);
+    color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
+    opacity: 0.85;
+  }
+  /* Fica FORA do <code>: ali dentro é código Pawn real, e um contador entre as
+     linhas deixaria de ser código válido. */
+  .naming-more {
+    display: block;
+    margin-top: 2px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.9em;
+    color: var(--vscode-textLink-foreground, inherit);
+    cursor: pointer;
+    text-align: left;
+  }
+  .naming-more:hover { text-decoration: underline; }
+  /* O body e flex, entao um dialog no fluxo viraria item flex e encostaria no
+     canto. Posicao fixa com margem automatica o tira do fluxo e o centra,
+     que e o que o dialog modal faz por padrao numa pagina comum. */
+  /* Recuo proprio, na mesma tecnica do --pad-x da pagina mas em escala menor:
+     o do corpo vai a 36px, exagerado dentro de uma caixa de 480px. */
+  .exemplos-modal {
+    --modal-pad: clamp(12px, 4vw, 18px);
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(92vw, 480px);
+    max-height: 80vh;
+    height: fit-content;
+    border: 1px solid var(--vscode-widget-border, var(--vscode-contrastBorder, #454545));
+    border-radius: 8px;
+    padding: 0;
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    color: var(--vscode-foreground);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+  .exemplos-modal::backdrop { background: rgba(0, 0, 0, 0.5); }
+  /* Cabecalho, busca e rodape fixos; so a lista rola. */
+  .exemplos-modal-corpo {
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+  .exemplos-modal-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: var(--modal-pad) var(--modal-pad) 12px;
+    border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  }
+  /* Um padrao longo QUEBRA em varias linhas em vez de ser cortado: e o texto
+     que identifica o que se esta vendo, e some justamente quando e complexo. */
+  /* Cabeçalho é para ser lido: cor plena do editor, não a esmaecida de código
+     embutido em texto, e um fundo próprio que separa o padrão do resto. */
+  #exemplos-modal-titulo {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--vscode-textCodeBlock-background, var(--vscode-editor-background));
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.92em;
+    line-height: 1.5;
+    color: var(--vscode-foreground);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  /* Distintivo com a contagem: legível por contraste de fundo, sem depender de
+     opacidade — que é o que some contra o fundo escuro do widget. */
+  .exemplos-modal-conta {
+    flex: 0 0 auto;
+    /* Cabe o maior valor possível — 300/300, sete caracteres — para a largura
+       não mudar a cada filtragem e empurrar o campo de busca ao lado. */
+    min-width: 7ch;
+    padding: 3px 9px;
+    border-radius: 10px;
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    font-size: 0.82em;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+  }
+  /* Busca e contagem na mesma faixa: ao lado do padrão, a contagem mudava de
+     largura a cada filtragem e empurrava o bloco do regex. */
+  .exemplos-modal .search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px var(--modal-pad) 0;
+  }
+  .exemplos-modal input.search {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 3px;
+    border: 1px solid var(--vscode-input-border, transparent);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-size: 12px;
+    outline: none;
+  }
+  .exemplos-modal input.search:focus {
+    border-color: var(--vscode-focusBorder);
+  }
+  /* Mesma rolagem da lista de favoritos: fina, na cor do tema, sem trilho. */
+  .exemplos-modal ul {
+    margin: 0;
+    padding: 6px var(--modal-pad) 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+  }
+  .exemplos-modal ul::-webkit-scrollbar { width: 10px; }
+  .exemplos-modal ul::-webkit-scrollbar-track { background: transparent; }
+  .exemplos-modal ul::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border: 3px solid transparent;
+    border-radius: 6px;
+    background-clip: content-box;
+  }
+  .exemplos-modal ul::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+    background-clip: content-box;
+  }
+  .exemplos-modal li {
+    padding: 4px 0;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.95em;
+    overflow-wrap: anywhere;
+  }
+  .exemplos-modal li + li {
+    border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.12));
+  }
+  .exemplos-modal-vazio {
+    margin: 0;
+    padding: 16px var(--modal-pad);
+    text-align: center;
+    opacity: 0.7;
+    font-size: 0.9em;
+  }
+  /* Aviso de corte: e um AVISO, entao usa as cores de aviso do editor e uma
+     faixa propria. Como texto secundario ele sumia contra o fundo do widget. */
+  .exemplos-modal-corte {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 var(--modal-pad) 10px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+    background: var(--vscode-inputValidation-warningBackground,
+                     var(--vscode-editorWidget-background));
+    color: var(--vscode-foreground);
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+  .exemplos-modal-corte::before {
+    content: '!';
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--vscode-editorWarning-foreground, #cca700);
+    color: var(--vscode-editor-background);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .exemplos-modal-rodape {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px var(--modal-pad) var(--modal-pad);
+    border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
+  }
+  .exemplos-modal button {
+    padding: 6px 18px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    font: inherit;
+    cursor: pointer;
+  }
+  .exemplos-modal button:hover {
+    background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+  }
+  /* Categoria sem criterio nenhum: no lugar do exemplo, diz o que isso
+     significa. Mesma ideia do estado vazio da lista de favoritos: um icone que
+     situa e uma linha curta. */
+  .naming-vazio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--vscode-descriptionForeground);
+  }
+  .naming-vazio svg {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    opacity: 0.65;
+  }
+
+  /* O erro em TEXTO, nao so na borda: borda vermelha mais tooltip obriga o
+     usuario a passar o mouse para descobrir o que esta errado. */
+  /* Coluna propria: a grade dos estilos usa grid-auto-flow column com linhas
+     fixas, entao um filho a mais entrava no fluxo das colunas e empurrava um
+     botao para fora. O erro fica ABAIXO dela, nao dentro. */
+  .regex-erro {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 6px 0 0;
+    /* Quebra em varias linhas dentro da coluna, sem alargar nada. */
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    /* Em rem, nao em em: dentro do .row-desc (0.875em) um valor relativo se
+       multiplicava e o aviso ficava menor que o texto ao redor. */
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #f14c4c));
+  }
+  .regex-erro::before {
+    content: '!';
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: var(--vscode-errorForeground, #f14c4c);
+    color: var(--vscode-editor-background);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .style-checks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(min(110px, 100%), 1fr));
+    grid-auto-flow: column;
+    grid-template-rows: repeat(3, auto);
+    gap: 6px 8px;
+    min-width: min(240px, 100%);
+  }
+  .style-badge { cursor: pointer; }
+  .style-badge input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .style-badge span {
+    display: block;
+    text-align: center;
+    font-size: 0.85em;
+    padding: 4px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--vscode-input-border, #555);
+    opacity: 0.65;
+    user-select: none;
+    transition: background 0.12s, opacity 0.12s, border-color 0.12s;
+  }
+  .style-badge:hover span { opacity: 0.9; }
+  .style-badge input:checked + span {
+    opacity: 1;
+    border-color: var(--pp-accent);
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
+  }
+  .style-badge input:focus-visible + span {
+    box-shadow: 0 0 0 2px var(--pp-accent);
+  }
+  /* O campo de padrão próprio fica sob as etiquetas da mesma categoria: é uma
+     alternativa a elas, não um ajuste de outra seção. */
+  /* O campo fecha a grade de etiquetas ocupando as duas colunas: é o mesmo
+     grupo de critérios, e a linha da categoria não se divide. */
+  .style-checks .regex-input {
+    /* A grade preenche por coluna (3 linhas fixas), então o campo é colocado
+       explicitamente numa quarta linha própria, cruzando as duas colunas — sem
+       isso ele entraria como sexta etiqueta, ao lado das outras. */
+    grid-row: 4;
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 2px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.85em;
+  }
+  /* Só colore quando há o que dizer: vazio é o estado normal, não um erro. */
+  .regex-input.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
+  /* O exemplo do padrão é o mesmo trecho de código Pawn dos estilos embutidos
+     (.naming-preview, de onde herda a aparência): as duas respondem à mesma
+     pergunta e ficam na mesma coluna, uma sob a outra. */
+  /* Sem overflow próprio: overflow != visible cria um contexto que encolhe a
+     caixa até o conteúdo, e o fundo do <code> ficava mais curto que o do
+     exemplo dos estilos logo acima. Os dois são o mesmo tipo de informação e
+     têm de ter a mesma caixa; nomes de identificador cabem na coluna. */
+
+  /* Seletor de cor: as amostras mostram a própria cor, e o "Automático" é
+     texto porque não tem cor própria — ele segue o tema do editor. */
+  .accent-picker { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .accent-swatch { cursor: pointer; }
+  .accent-swatch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .accent-swatch > span {
+    display: block;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--sw);
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--vscode-input-border, #555);
+    transition: box-shadow 0.12s;
+  }
+  .accent-swatch.auto > span {
+    width: auto; height: auto;
+    border-radius: 11px;
+    background: transparent;
+    padding: 3px 10px;
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+  .accent-swatch:hover > span { box-shadow: 0 0 0 2px var(--vscode-descriptionForeground); }
+  /* A marca de escolhido é um anel, não um preenchimento: a cor da amostra
+     precisa continuar visível. */
+  .accent-swatch input:checked + span,
+  .accent-swatch input:focus-visible + span {
+    box-shadow: 0 0 0 2px var(--vscode-foreground);
+  }
+
+  .naming-styles { padding: 10px 0; }
+  .naming-styles > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 2px 0;
+    /* Grade de duas colunas: o chevron ocupa a primeira nas duas linhas, e a
+       descrição alinha com o título sem depender de um recuo fixo. */
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 6px;
+    align-items: center;
+  }
+  .naming-styles > summary::-webkit-details-marker { display: none; }
+  /* Antes era o caractere '▸': o desenho vinha da fonte do sistema e destoava
+     dos ícones da página, que são traços SVG de peso uniforme. */
+  .naming-styles .disclosure {
+    grid-row: 1 / 3;
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    opacity: 1;
+    transition: transform 0.15s;
+  }
+  .naming-styles[open] .disclosure { transform: rotate(90deg); }
+  .naming-styles-title { font-weight: 600; }
+  .naming-styles-desc { opacity: 0.7; font-size: 0.85em; }
+  .naming-styles[open] > .naming-style-row:last-child { border-bottom: none; }
+  .preset-name {
+    font-size: 0.9em;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  input[type="text"], input[type="number"], select {
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: inherit;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.1s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    border-color: var(--pp-accent);
+  }
+
+  code {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.9em;
+    background: var(--vscode-textCodeBlock-background, #ffffff18);
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+
+  .toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    width: 36px; height: 20px;
+    background: var(--vscode-input-border, #555);
+    border-radius: 10px;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .toggle input:checked + .toggle-track {
+    background: var(--pp-accent);
+  }
+  .toggle-thumb {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left 0.15s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb { left: 19px; }
+
+  .array-editor { width: 100%; }
+  .array-items { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+  .array-item { display: flex; gap: 4px; align-items: center; }
+  .array-item input { flex: 1; }
+  .btn-remove {
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    border: 1px solid var(--vscode-input-border, #555);
+    border-radius: 3px;
+    width: 26px; height: 26px;
+    cursor: pointer;
+    font-size: 0.9em;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+    transition: background 0.1s, color 0.1s;
+  }
+  .btn-remove:hover {
+    background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+    color: var(--vscode-foreground);
+    border-color: transparent;
+  }
+  .migrate-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    background: var(--vscode-inputValidation-warningBackground, rgba(255,200,0,0.1));
+    border: 1px solid var(--vscode-inputValidation-warningBorder, #cc9900);
+    font-size: 0.9em;
+  }
+  .migrate-banner span { flex: 1; }
+  .btn-add, .btn-file {
+    background: var(--pp-accent);
+    color: var(--pp-accent-fg);
+    border: none;
+    border-radius: 3px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-family: inherit;
+    transition: background 0.1s;
+  }
+  .btn-add:hover { background: var(--pp-accent-hover); }
+
+  .wide .row-control { min-width: 100%; margin-top: 8px; flex-direction: column; align-items: stretch; }
+  .wide { flex-wrap: wrap; }
+
+  .note {
+    font-size: 0.875em;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 24px;
+    padding: 8px 12px;
+    border-left: 2px solid var(--pp-accent);
+    background: var(--vscode-textBlockQuote-background, #ffffff08);
+    border-radius: 0 3px 3px 0;
+  }

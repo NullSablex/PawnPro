@@ -43,14 +43,24 @@ async function main() {
     for (const bin of binaries) {
       const src = path.join(enginesDir, bin);
       const dest = path.posix.join('extension', 'engines', bin);
-      zip.file(dest, fs.readFileSync(src));
+      // `unixPermissions` é obrigatório: sem isto o JSZip grava a entrada com
+      // o modo padrão, o bit de execução se perde, e o editor não consegue
+      // lançar o binário — a depuração falha com "permissão negada".
+      zip.file(dest, fs.readFileSync(src), { unixPermissions: 0o755 });
       console.log(`[repack] Binário empacotado: engines/${bin}`);
     }
   } else {
     console.warn('[repack] Pasta engines/ não encontrada — motor Rust não incluído no VSIX');
   }
 
-  const outBuf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  // `platform: 'UNIX'` é o que faz o JSZip gravar de fato os `unixPermissions`
+  // das entradas; sem isto ele usa o padrão DOS e o bit de execução dos
+  // binários se perde na instalação.
+  const outBuf = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+    platform: 'UNIX',
+  });
   fs.writeFileSync(vsixPath, outBuf);
   console.log(`[repack] VSIX atualizado: ${vsixPath}`);
 }

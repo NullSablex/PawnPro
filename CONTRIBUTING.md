@@ -50,6 +50,7 @@ docs/          ← documentação detalhada (não incluída no .vsix)
 
 ## Regras de código
 
+- **Identificadores em inglês, comentários em português** — funções, variáveis, constantes e tipos em inglês (`detectServerExecutable`, `pidsOnPort`); comentários e documentação em português. Strings visíveis ao usuário são outra coisa: ficam em português no `nls.ts`, com as traduções em `l10n/`.
 - **Nunca importar `vscode` em `src/core/`** — essa camada deve permanecer pura e testável fora do VS Code.
 - **Mensagens ao usuário sempre via `src/editor/nls.ts`** — sem strings hardcoded em outros arquivos.
 - **Sem `any`** — usar tipos precisos ou `unknown` com narrowing.
