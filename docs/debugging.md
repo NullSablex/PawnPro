@@ -39,16 +39,16 @@ Baixe da [release do PawnPro Debugger](https://github.com/NullSablex/PawnPro-Deb
 > correto — **não renomeie**.
 
 Se preferir compilar (sem release disponível), o binário sai como
-`libdebug_plugin.so` (Linux) / `debug_plugin.dll` (Windows); aí sim renomeie para
-`pawnpro_debug.{so,dll}` ao instalar:
+`libpawnpro_debug.so` (Linux) / `pawnpro_debug.dll` (Windows); no Linux, tire o
+prefixo `lib` ao instalar:
 
 ```bash
-git clone https://github.com/NullSablex/PawnPro-Debugger
-cd PawnPro-Debugger
+git clone https://github.com/NullSablex/PawnPro-Core
+cd PawnPro-Core
 # Linux (servidor é 32-bit):
 rustup target add i686-unknown-linux-gnu
-cargo build --release -p debug-plugin --target i686-unknown-linux-gnu
-# binário em: target/i686-unknown-linux-gnu/release/libdebug_plugin.so
+cargo build --release -p pawnpro-debug-plugin --target i686-unknown-linux-gnu
+# binário em: target/i686-unknown-linux-gnu/release/libpawnpro_debug.so
 ```
 
 ### 2. Instalar (a pasta depende do servidor)

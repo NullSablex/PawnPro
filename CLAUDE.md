@@ -1,159 +1,133 @@
 # PawnPro — Guia para Agentes de IA
 
-## O que é este projeto
+Extensão para a linguagem **Pawn** (SA-MP / open.mp). A lógica nativa vive no
+núcleo [`pawnpro-core`](https://github.com/NullSablex/PawnPro-Core), repositório
+irmão em `../pawnpro-core/` (Rust).
 
-Extensão para a linguagem **Pawn** (SA-MP / open.mp). Divide-se em duas camadas:
+## Arquitetura
 
-- **`src/core/`** — lógica pura TypeScript, zero imports de `vscode`. Testável fora do editor.
-- **`src/editor/`** — camada de adaptação: conecta `core/` às APIs do editor.
+```
+src/core/     TypeScript sem `vscode`: cliente do núcleo e o que ainda não migrou para ele
+src/editor/   adaptação às APIs do editor (comandos, WebViews, LSP, terminal)
+assets-src/   CSS/JS das WebViews (minificados para out/assets/ pelo bundle)
+l10n/         bundles de tradução em runtime (chave = texto PT)
+engines/      binários nativos empacotados no VSIX (pawnpro-core-<plataforma>)
+```
 
-O motor de análise é um processo externo em Rust: [`pawnpro-engine`](https://github.com/NullSablex/PawnPro-Engine), comunicado via LSP. A extensão inicia o motor automaticamente se o binário estiver presente.
+- **Núcleo:** um processo por janela, JSON-RPC 2.0 pelo stdio, uma mensagem por
+  linha (`src/core/client.ts` — `startCore`, `request`, `onNotification`). É dono
+  dos processos do servidor, do RCON, do log de diagnóstico e da configuração da
+  engine. `core.version` lista os métodos que a versão em execução atende.
+- **Engine (LSP):** biblioteca dentro do núcleo (`crates/engine`), não um
+  binário próprio. `startLspClient` pede `engine.start` e liga o cliente no
+  endereço devolvido (soquete Unix; named pipe no Windows).
+- **A configuração é do núcleo.** Ele lê, mescla e grava os `config.json` e as
+  listas `.ban`/`.allow`, observa os arquivos e entrega à engine sozinho — a
+  engine ignora `initializationOptions` de propósito. A extensão fala com ele
+  por `config.*` e recebe cada mudança pela notificação `config.changed`.
+- **O estado local também é do núcleo** (`state.get`/`state.updateServer`). A
+  fachada em `state.ts` grava de forma otimista: o cache muda na hora e a
+  resposta do núcleo não o sobrescreve.
+- **A linha de comando do `pawncc` é montada pelo núcleo** (`compiler.buildArgs`),
+  com a configuração do projeto aberto. A extensão só executa o compilador
+  (`runCompile`), porque transmite a saída ao vivo para o canal.
+- **Ficam em TS por decisão, não por atraso:** `colors.ts`, `themes.ts`,
+  `accent.ts` e `uiLocale.ts`. São apresentação do editor — CSS das páginas,
+  `tokenColorCustomizations`, bundles `l10n/` que a própria extensão distribui.
+  Migrá-los faria a geração das WebViews esperar RPC e o núcleo ler arquivos da
+  extensão. As cópias em Rust foram removidas; o núcleo guarda só os enums
+  `AccentColor` e `Scheme`, para validar a configuração.
+- **Os includes são do núcleo** (`includes.*`): raízes, varredura de `.inc`,
+  natives e SDK. As raízes saem de uma função só (`include_paths_for` em
+  `project/includes.rs`), usada pela engine, pela compilação e pela árvore de
+  includes; o aviso de SDK ausente usa o mesmo cálculo que entrega o SDK à
+  engine.
+- **Depurador:** o adaptador DAP ainda vem de `../pawnpro-debugger`
+  (`findAdapterBinary` em `src/editor/debugAdapter.ts`); o plugin do servidor
+  já vive no núcleo (`crates/debugger/plugin`).
 
----
+## Comandos
+
+| Comando | O quê |
+|---|---|
+| `npm run compile` | Type-check (`tsc --noEmit`) |
+| `npm test` | Testes `node --test` em `src/core/__tests__/` |
+| `npm run bundle` | esbuild → `out/editor/extension.js` + assets minificados |
+| `npm run package:full` | bundle + VSIX + injeta `engines/` (não baixa nada) |
+| `bash scripts/build.sh` | build completo **com download** do núcleo publicado |
 
 ## Regras absolutas
 
-- **Identificadores em inglês, comentários em português.** Funções, variáveis, constantes e tipos em inglês (`detectServerExecutable`, `pidsOnPort`, `MAX_EXAMPLES`); comentários e documentação em português. As strings visíveis ao usuário são outra coisa — ficam em português no `nls.ts`, traduzidas em `l10n/`. Há três desvios preexistentes em `src/editor/server.ts` (`enderecoAtual`, `garantirTail`, `statusAtual`): não os tome como regra.
-- **Nunca importar `vscode` em `src/core/`**. Se precisar de algo do editor, exponha uma interface em `core/types.ts` e injete via `editor/`.
-- **Nunca escrever comentários óbvios**. Apenas comentários que explicam *por quê* — restrições ocultas, invariantes sutis, workarounds de bugs específicos.
-- **Mensagens ao usuário sempre via `src/editor/nls.ts`**. Nunca strings hardcoded em outros arquivos.
-- **Nunca mencionar "VS Code" em strings visíveis ao usuário**. Use "editor" ou equivalente neutro.
-- **Configuração sempre via `PawnProConfigManager`**. Nunca ler `vscode.workspace.getConfiguration('pawnpro')` diretamente fora de `configBridge.ts`.
-- **`pawnpro.ui.separateContainer` é a única chave em `contributes.configuration`**. Todas as outras ficam em `.pawnpro/config.json`.
-- **Nunca usar `any`**. Use `unknown` com narrowing, ou `Record<string, unknown>` com acesso por chave string.
+- **Identificadores em inglês, comentários em português.** Vale para funções,
+  variáveis, tipos, nomes de teste, ids/classes das WebViews e chaves de
+  mensagem. Textos ao usuário ficam em português no `nls.ts`.
+- **Nunca importar `vscode` em `src/core/`.** Exponha uma interface em
+  `core/types.ts` e injete via `editor/`.
+- **Mensagens ao usuário sempre via `src/editor/nls.ts`**, nunca string solta.
+  Nunca mencionar "VS Code" nelas — use "editor".
+- **Configuração via `PawnProConfigManager`** (`getConfig()` do
+  `configBridge.ts`). A extensão não contribui chaves em
+  `contributes.configuration`: tudo fica em `.pawnpro/config.json`.
+- **Nunca usar `any`.** `unknown` com narrowing, ou `Record<string, unknown>`.
+- **Comentário só para o porquê** — restrição oculta, invariante, armadilha.
+- **WebViews sem atributo de evento** (`onclick=`…): o CSP com nonce os bloqueia
+  em silêncio. Controles declaram `data-on`/`data-action`/`data-set` e o script
+  da página liga por delegação. `src/core/__tests__/webviews.test.ts` trava isso.
 
----
-
-## Arquitetura de configuração
+## Configuração
 
 ```
-~/.pawnpro/config.json       ← global (todos os projetos)
-.pawnpro/config.json         ← projeto (sobrescreve global)
-.pawnpro/state.json          ← estado local (favoritos, histórico)
+~/.pawnpro/config.json   global
+.pawnpro/config.json     projeto (sobrescreve o global)
+.pawnpro/state.json      estado local (favoritos, histórico)
+.pawnpro/logs/           diagnóstico (desligado por padrão)
 ```
 
-`PawnProConfigManager` (`src/core/config.ts`) faz deep merge: projeto sobrescreve global, que sobrescreve defaults. O `deepMerge` bloqueia `__proto__`, `constructor`, `prototype`.
+`PawnProConfigManager` (`src/core/config.ts`) é fachada sobre o núcleo: as
+leituras (`getAll`, `get`) saem de um cache síncrono; as escritas (`set`,
+`setKey`, `deleteKey`, `reload`) são assíncronas e **precisam de `await`**
+quando o código seguinte lê a configuração. O núcleo notifica a mudança antes
+de responder ao pedido: terminado o `await`, o cache já está atualizado, e o
+`onChange` dispara uma vez por mudança.
 
-`${workspaceFolder}` em strings de config é substituído em runtime por `substituteWorkspace()`.
+Sem núcleo, valem os `DEFAULTS` de `config.ts` e toda gravação é recusada
+(`ConfigUnavailableError`). `config.test.ts` exige que esses padrões sejam
+iguais aos do núcleo.
 
-Quando `setKey` é chamado, ele chama `reload()` internamente — isso já dispara os listeners `onChange`. O `fs.watch` / `createFileSystemWatcher` no `configBridge` também chama `reload()` com delay (latência do sistema de arquivos). Não adicionar debounce: a duplicação é inofensiva.
+## Idiomas
 
----
+- `locale` (config) → engine e depurador, via `resolveLocale`.
+- `ui.locale` → páginas WebView, via `createWebviewMsg` (`webviewNls.ts`).
+- `msg` padrão (`vscode.l10n`) segue o idioma do editor e serve notificações,
+  menus e status bar. O `vscode.l10n` não troca em runtime, por isso as WebViews
+  têm o tradutor próprio sobre os mesmos bundles de `l10n/`.
+- Manifesto: `package.nls.<code>.json` na raiz. Idiomas: pt-BR, en, es, ro, ru.
 
-## Arquivos-chave
+## Build local sem release do núcleo
 
-| Arquivo | Responsabilidade |
-|---------|-----------------|
-| `src/core/types.ts` | Todos os tipos compartilhados — `PawnProConfig`, `ServerConfig`, `HoverData`, etc. |
-| `src/core/config.ts` | `PawnProConfigManager` — leitura, merge, watch, `onChange` |
-| `src/core/state.ts` | `PawnProStateManager` — favoritos e histórico do servidor |
-| `src/core/server.ts` | `LogTailer`, `SampRconClient`, detecção de executável, leitura de `server.cfg`/`config.json` |
-| `src/core/includes.ts` | `buildIncludePaths`, `resolveInclude`, `listIncFilesRecursive`, `listNatives` |
-| `src/core/themes.ts` | `AVAILABLE_SCHEMES`, `readSchemeFromFile`, `mergeTokenColors`, `pickAutoScheme` |
-| `src/core/flags.ts` | `detectSupportedFlags`, `computeMinimalArgs` — introspecção de flags do compilador |
-| `src/core/utils.ts` | `isPawnFile`, `pathExists`, `quoteIfNeeded`, `resolveInclude` |
-| `src/editor/extension.ts` | Entry point — `activate` / `deactivate` |
-| `src/editor/configBridge.ts` | Inicializa config/state, watchers de arquivo, dispara `sendConfigurationToEngine` no `onChange` |
-| `src/editor/lspClient.ts` | `startLspClient`, `stopLspClient`, `restartLspClient`, `sendConfigurationToEngine` |
-| `src/editor/nls.ts` | Todas as strings localizadas via `vscode-nls` |
-| `src/editor/settingsView.ts` | WebView de configurações — `registerSettingsView` |
-| `src/editor/serverView.ts` | `ServerViewProvider` — WebView do console do servidor |
-| `src/editor/statusBar.ts` | Menu rápido da status bar |
-| `src/editor/server.ts` | `ServerController` (terminal + RCON + log tail) |
-| `src/editor/templates.ts` | Criação de scripts a partir de templates embutidos |
-| `src/editor/themes.ts` | Comandos `applySyntaxScheme` / `resetSyntaxScheme` |
-
----
-
-## Motor LSP (pawnpro-engine)
-
-Repositório irmão em `../pawnpro-engine/` (Rust).
-
-O motor recebe configuração via `initializationOptions` no `initialize` LSP:
-
-```json
-{
-  "workspaceFolder": "/caminho/do/projeto",
-  "includePaths": ["/caminho/pawno/include"],
-  "warnUnusedInInc": false,
-  "suppressDiagnosticsInInc": false,
-  "sdkFilePath": "/caminho/open.mp.inc",
-  "locale": "pt-BR"
-}
-```
-
-Atualizações em tempo real via `workspace/didChangeConfiguration` — função `sendConfigurationToEngine` em `lspClient.ts`. Quando a configuração muda, a engine republica os diagnósticos de todos os arquivos abertos em paralelo (`join_all`).
-
-O `restartLspClient` **recria o cliente LSP do zero** (stop + startLspClient com a config atual). Não usa `client.restart()` — que reenviaria as `initializationOptions` originais e perderia mudanças de config.
-
-O locale é resolvido por `resolveLocale(cfg)`: usa `cfg.locale` se definido, senão `vscode.env.language`. A engine resolve o idioma por prefixo da tag (`Locale::from_str` em `messages/mod.rs`): `pt*` → PT-BR, `es*` → ES, `ru*` → RU, `ro*` → RO; qualquer outra coisa → EN. O seletor de idioma na `settingsView` deve espelhar exatamente os idiomas que a engine entrega (hoje: Automático, PT-BR, EN, ES, RO, RU).
-
-**Dois idiomas independentes:** `locale` (config) → engine/debugger, via `resolveLocale`. `ui.locale` (config, em `UiConfig`) → idioma das **páginas WebView** (Configurações, Ajuda, O que há de novo). São desacoplados: dá para ter interface em PT e diagnósticos em EN.
-
-**Tradução das WebViews:** o `vscode.l10n` fixa o idioma da extensão pelo idioma do **editor** e não pode ser trocado em runtime — por isso as WebViews **não** podem depender só dele. `nls.ts` expõe `createMsg(translate)`: `msg` (default) usa `vscode.l10n` e serve **notificações, menus, status bar** (efêmeros, seguem o editor); as WebViews chamam `createWebviewMsg(context, config)` (`webviewNls.ts`), que cria um `msg` traduzido pelo `ui.locale` — sem estado global, cada página com sua instância. A fonte de tradução são os mesmos bundles `l10n/` (chave = string PT). Ver `core/uiLocale.ts` (`resolveUiLocale`, `makeUiTranslator`). Ao trocar `ui.locale`, a página de configurações re-renderiza via `onChange`.
-
-O binário é procurado em:
-1. `context.extensionPath/engines/pawnpro-engine-{platform}-{arch}[.exe]`
-2. `../pawnpro-engine/target/debug/pawnpro-engine[.exe]`
-3. `../pawnpro-engine/target/release/pawnpro-engine[.exe]`
-
-**Build da engine:**
-```bash
-cd ../pawnpro-engine && cargo build --release
-cp target/release/pawnpro-engine ../pawnpro/engines/pawnpro-engine-linux-x64
-```
-
----
-
-## Internacionalização
-
-Todas as mensagens visíveis ao usuário ficam em `src/editor/nls.ts` usando `vscode-nls`. Os arquivos de tradução são:
-
-- `package.nls.json` — PT-BR (padrão)
-- `package.nls.en.json` — EN
-
-Ao adicionar uma nova mensagem: adicione em `nls.ts` com `localize('chave', 'texto padrão')`. Se a chave também aparecer em `package.json` (ex: descrições de comandos/config), adicione em ambos os arquivos NLS.
-
----
-
-## Build da extensão
+`build.sh` baixa o núcleo da release de `coreVersion`: sem release dá 404; com
+uma antiga, **sobrescreve o binário local** e o VSIX sai com o núcleo errado.
+Nesse caso:
 
 ```bash
-bash scripts/build.sh
+cd ../pawnpro-core && cargo build --release -p pawnpro-core
+install -m 755 target/release/pawnpro-core ../pawnpro/engines/pawnpro-core-linux-x64
+cd ../pawnpro && npm run package:full
 ```
 
-Executa `npx tsc`, depois `node scripts/bundle.mjs` (esbuild — gera `out/editor/extension.js` único), depois `repack-vsix.js` (embute `iconv-lite`, `safer-buffer`, `vscode-nls`).
-
-Só TypeScript:
-```bash
-npx tsc -p .
-```
-
-Output: `out/core/` e `out/editor/`. O bundle esbuild sobrescreve o output do tsc em `out/editor/extension.js`.
-
----
-
-## Empacotamento (VSIX)
-
-O `.vscodeignore` exclui: `src/`, `scripts/`, `docs/`, `CLAUDE.md`, arquivos de governança do repositório (`SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`), `changelogs/`, `package-lock.json`, `*.vsix`, `node_modules/`.
-
-O que vai no VSIX: `out/editor/extension.js`, `engines/`, `syntaxes/`, `templates/`, `snippets/`, `images/`, `language-configuration.json`, `package.json`, `package.nls*.json`, `README.md`, `CHANGELOG.md`, `LICENSE.md`.
-
----
-
-## Diagnósticos conhecidos do motor
-
-Ver [docs/features.md](docs/features.md) para a tabela completa de códigos PP0001–PP0019.
-
----
+Conferir o SHA-256 em `target/release`, em `engines/` e dentro do `.vsix` — os
+três têm de bater.
 
 ## Gotchas
 
-- `deepMerge` em `config.ts` precisa de `as unknown as Record<string, unknown>` nos casts de `PawnProConfig`.
-- Callback de `fs.watch` precisa de tipos explícitos: `(_: string, filename: string | null)`.
-- Temas usam `ConfigurationTarget.Global` (não `Workspace`) para não criar `.vscode/settings.json`.
-- O tail de log do servidor só funciona em Linux e macOS (`!IS_WINDOWS`).
-- `pawnpro.cacheStats` foi removido — não registrar handler para ele.
-- Ao alterar `syntax.scheme` via comando, `applyOnStartup` é automaticamente definido como `true` pela extensão.
-- `open_docs` na engine guarda a chave como URI completa (`file:///...`). Nunca fazer `format!("file://{}", key)` — já tem o prefixo.
-- `vscode.workspace.getConfiguration().get<T>()` retorna `T | undefined` — nunca usar `get<any>()`. Use `get<Record<string, unknown>>()` e acesse por chave string.
+- **WebView:** HTML/CSS vivem em template literal — crase em comentário quebra a
+  compilação, e barra invertida em regex precisa ser dobrada. Ao depurar,
+  conferir o bundle gerado, não o fonte.
+- **WebView:** `--vscode-*` não se redefine (vêm inline no `<html>`); use as
+  variáveis `--pp-*` (`--pp-accent`, `--pp-accent-fg`, `--pp-accent-hover`). `[hidden]` precisa de
+  `display:none !important`.
+- O tail do log do servidor não roda no Windows (`IS_WINDOWS` em `editor/server.ts`).
+- Temas gravam em `ConfigurationTarget.Global`, para não criar `.vscode/settings.json`.
+- Escolher um esquema pelo comando grava `applyOnStartup: true`.
+- `core/server.ts` tem `stripQuotes()` — não recriar em `editor/`.
+- A linguagem TOML mapeia o filename `package.lock` de propósito (projeto open-sa).

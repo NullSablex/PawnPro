@@ -12,6 +12,44 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 ---
 
+## [4.0.0] - 07/09/2026
+
+### Adicionado
+
+- **Registro de diagnóstico.** A extensão, o core e a engine passam a gravar o que fazem em `.pawnpro/logs/` — um `pawnpro.log` com tudo na ordem em que aconteceu, e um arquivo por componente para isolar cada um. Níveis `off`, `error`, `warn` e `info`, ajustáveis por "PawnPro: nível do diagnóstico" ou pela chave `diagnostics.level`. Desligado de fábrica: nada é escrito e nenhuma pasta é criada até você ligar. Tem seção própria na tela de configurações — nível, abrir e apagar — além dos comandos na paleta. Os arquivos entram sozinhos no `.gitignore` do `.pawnpro`.
+- **Ir para definição** (F12 / Ctrl+clique): leva à declaração no próprio arquivo, nos includes ou em outro arquivo compilado junto. Num `forward`, vai ao corpo da função.
+
+### Alterado
+
+- A extensão passa a falar com o **pawnpro-core**, um binário Rust que possui os processos, as portas, o RCON, o compilador e a configuração. O que era decidido por sinal indireto no TypeScript passou a ser respondido por quem possui o recurso.
+- A engine deixou de ser um processo à parte: vive dentro do core, que a hospeda num soquete local (named pipe no Windows) e lhe entrega a configuração já resolvida. O editor conecta no endereço que o core informa.
+- Mudanças no `config.json` e nas listas `.ban`/`.allow` chegam à engine sem o editor pedir — quem observa os arquivos agora é o core.
+- O VSIX passa a trazer o binário do core no lugar do da engine.
+- Os textos novos — seção de diagnóstico, avisos do núcleo e da engine, ajuda — ganham tradução em inglês, espanhol, romeno e russo. Duas mensagens citavam comandos por um nome que não existe na paleta; agora usam o título real.
+- A ajuda passa a indicar o release do PawnPro Core para baixar o plugin do servidor.
+- A configuração, o estado do projeto, as flags do compilador e a resolução de includes também passam a ser do core: o `src/core` da extensão vira uma camada fina sobre ele, e as duas pontas não podem mais discordar sobre um valor.
+- **IntelliSense pela unidade de compilação.** Hover, assinatura, autocomplete, referências e o contador acima das funções enxergam tudo o que é compilado junto com o arquivo — o `.inc` irmão, incluído pelo mesmo `.pwn`, inclusive fechado — e nunca outro programa: gamemode e filterscript não se misturam, mesmo com funções de mesmo nome.
+- **Renomear com escopo.** Um local é renomeado só no bloco onde foi declarado, e um parâmetro, só na própria função. Renomear uma `public` atualiza também o nome em `SetTimer("Nome", …)` e afins. Renomear uma variável global que tenha um local ou parâmetro com o mesmo nome é recusado, com o motivo e o lugar do conflito — sem análise de escopo, renomear por nome alteraria os dois.
+- O seletor de SDK nas configurações ganha **Automático**, que é o padrão do core: usa o SDK do open.mp quando o projeto o tem (`qawno/include/open.mp.inc`, ou o caminho configurado) e, sem ele, as nativas vêm dos includes, como no SA-MP.
+- **A análise vale para o texto não salvo**: o que se escreve num include aberto já conta nos outros arquivos, antes de salvar.
+- **Análise mais rápida em projetos grandes**: num gamemode com 84 includes, cada edição passou de cerca de 1 s para 0,2 s.
+- O Dependabot deixa de atualizar o `@types/vscode`, que só sobe junto com o `engines.vscode`: tipos mais novos que a versão mínima prometida fazem o empacotamento recusar e liberam APIs que ela não tem.
+- Licença revisada, sem contradições no texto.
+
+### Corrigido
+
+- **As páginas voltaram a responder aos cliques.** A política de segurança usa nonce, e nonce não vale para atributo de evento: os `onclick`/`onchange` que os controles traziam no HTML eram bloqueados pelo navegador, e o sintoma era a página inteira muda — sem erro no console, porque violação de política não dispara `error`. Os controles passaram a declarar a intenção (`data-on`, `data-set`, `data-action`) e o script os liga por delegação, o que dispensa qualquer exceção na política. Valeu para a tela de configurações e para a loja, que também deixou de precisar de `unsafe-inline`.
+- A ativação não depende mais do IntelliSense subir. Ela ficava presa numa chamada ao núcleo sem prazo, e o que era registrado depois — a tela de configurações, a loja e a barra de status — nunca chegava a existir. As chamadas ao núcleo agora têm prazo e falham em vez de esperar para sempre.
+- Uma falha no envio por RCON mostra o motivo — "Servidor não está em execução" — em vez do código interno (`RCON: serverDown`).
+- Um servidor que encerra logo ao iniciar, por exemplo por falta de um plugin, é informado na hora com o código de saída, em vez de a extensão esperar a porta até o prazo acabar.
+- **A formatação deixou de danificar o código** em comentários no fim da linha e de bloco, em strings com espaço e em macros com continuação `\`, e passou a ser estável: formatar de novo não muda mais nada.
+- Um nome escrito dentro de uma string deixa de contar como referência, e uma chamada numa declaração `new x = Funcao();` deixa de ser ignorada.
+- `native` e `forward` com corpo aberto na linha seguinte voltam a ser acusados, e uma diretiva recuada (`    #include`) passa a ser reconhecida.
+
+### Removido
+
+- O TypeScript que duplicava o que o core faz: leitura do `server.cfg`/`config.json`, varredura de portas por `lsof`/`/proc`/`netstat`, verificação do plugin de depuração, detecção do `pawncc` e o cliente RCON em UDP.
+
 ## [3.5.1] - 03/09/2026
 
 > **Último patch da linha 3.5.** A próxima versão é a **4.0.0**, que traz

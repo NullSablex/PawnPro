@@ -30,7 +30,7 @@ Extensão moderna para desenvolver **Pawn** — com motor IntelliSense em Rust, 
 - **Templates** — cria Gamemode e Filterscript (open.mp e SA-MP) e Include (open.mp) a partir de templates embutidos via status bar; filtra pela plataforma configurada.
 - **Painel de configurações** — interface gráfica (`pawnpro.openSettings`) para editar todas as configurações sem editar JSON manualmente.
 - **Temas de sintaxe** — cinco esquemas (`auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark`) com aplicação automática ao trocar o tema do editor.
-- **Motor Rust LSP** — análise nativa via [pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine); iniciado automaticamente se o binário estiver presente.
+- **Motor Rust LSP** — análise nativa pelo núcleo [pawnpro-core](https://github.com/NullSablex/PawnPro-Core); iniciado automaticamente se o binário estiver presente.
 - **Suporte a `.pwn`, `.inc`, `.p` e `.pawn`** — todos os arquivos Pawn recebem IntelliSense e diagnósticos.
 
 ## Configuração
@@ -46,5 +46,5 @@ Acesse rapidamente pelo item **PawnPro** na barra de status. Para a referência 
 
 ## Licença
 
-PawnPro License v1.0 — Source-Available (não Open Source).  
-Uso pessoal e comercial permitido ✅ · Redistribuição e venda proibidas ❌ · Detalhes: [LICENSE.md](https://github.com/NullSablex/PawnPro/blob/master/LICENSE.md)
+PawnPro License v1.1 — Source-Available (não Open Source).  
+Uso pessoal e comercial permitido ✅ · Redistribuição gratuita com atribuição ✅ · Venda proibida ❌ · Detalhes: [LICENSE.md](https://github.com/NullSablex/PawnPro/blob/master/LICENSE.md)

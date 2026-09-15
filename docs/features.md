@@ -2,7 +2,7 @@
 
 ## Motor IntelliSense (Rust LSP)
 
-A análise de código é feita por um motor nativo em Rust ([pawnpro-engine](https://github.com/NullSablex/PawnPro-Engine)) que roda como servidor LSP separado. O motor é iniciado automaticamente pela extensão se o binário estiver presente no diretório `engines/`.
+A análise de código é feita por um motor nativo em Rust, hospedado pelo núcleo ([pawnpro-core](https://github.com/NullSablex/PawnPro-Core)) e servido por LSP. O núcleo é iniciado automaticamente pela extensão se o binário estiver presente no diretório `engines/`.
 
 ## Diagnósticos
 

@@ -15,7 +15,7 @@ Inclua, se possível: uma descrição do problema, os passos para reproduzir, a 
 
 ## Escopo
 
-Esta política cobre o código-fonte da extensão PawnPro (`NullSablex/PawnPro`) e o motor LSP ([`NullSablex/PawnPro-Engine`](https://github.com/NullSablex/PawnPro-Engine)).
+Esta política cobre o código-fonte da extensão PawnPro (`NullSablex/PawnPro`) e o núcleo nativo, que inclui o motor LSP ([`NullSablex/PawnPro-Core`](https://github.com/NullSablex/PawnPro-Core)).
 
 O que **está** no escopo:
 

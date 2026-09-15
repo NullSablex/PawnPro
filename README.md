@@ -141,8 +141,8 @@ Site completo: **[pawnpro.nullsablex.com](https://pawnpro.nullsablex.com)**
 
 ## Como funciona por dentro
 
-A análise não roda em JavaScript. É um processo separado —
-[**pawnpro-engine**](https://github.com/NullSablex/PawnPro-Engine), escrito em
+A análise não roda em JavaScript. Ela fica no núcleo nativo —
+[**pawnpro-core**](https://github.com/NullSablex/PawnPro-Core), escrito em
 **Rust** — que conversa com o editor pelo protocolo LSP. Isso é o que permite
 analisar um gamemode grande com todos os seus includes sem travar a digitação.
 
@@ -167,7 +167,7 @@ co-autoria de IA, e sem preconceito quanto ao seu uso. Detalhes na
 
 ## Licença
 
-PawnPro License v1.0 — Source-Available (não Open Source).  
-Uso pessoal e comercial permitido ✅ · Redistribuição e venda proibidas ❌ · Detalhes: [LICENSE.md](LICENSE.md)
+PawnPro License v1.1 — Source-Available (não Open Source).  
+Uso pessoal e comercial permitido ✅ · Redistribuição gratuita com atribuição ✅ · Venda proibida ❌ · Detalhes: [LICENSE.md](LICENSE.md)
 
 ---

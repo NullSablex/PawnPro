@@ -1,8 +1,8 @@
 # Licença PawnPro (PawnPro License)
-**Versão 1.0 - 2025**
+**Versão 1.1 - 2026**
 
-Copyright (c) 2025 NullSablex  
-Todos os direitos reservados.
+Copyright (c) 2025-2026 NullSablex  
+Os direitos não concedidos expressamente nesta licença ficam reservados ao autor.
 
 ---
 
@@ -11,7 +11,7 @@ Todos os direitos reservados.
 ✅ **PODE:**
 - Usar gratuitamente (pessoal e comercial)
 - Ver e estudar o código
-- Modificar para uso próprio
+- Modificar e redistribuir gratuitamente, com atribuição
 - Contribuir com melhorias
 
 ❌ **NÃO PODE:**
@@ -38,10 +38,10 @@ Todos os direitos reservados.
 
 ## 2. CONCESSÃO DE DIREITOS
 
-Sujeito aos termos e condições desta licença, o autor concede a você uma licença mundial, livre de royalties, não exclusiva e revogável para:
+Sujeito aos termos e condições desta licença, o autor concede a você uma licença mundial, livre de royalties, não exclusiva e irrevogável — salvo a rescisão prevista na seção 9 — para:
 
 ### 2.1 USO
-- Instalar e executar o Software para qualquer finalidade, incluindo uso comercial
+- Instalar e executar o Software para qualquer finalidade, incluindo uso comercial, observadas as restrições da seção 3
 - Utilizar o Software em projetos pessoais ou corporativos
 - Integrar o Software no seu fluxo de trabalho de desenvolvimento
 
@@ -50,10 +50,10 @@ Sujeito aos termos e condições desta licença, o autor concede a você uma lic
 - Aprender com a implementação
 - Analisar a arquitetura e design
 
-### 2.3 MODIFICAÇÃO PESSOAL
+### 2.3 MODIFICAÇÃO
 - Criar modificações para uso próprio
 - Adaptar o Software às suas necessidades
-- Fazer fork privado para experimentação
+- Redistribuir versões modificadas gratuitamente, nos termos da seção 4
 
 ### 2.4 CONTRIBUIÇÃO
 - Submeter pull requests ao repositório oficial
@@ -75,9 +75,9 @@ Você **NÃO** tem permissão para:
 
 ### 3.2 REDISTRIBUIÇÃO COMERCIAL
 - Redistribuir o Software mediante compensação financeira
-- Disponibilizar em marketplaces ou lojas de aplicativos pagos
+- Disponibilizar o Software mediante pagamento em marketplaces ou lojas de aplicativos
 - Usar o Software como produto em modelos de negócio SaaS sem autorização
-- Licenciar ou sublicenciar os direitos aqui concedidos
+- Licenciar ou sublicenciar o Software em termos diferentes desta licença
 
 ### 3.3 MODIFICAÇÕES COMERCIAIS
 - Criar e distribuir versões modificadas para venda
@@ -124,6 +124,7 @@ Se redistribuir versões modificadas gratuitamente:
 ### 5.1 ACEITAÇÃO DE CONTRIBUIÇÕES
 Ao enviar contribuições (pull requests, issues, patches, sugestões) você concorda que:
 - Suas contribuições serão licenciadas sob os mesmos termos desta licença
+- Você concede ao autor original, de forma perpétua e irrevogável, o direito de relicenciar suas contribuições junto com o projeto, inclusive sob outros termos
 - Você tem direito legal de conceder estas permissões
 - O autor original mantém todos os direitos sobre o projeto como um todo
 - Você não reivindicará propriedade exclusiva sobre a obra resultante
@@ -150,7 +151,6 @@ Entre em contato com o autor para negociar uma licença comercial separada.
 ### 6.2 CONTATO
 - **GitHub:** https://github.com/NullSablex/PawnPro
 - **Issues:** https://github.com/NullSablex/PawnPro/issues
-- **Email:** [Seu email profissional]
 
 ---
 
@@ -202,11 +202,10 @@ Você assume total responsabilidade por:
 ### 9.1 VIGÊNCIA
 Esta licença é efetiva a partir do momento em que você recebe o Software e permanece em vigor até ser rescindida.
 
-### 9.2 RESCISÃO AUTOMÁTICA
-Esta licença é **automaticamente rescindida** se você:
-- Violar qualquer termo desta licença
-- Não remediar violações dentro de 30 dias após notificação
-- Usar o Software de forma maliciosa ou ilegal
+### 9.2 RESCISÃO
+Esta licença é rescindida se você:
+- Violar qualquer termo desta licença e não remediar a violação dentro de 30 dias após notificação
+- Usar o Software de forma maliciosa ou ilegal — neste caso, automaticamente e sem prazo para remediar
 
 ### 9.3 EFEITOS DA RESCISÃO
 Após rescisão, você deve:
@@ -215,7 +214,7 @@ Após rescisão, você deve:
 - Cessar distribuição de versões modificadas
 
 ### 9.4 SOBREVIVÊNCIA
-As seções sobre Garantias, Responsabilidade e Propriedade Intelectual sobrevivem à rescisão.
+As seções 7 (Marcas Registradas) e 8 (Garantias e Responsabilidade) sobrevivem à rescisão.
 
 ---
 
@@ -225,7 +224,7 @@ As seções sobre Garantias, Responsabilidade e Propriedade Intelectual sobreviv
 Esta licença é regida pelas leis do Brasil, sem referência a conflitos de princípios legais.
 
 ### 10.2 INTEGRALIDADE
-Esta licença constitui o acordo completo entre as partes sobre o assunto e substitui todos os acordos anteriores.
+Esta licença constitui o acordo completo entre as partes sobre o assunto e substitui todos os acordos anteriores, salvo licença comercial separada firmada nos termos da seção 6.
 
 ### 10.3 SEVERABILIDADE
 Se qualquer cláusula desta licença for considerada inválida, as demais permanecem em vigor.
@@ -248,7 +247,7 @@ Razão: Restrições sobre venda e redistribuição comercial não atendem à de
 
 ## 12. RECONHECIMENTOS
 
-Este Software pode incluir componentes de terceiros sujeitos a suas próprias licenças. Consulte o arquivo `NOTICE` ou documentação para detalhes sobre componentes de terceiros.
+Este Software pode incluir componentes de terceiros sujeitos a suas próprias licenças. Consulte o arquivo `THIRD-PARTY-NOTICES.md` para detalhes sobre componentes de terceiros.
 
 ---
 
@@ -256,7 +255,7 @@ Este Software pode incluir componentes de terceiros sujeitos a suas próprias li
 
 - **TIPO:** Source-Available com restrições comerciais
 - **PODE usar:** Sim, comercialmente inclusive
-- **PODE modificar:** Sim, para uso próprio
+- **PODE modificar:** Sim, e redistribuir a versão modificada gratuitamente
 - **PODE distribuir:** Sim, gratuitamente com atribuição
 - **PODE vender:** ❌ NÃO
 - **GARANTIA:** Nenhuma
@@ -267,5 +266,5 @@ Este Software pode incluir componentes de terceiros sujeitos a suas próprias li
 **Para questões sobre esta licença, abra uma issue em:**  
 https://github.com/NullSablex/PawnPro/issues
 
-**Última atualização:** Novembro 2025  
-**Versão da Licença:** 1.0
+**Última atualização:** Setembro 2026  
+**Versão da Licença:** 1.1
