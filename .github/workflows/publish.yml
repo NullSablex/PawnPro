@@ -67,24 +67,19 @@ jobs:
       matrix:
         include:
           - vsce_target: linux-x64
-            engine_artifact: pawnpro-engine-linux-x64
-            debugger_artifact: pawnpro-dap-adapter-linux-x64
+            core_artifact: pawnpro-core-linux-x64
 
           - vsce_target: linux-arm64
-            engine_artifact: pawnpro-engine-linux-arm64
-            debugger_artifact: pawnpro-dap-adapter-linux-arm64
+            core_artifact: pawnpro-core-linux-arm64
 
           - vsce_target: win32-x64
-            engine_artifact: pawnpro-engine-win32-x64.exe
-            debugger_artifact: pawnpro-dap-adapter-win32-x64.exe
+            core_artifact: pawnpro-core-win32-x64.exe
 
           - vsce_target: darwin-x64
-            engine_artifact: pawnpro-engine-darwin-x64
-            debugger_artifact: pawnpro-dap-adapter-darwin-x64
+            core_artifact: pawnpro-core-darwin-x64
 
           - vsce_target: darwin-arm64
-            engine_artifact: pawnpro-engine-darwin-arm64
-            debugger_artifact: pawnpro-dap-adapter-darwin-arm64
+            core_artifact: pawnpro-core-darwin-arm64
 
     steps:
       - name: Checkout
@@ -99,13 +94,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download engine binary
-        run: node scripts/download-binaries.js --artifact ${{ matrix.engine_artifact }}
-        env:
-          CI: 'true'
-
-      - name: Download debugger binary
-        run: node scripts/download-binaries.js --artifact ${{ matrix.debugger_artifact }}
+      # A engine vive dentro do core; o adaptador de depuração ainda não tem
+      # componente para baixar e fica fora do VSIX até entrar no core.
+      - name: Download core binary
+        run: node scripts/download-binaries.js --artifact ${{ matrix.core_artifact }}
         env:
           CI: 'true'
 

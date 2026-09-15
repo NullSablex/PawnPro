@@ -21,6 +21,11 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    # `@types/vscode` acompanha o `engines.vscode` e só sobe junto com ele, à
+    # mão: tipos mais novos que o `engines` fazem o `vsce package` recusar e
+    # liberam APIs que a versão mínima prometida não tem.
+    ignore:
+      - dependency-name: "@types/vscode"
     groups:
       npm:
         patterns:
