@@ -9,9 +9,9 @@ rm -f *.vsix
 echo "[build] Instalando dependências..."
 npm ci
 
-# Baixa os binários externos (engine LSP e adaptador do debugger) para a
+# Baixa o binário externo (o núcleo em Rust) para a
 # plataforma atual (ou --all para CI). Cada componente reporta seu próprio
-# progresso; o debugger é opcional e não quebra o build se faltar.
+# progresso.
 echo "[build] Obtendo binários externos..."
 node scripts/download-binaries.js "$@"
 

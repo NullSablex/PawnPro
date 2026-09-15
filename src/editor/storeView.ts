@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { randomBytes } from 'crypto';
 import type { PawnProConfigManager } from '../core/config.js';
 import { webviewThemeCss } from './webviewTheme.js';
 import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
@@ -337,13 +338,22 @@ function sendState(p: vscode.WebviewPanel): void {
 }
 
 function getHtml(logoUri: string, cspSource: string, themeCss: string): string {
+  // Um nonce por render: é o que identifica o script desta página para a
+  // política de segurança, no lugar do 'unsafe-inline' que valia para
+  // qualquer script.
+  const nonce = randomBytes(16).toString('base64');
   return /* html */ `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Só o script que esta página gerou executa, identificado pelo nonce. Sem
+     'unsafe-inline' em script-src, e sem atributo de evento no HTML: a
+     política bloqueia atributo, e o sintoma seria a página inteira muda, sem
+     erro visível. Os controles declaram data-on/data-action e o script os liga
+     por delegação. -->
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'none'; img-src https: data: ${cspSource}; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src ${cspSource};">
+  content="default-src 'none'; img-src https: data: ${cspSource}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${cspSource};">
 <style>
   :root {
     color-scheme: light dark;
@@ -621,14 +631,14 @@ ${themeCss}
       <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
         <circle cx="6.5" cy="6.5" r="4.5"/><line x1="10" y1="10" x2="14" y2="14"/>
       </svg>
-      <input type="search" id="search" data-i18n-ph="searchPlaceholder" oninput="onSearchInput()" />
-      <button class="clear" id="clear-search" onclick="clearSearch()" aria-label="">
+      <input type="search" id="search" data-i18n-ph="searchPlaceholder" data-on="input" data-action="onSearchInput" />
+      <button class="clear" id="clear-search" data-on="click" data-action="clearSearch" aria-label="">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
           <line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/>
         </svg>
       </button>
     </div>
-    <select id="sort" onchange="render()" data-i18n-title="sortLabel">
+    <select id="sort" data-on="change" data-action="render" data-i18n-title="sortLabel">
       <option value="relevance" data-i18n="sortRelevance"></option>
       <option value="name"      data-i18n="sortName"></option>
       <option value="downloads" data-i18n="sortDownloads"></option>
@@ -636,17 +646,17 @@ ${themeCss}
     </select>
   </div>
   <div class="filters" id="filters">
-    <button class="chip active" data-kind="*" onclick="toggleKind('*')" data-i18n="filterAll"></button>
-    <button class="chip" data-kind="plugin" onclick="toggleKind('plugin')" data-i18n="kindPlugin"></button>
-    <button class="chip" data-kind="filterscript" onclick="toggleKind('filterscript')" data-i18n="kindFilterscript"></button>
-    <button class="chip" data-kind="include" onclick="toggleKind('include')" data-i18n="kindInclude"></button>
-    <button class="chip" data-kind="gamemode" onclick="toggleKind('gamemode')" data-i18n="kindGamemode"></button>
+    <button class="chip active" data-kind="*" data-on="click" data-action="toggleKind" data-arg="*" data-i18n="filterAll"></button>
+    <button class="chip" data-kind="plugin" data-on="click" data-action="toggleKind" data-arg="plugin" data-i18n="kindPlugin"></button>
+    <button class="chip" data-kind="filterscript" data-on="click" data-action="toggleKind" data-arg="filterscript" data-i18n="kindFilterscript"></button>
+    <button class="chip" data-kind="include" data-on="click" data-action="toggleKind" data-arg="include" data-i18n="kindInclude"></button>
+    <button class="chip" data-kind="gamemode" data-on="click" data-action="toggleKind" data-arg="gamemode" data-i18n="kindGamemode"></button>
     <span class="chip-sep"></span>
-    <button class="chip active" data-source="*" onclick="toggleSource('*')" data-i18n="filterAll"></button>
-    <button class="chip" data-source="pawnpro" onclick="toggleSource('pawnpro')" data-i18n="sourcePawnpro"></button>
-    <button class="chip" data-source="openmp" onclick="toggleSource('openmp')" data-i18n="sourceOpenmp"></button>
+    <button class="chip active" data-source="*" data-on="click" data-action="toggleSource" data-arg="*" data-i18n="filterAll"></button>
+    <button class="chip" data-source="pawnpro" data-on="click" data-action="toggleSource" data-arg="pawnpro" data-i18n="sourcePawnpro"></button>
+    <button class="chip" data-source="openmp" data-on="click" data-action="toggleSource" data-arg="openmp" data-i18n="sourceOpenmp"></button>
     <span class="chip-sep"></span>
-    <button class="chip" id="chip-added" onclick="toggleAdded()" data-i18n="filterAdded"></button>
+    <button class="chip" id="chip-added" data-on="click" data-action="toggleAdded" data-i18n="filterAdded"></button>
   </div>
   <div class="result-count" id="count"></div>
   <main id="results"></main>
@@ -654,9 +664,9 @@ ${themeCss}
 
 <div class="detail" id="detail"></div>
 
-<div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src="" alt="" /></div>
+<div class="lightbox" id="lightbox" data-on="click" data-action="closeLightbox"><img id="lightbox-img" src="" alt="" /></div>
 
-<script>
+<script nonce="${nonce}">
 const vscode = acquireVsCodeApi();
 let _i18n = {};
 let _items = [];
@@ -817,7 +827,7 @@ function cardHtml(i) {
     : '';
   // O id vai escapado como qualquer outro campo: hoje o catálogo é embutido,
   // mas um id com aspa fecharia o atributo e injetaria script.
-  return '<div class="card" onclick="openDetail(\\'' + esc(i.id) + '\\')">' +
+  return '<div class="card" data-on="click" data-action="openDetail" data-arg="' + esc(i.id) + '">' +
     '<div class="name">' + esc(i.name) + '</div>' +
     '<div class="badges">' + badges(i) + addedTag + '</div>' +
     '<div class="short">' + esc(i.short) + '</div>' +
@@ -870,7 +880,7 @@ function openDetail(id) {
   main += section(_i18n.secScreenshots || '',
     shots.length
       ? '<div class="shots">' + shots.map((s, n) =>
-          '<div class="shot" onclick="openLightbox(\\'' + esc(shotUrl(i, n, true)) + '\\')">' +
+          '<div class="shot" data-on="click" data-action="openLightbox" data-arg="' + esc(shotUrl(i, n, true)) + '">' +
             '<img src="' + esc(shotUrl(i, n, false)) + '" alt="" loading="lazy" />' +
           '</div>').join('') + '</div>'
       : '<div class="muted">' + esc(_i18n.noScreenshots || '') + '</div>');
@@ -880,7 +890,7 @@ function openDetail(id) {
       ? '<div class="dep-list">' + deps.map(dep => {
           const found = _items.find(x => x.id === dep || x.name === dep);
           return found
-            ? '<button class="dep" onclick="openDetail(\\'' + esc(found.id) + '\\')">' + esc(found.name) + '</button>'
+            ? '<button class="dep" data-on="click" data-action="openDetail" data-arg="' + esc(found.id) + '">' + esc(found.name) + '</button>'
             : '<span class="muted">' + esc(dep) + '</span>';
         }).join('') + '</div>'
       : '<div class="muted">' + esc(_i18n.noDependencies || '') + '</div>');
@@ -906,21 +916,21 @@ function openDetail(id) {
   if (isAdded) {
     actions =
       '<div class="install-split">' +
-        '<button class="btn-remove" onclick="removeItem(\\'' + i.id + '\\')">' + (_i18n.remove || '') + '</button>' +
+        '<button class="btn-remove" data-on="click" data-action="removeItem" data-arg="' + i.id + '">' + (_i18n.remove || '') + '</button>' +
       '</div>';
   } else {
     const versions = (i.versions && i.versions.length) ? i.versions : [i.version];
     const verOptions = versions.map(v => '<option value="' + esc(v) + '">v' + esc(v) + '</option>').join('');
     actions =
       '<div class="install-split">' +
-        '<button class="btn-install" onclick="install(\\'' + i.id + '\\')">' + (_i18n.install || '') + '</button>' +
+        '<button class="btn-install" data-on="click" data-action="install" data-arg="' + i.id + '">' + (_i18n.install || '') + '</button>' +
         '<select id="ver-select" class="ver-select" title="' + esc(_i18n.selectVersion || '') + '">' + verOptions + '</select>' +
       '</div>';
   }
   const installSplit = actions;
 
   d.innerHTML =
-    '<button class="back" onclick="closeDetail()">' +
+    '<button class="back" data-on="click" data-action="closeDetail">' +
       '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">' +
         '<polyline points="9,3 4,8 9,13"/></svg>' + (_i18n.back || '') + '</button>' +
     '<div class="detail-head">' +
@@ -963,6 +973,29 @@ function removeItem(id) {
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Liga os controles por delegação: o HTML declara data-on (evento),
+// data-action (a função) e data-arg (o argumento, quando há). Antes cada
+// controle trazia o manipulador no próprio atributo, o que a política de
+// segurança bloqueia — e a página ficava muda sem dizer por quê.
+const ACTIONS = {
+  toggleKind, toggleSource, onSearchInput, toggleAdded, clearSearch,
+  closeLightbox, closeDetail, openDetail, openLightbox, install, removeItem, render,
+};
+
+function dispatch(e) {
+  const target = e.target instanceof Element ? e.target.closest('[data-on]') : null;
+  if (!target || target.dataset.on !== e.type) return;
+  const action = ACTIONS[target.dataset.action];
+  if (!action) return;
+  // O clique no cartão não deve disparar também o do contêiner acima.
+  e.stopPropagation();
+  action(...(target.dataset.arg !== undefined ? [target.dataset.arg] : []));
+}
+
+for (const evento of ['click', 'input', 'change']) {
+  document.addEventListener(evento, dispatch);
 }
 </script>
 </body>

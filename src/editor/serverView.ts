@@ -372,7 +372,7 @@ ${webviewThemeCss(this.config)}
 <!-- Dados para o script: ícones e traduções são da extensão, e um arquivo
      externo não pode interpolá-los. O tipo application/json não é executável,
      então o CSP o permite sem nonce. -->
-<script id="dados-painel" type="application/json">${JSON.stringify({
+<script id="panel-data" type="application/json">${JSON.stringify({
       icons: {
         send: ICON_SEND,
         starOn: ICON_STAR_ON,

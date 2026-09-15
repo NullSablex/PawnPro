@@ -1,23 +1,24 @@
-// Baixa os binários externos da extensão (engine LSP e adaptador do debugger)
-// dos releases do GitHub, com verificação de checksum. Unifica o que antes eram
-// dois scripts quase idênticos.
+// Baixa o binário externo da extensão do release do GitHub, com verificação de
+// checksum.
 //
 // Componentes:
-// - **engine** (`pawnpro-engine`): obrigatório para o IntelliSense; um binário
-//   por plataforma do host.
-// - **debugger** (`dap-adapter`): opcional. Só o adaptador vai no VSIX (o plugin
-//   do servidor é instalado à parte). Sem release publicada, apenas avisa e não
-//   quebra o build.
+// - **core** (`pawnpro-core`): obrigatório. É ele que hospeda a engine, comanda
+//   os processos do servidor e responde ao RCON — sem ele a extensão abre, mas
+//   sem IntelliSense, painel do servidor nem compilação. Um binário por
+//   plataforma do host. A engine deixou de ter release própria: virou uma
+//   biblioteca dentro do core.
+// O adaptador de depuração saiu: ele está sendo migrado para dentro do core,
+// como a engine já foi. Enquanto isso, o VSIX traz um binário só.
 //
 // Uso:
 //   node scripts/download-binaries.js                 # plataforma atual
 //   node scripts/download-binaries.js --all           # todas (CI)
-//   node scripts/download-binaries.js --component engine
-//   node scripts/download-binaries.js --artifact pawnpro-engine-linux-x64
+//   node scripts/download-binaries.js --component core
+//   node scripts/download-binaries.js --artifact pawnpro-core-linux-x64
 //   node scripts/download-binaries.js --pin                # pina checksums no package.json
-//   node scripts/download-binaries.js --pin --component engine
+//   node scripts/download-binaries.js --pin --component core
 //
-// Blindagem: com checksums pinados (`engineChecksums`/`debuggerChecksums` no
+// Blindagem: com checksums pinados (`coreChecksums` no
 // package.json), o download valida contra o package.json — não contra o
 // checksums.sha256 da release. Re-publicar a tag com outro binário passa a falhar
 // o build até que `--pin` seja rodado e o package.json revisado/commitado.
@@ -37,36 +38,21 @@ fs.mkdirSync(enginesDir, { recursive: true });
 /** Definição de cada componente. `optional` = não quebra o build se faltar. */
 const COMPONENTS = [
   {
-    name: 'engine',
-    version: pkg.engineVersion,
-    repository: pkg.engineRepository,
+    name: 'core',
+    version: pkg.coreVersion,
+    repository: pkg.coreRepository,
     // Checksums pinados no package.json (artifact -> sha256). Quando presente para
     // um artefato, é a FONTE DA VERDADE: validamos contra ele e ignoramos o que a
     // release diz. Blinda contra re-publicação da tag com outro binário. Ausente:
     // cai no checksums.sha256 da própria release (comportamento padrão).
-    pinned: pkg.engineChecksums || {},
+    pinned: pkg.coreChecksums || {},
     optional: false,
     targets: [
-      { platform: 'linux',  arch: 'x64',   artifact: 'pawnpro-engine-linux-x64'        },
-      { platform: 'linux',  arch: 'arm64', artifact: 'pawnpro-engine-linux-arm64'       },
-      { platform: 'win32',  arch: 'x64',   artifact: 'pawnpro-engine-win32-x64.exe'     },
-      { platform: 'darwin', arch: 'x64',   artifact: 'pawnpro-engine-darwin-x64'        },
-      { platform: 'darwin', arch: 'arm64', artifact: 'pawnpro-engine-darwin-arm64'      },
-    ],
-  },
-  {
-    name: 'debugger',
-    version: pkg.debuggerVersion,
-    repository: pkg.debuggerRepository,
-    pinned: pkg.debuggerChecksums || {},
-    optional: true,
-    // O adaptador roda na arch do HOST (onde o VS Code roda), não a do servidor.
-    targets: [
-      { platform: 'linux',  arch: 'x64',   artifact: 'pawnpro-dap-adapter-linux-x64'    },
-      { platform: 'linux',  arch: 'arm64', artifact: 'pawnpro-dap-adapter-linux-arm64'  },
-      { platform: 'win32',  arch: 'x64',   artifact: 'pawnpro-dap-adapter-win32-x64.exe' },
-      { platform: 'darwin', arch: 'x64',   artifact: 'pawnpro-dap-adapter-darwin-x64'   },
-      { platform: 'darwin', arch: 'arm64', artifact: 'pawnpro-dap-adapter-darwin-arm64' },
+      { platform: 'linux',  arch: 'x64',   artifact: 'pawnpro-core-linux-x64'          },
+      { platform: 'linux',  arch: 'arm64', artifact: 'pawnpro-core-linux-arm64'         },
+      { platform: 'win32',  arch: 'x64',   artifact: 'pawnpro-core-win32-x64.exe'       },
+      { platform: 'darwin', arch: 'x64',   artifact: 'pawnpro-core-darwin-x64'          },
+      { platform: 'darwin', arch: 'arm64', artifact: 'pawnpro-core-darwin-arm64'        },
     ],
   },
 ];
@@ -172,7 +158,7 @@ function computeSha256(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-/** Falha conforme `optional`: erro fatal (engine) ou aviso + sucesso (debugger). */
+/** Falha conforme `optional`. O core não é opcional: sem ele o VSIX é inútil. */
 function bail(component, message) {
   const tag = `[download:${component.name}]`;
   if (component.optional) {
@@ -186,9 +172,7 @@ function bail(component, message) {
 
 /** Rótulo legível de um componente (para mensagens não-genéricas). */
 function label(component) {
-  return component.name === 'engine'
-    ? 'engine LSP (pawnpro-engine)'
-    : 'adaptador do debugger (dap-adapter)';
+  return component.name === 'core' ? 'núcleo (pawnpro-core)' : component.name;
 }
 
 async function processComponent(component) {
@@ -243,9 +227,6 @@ async function processComponent(component) {
       console.log(`${tag} ${checksums.size} entradas carregadas`);
     } catch (err) {
       if (!bail(component, `Release v${component.version} indisponível (${err.message}).`)) {
-        if (component.name === 'debugger') {
-          console.warn(`${tag} Compile o adaptador e copie para engines/${pending[0].artifact}.`);
-        }
         return;
       }
     }
@@ -291,7 +272,7 @@ async function processComponent(component) {
 }
 
 /** Mapeia `name` de componente -> chave de checksums no package.json. */
-const PIN_KEY = { engine: 'engineChecksums', debugger: 'debuggerChecksums' };
+const PIN_KEY = { core: 'coreChecksums' };
 
 /**
  * Modo `--pin`: lê o checksums.sha256 da release atual e grava os SHA-256 dos

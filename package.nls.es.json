@@ -20,5 +20,8 @@
   "debug.server": "Ruta del ejecutable del servidor (SA-MP/open.mp). Vacío: usa la detección automática de la extensión.",
   "debug.cwd": "Directorio de trabajo al iniciar el servidor para depuración.",
   "debug.session": "Identificador de la sesión de depuración (socket local entre el adaptador y el plugin). Se genera automáticamente si está vacío.",
-  "debug.stopOnEntry": "Pausar justo en la entrada del script."
+  "debug.stopOnEntry": "Pausar justo en la entrada del script.",
+  "pawnpro.diagnostics.setLevel": "Nivel de diagnóstico",
+  "pawnpro.diagnostics.openLog": "Abrir el registro de diagnóstico",
+  "pawnpro.diagnostics.clear": "Borrar el registro de diagnóstico"
 }

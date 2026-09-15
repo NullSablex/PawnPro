@@ -20,5 +20,8 @@
   "debug.server": "Calea către executabilul serverului (SA-MP/open.mp). Gol: folosește detectarea automată a extensiei.",
   "debug.cwd": "Directorul de lucru la pornirea serverului pentru depanare.",
   "debug.session": "Identificatorul sesiunii de depanare (socket local între adaptor și plugin). Se generează automat dacă este gol.",
-  "debug.stopOnEntry": "Oprește chiar la intrarea în script."
+  "debug.stopOnEntry": "Oprește chiar la intrarea în script.",
+  "pawnpro.diagnostics.setLevel": "Nivel de diagnosticare",
+  "pawnpro.diagnostics.openLog": "Deschide jurnalul de diagnosticare",
+  "pawnpro.diagnostics.clear": "Șterge jurnalul de diagnosticare"
 }

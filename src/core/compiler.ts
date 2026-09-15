@@ -1,208 +1,56 @@
 import { spawn } from 'child_process';
-import * as path from 'path';
-import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
-import { detectSupportedFlags, computeMinimalArgs, type Supported } from './flags.js';
-import { buildIncludePaths } from './includes.js';
-import type { CompileResult, CompileArgs, PawnProConfig } from './types.js';
+import { request } from './client.js';
+import type { CompileResult, CompileArgs } from './types.js';
 
-function normalizeInputPath(p?: string): string | undefined {
-  if (!p) return undefined;
-  const unquoted = p.trim().replace(/^["']|["']$/g, '');
-  if (!unquoted) return undefined;
-  return unquoted.startsWith('~')
-    ? path.join(process.env.HOME ?? process.env.USERPROFILE ?? '', unquoted.slice(1))
-    : unquoted;
-}
-
-function existsExecutable(p: string): boolean {
-  try {
-    if (!fs.existsSync(p)) return false;
-    if (fs.statSync(p).isDirectory()) return false;
-    if (process.platform !== 'win32') fs.accessSync(p, fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function scanPathFor(names: string[]): string | undefined {
-  const envPath = process.env.PATH ?? '';
-  const sep = process.platform === 'win32' ? ';' : ':';
-  const exts = process.platform === 'win32'
-    ? (process.env.PATHEXT ?? '.EXE;.BAT;.CMD').split(';')
-    : [''];
-  const dirs = envPath.split(sep).filter(Boolean);
-
-  for (const dir of dirs) {
-    for (const name of names) {
-      if (process.platform === 'win32') {
-        for (const ext of exts) {
-          const candidate = path.join(dir, name.toLowerCase().endsWith(ext.toLowerCase()) ? name : name + ext);
-          if (existsExecutable(candidate)) return candidate;
-        }
-      } else {
-        const candidate = path.join(dir, name);
-        if (existsExecutable(candidate)) return candidate;
-      }
-    }
-  }
-  return undefined;
-}
-
-function findInPath(): string | undefined {
-  const names = process.platform === 'win32'
-    ? ['pawncc.exe', 'pawncc64.exe', 'pawncc', 'pawncc.bat']
-    : ['pawncc'];
-  return scanPathFor(names);
-}
-
-function workspaceCandidates(workspaceRoot?: string): string[] {
-  if (!workspaceRoot) return [];
-  const names = process.platform === 'win32'
-    ? ['pawncc.exe', 'pawncc64.exe', 'pawncc.bat']
-    : ['pawncc'];
-  const dirs = [
-    path.join(workspaceRoot, 'qawno'),
-    path.join(workspaceRoot, 'pawno'),
-    path.join(workspaceRoot, 'include'),
-    path.join(workspaceRoot, 'tools'),
-    path.join(workspaceRoot, 'bin'),
-  ];
-  return dirs.flatMap(d => names.map(n => path.join(d, n)));
-}
-
-function commonCandidates(): string[] {
-  if (process.platform === 'win32') {
-    return [
-      'C:\\Program Files\\Pawn\\pawncc.exe',
-      'C:\\Program Files (x86)\\Pawn\\pawncc.exe',
-      'pawncc.exe',
-      'pawncc64.exe',
-      'pawncc.bat',
-    ];
-  }
-  return [
-    '/usr/local/bin/pawncc',
-    '/usr/bin/pawncc',
-    '/opt/pawn/pawncc',
-    'pawncc',
-  ];
-}
-
-export function detectPawncc(
+/**
+ * O caminho do `pawncc`.
+ *
+ * A ordem de busca (variável `PAWNCC`, `compiler.path`, `PATH`, pastas do
+ * projeto, locais comuns) vive no core.
+ *
+ * @throws {Error} quando não há compilador — como antes, para a interface
+ * mostrar o motivo que o core deu.
+ */
+export async function detectPawncc(
   explicitPathRaw: string | undefined,
   autoDetect: boolean,
-  workspaceRoot?: string,
-): string {
-  const envPath = normalizeInputPath(process.env.PAWNCC);
-  if (envPath && existsExecutable(envPath)) return envPath;
-
-  const normalized = normalizeInputPath(explicitPathRaw);
-  if (normalized?.trim()) {
-    let candidate = normalized;
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      candidate = path.join(candidate, process.platform === 'win32' ? 'pawncc.exe' : 'pawncc');
-    }
-    if (existsExecutable(candidate)) return candidate;
-    if (!autoDetect) throw new Error(`pawncc not found at: ${normalized}`);
-  }
-
-  const fromPath = findInPath();
-  if (fromPath) return fromPath;
-
-  for (const c of workspaceCandidates(workspaceRoot)) {
-    if (existsExecutable(c)) return c;
-  }
-
-  for (const c of commonCandidates()) {
-    if (existsExecutable(c)) return c;
-  }
-
-  throw new Error('Could not detect pawncc executable. Configure compiler.path in .pawnpro/config.json.');
+  workspaceRoot: string | undefined,
+): Promise<string> {
+  return request<string>('compiler.detect', {
+    path: explicitPathRaw ?? null,
+    autoDetect,
+    workspaceRoot: workspaceRoot ?? null,
+  });
 }
 
-function captureFlagKey(arg: string): string | null {
-  if (/^-\(/.test(arg)) return '(';
-  if (/^-;/.test(arg)) return ';';
-  if (/^-\\/.test(arg)) return '\\';
-  if (/^-\^/.test(arg)) return '^';
-  if (/^-XD\b/i.test(arg)) return 'XD';
-  const m = arg.match(/^-(\w)/);
-  return m ? m[1] : null;
-}
-
-export function sanitizeUserArgs(
-  baseArgs: string[],
-  supported: Supported,
-): { kept: string[]; removed: string[] } {
-  let args = baseArgs
-    .map(a => a.startsWith('/') ? '-' + a.slice(1) : a)
-    .filter(a => !a.startsWith('-i') && !a.startsWith('-o'))
-    .map(a => a === '-(' ? '-(+' : a)
-    .map(a => a === '-;' ? '-;+' : a);
-
-  const kept: string[] = [];
-  const removed: string[] = [];
-  for (const a of args) {
-    const key = captureFlagKey(a);
-    if (!key) { kept.push(a); continue; }
-    const ok = key.length === 1 ? supported.single.has(key) : supported.multi.has(key);
-    (ok ? kept : removed).push(a);
-  }
-  return { kept, removed };
+/** A linha de comando montada pelo núcleo. */
+export interface BuiltCompileArgs {
+  args: CompileArgs;
+  /**
+   * O preset mínimo, quando a configuração não trazia argumentos — para a
+   * extensão gravá-lo e o usuário ver o que passou a valer. `null` quando os
+   * argumentos vieram da configuração.
+   */
+  presetArgs: string[] | null;
 }
 
 /**
- * `true` se os argumentos já incluem uma flag de informação de depuração do
- * pawncc (`-d1`/`-d2`/`-d3`, com ou sem espaço/`=`). Usado para não duplicar a
- * flag quando o usuário já depura.
+ * Monta a linha de comando do `pawncc` para um arquivo.
+ *
+ * Quem monta é o núcleo, com a configuração do projeto aberto — a mesma que a
+ * engine recebe. As flags que a build local não aceita saem e voltam em
+ * `removedFlags`; `forceDebug` garante `-d3` só nesta compilação, sem alterar
+ * a configuração do usuário.
  */
-export function hasDebugFlag(args: readonly string[]): boolean {
-  return args.some(a => /^-d[123]\b/.test(a.trim()));
-}
-
-export function buildCompileArgs(opts: {
-  config: PawnProConfig;
+export async function buildCompileArgs(opts: {
   filePath: string;
-  workspaceRoot: string;
-  /** Garante informação de depuração: injeta `-d3` se o usuário não passar `-d`. */
   forceDebug?: boolean;
-}): CompileArgs {
-  const { config, filePath, workspaceRoot, forceDebug } = opts;
-  const { compiler } = config;
-
-  const exe = detectPawncc(compiler.path || undefined, compiler.autoDetect, workspaceRoot);
-  const supported = detectSupportedFlags(exe);
-
-  const rawArgs = compiler.args.length > 0 ? compiler.args.slice() : computeMinimalArgs(supported);
-  // Para depuração, o `.amx` PRECISA de `-d3` (símbolos + linhas). `-d1`/`-d2`
-  // não bastam para o hook/inspeção. Garante `-d3` apenas nesta compilação de
-  // depuração: remove qualquer `-d{0,1,2,3}` existente e acrescenta `-d3`. A
-  // configuração do usuário não é alterada.
-  if (forceDebug) {
-    for (let i = rawArgs.length - 1; i >= 0; i--) {
-      if (/^-d[0-3]\b/.test(rawArgs[i].trim())) {
-        rawArgs.splice(i, 1);
-      }
-    }
-    rawArgs.push('-d3');
-  }
-  const { kept, removed } = sanitizeUserArgs(rawArgs, supported);
-
-  const fileDir = path.dirname(filePath);
-  const includePaths = buildIncludePaths(config, workspaceRoot, fileDir).map(p =>
-    process.platform === 'win32' ? path.normalize(p) : p,
-  );
-
-  const args = [
-    ...kept,
-    ...includePaths.map(p => `-i${p}`),
-    `-o${process.platform === 'win32' ? path.normalize(path.join(fileDir, path.parse(filePath).name + '.amx')) : path.join(fileDir, path.parse(filePath).name + '.amx')}`,
-    filePath,
-  ];
-
-  return { exe, args, cwd: fileDir, removedFlags: removed };
+}): Promise<BuiltCompileArgs> {
+  return request<BuiltCompileArgs>('compiler.buildArgs', {
+    filePath: opts.filePath,
+    forceDebug: opts.forceDebug ?? false,
+  });
 }
 
 export function runCompile(

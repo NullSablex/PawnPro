@@ -126,12 +126,12 @@ export function registerSyntaxSchemeCommands(
       if (!picked) return;
       const choice = AVAILABLE_SCHEMES.find(e => e.label === picked)!.value;
 
-        config.set('syntax', { scheme: choice, applyOnStartup: true }, 'project');
+      await config.set('syntax', { scheme: choice, applyOnStartup: true }, 'project');
       vscode.window.showInformationMessage(msg.themes.schemeApplied(picked));
     }),
 
     vscode.commands.registerCommand('pawnpro.resetSyntaxScheme', async () => {
-      config.set('syntax', { scheme: 'none', applyOnStartup: false }, 'project');
+      await config.set('syntax', { scheme: 'none', applyOnStartup: false }, 'project');
       await clearTokenColors();
       lastAppliedKey = 'none';
       schemeWasApplied = false;

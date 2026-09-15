@@ -12,6 +12,7 @@ import {
   migrateNamingLists,
 } from './configBridge.js';
 import { msg, type Msg } from './nls.js';
+import { logError, logInfo, logWarn } from '../core/logger.js';
 import { createWebviewMsg } from './webviewNls.js';
 
 let panel: vscode.WebviewPanel | undefined;
@@ -21,7 +22,8 @@ async function openNamingListFile(
   config: PawnProConfigManager,
   which: 'blocklist' | 'loopIndices',
 ): Promise<void> {
-  ensureNamingFiles(config);
+  // Sem núcleo os arquivos não são criados; abrir mostra o erro do editor.
+  await ensureNamingFiles(config).catch(() => undefined);
   const naming = config.getAll().analysis.naming;
   const filePath = which === 'blocklist' ? naming.blocklistFile : naming.loopIndicesFile;
   if (!filePath) {
@@ -107,7 +109,7 @@ export function registerSettingsView(
 
       panel.webview.onDidReceiveMessage((message: unknown) => {
         if (!message || typeof message !== 'object') return;
-        handleMessage(message as Record<string, unknown>, config, context);
+        void handleMessage(message as Record<string, unknown>, config, context);
       });
 
       panel.onDidDispose(() => {
@@ -118,17 +120,46 @@ export function registerSettingsView(
   );
 }
 
-function handleMessage(
+async function handleMessage(
   m: Record<string, unknown>,
   config: PawnProConfigManager,
   context: vscode.ExtensionContext,
-): void {
+): Promise<void> {
+  logInfo('settings', `a página pediu: ${String(m['type'])}`);
   switch (m['type']) {
     case 'set': {
       const key = m['key'];
       const value = m['value'];
-      if (typeof key !== 'string') break;
-      config.setKey(key, value, 'project');
+      // Antes isto era um `break` silencioso: a página mandava algo que o
+      // handler descartava, e ninguém ficava sabendo.
+      if (typeof key !== 'string') {
+        logError('settings', `pedido de gravação sem chave: ${JSON.stringify(m)}`);
+        break;
+      }
+      if (value === undefined) {
+        logError('settings', `"${key}" chegou sem valor — nada foi gravado`);
+        break;
+      }
+      try {
+        await config.setKey(key, value, 'project');
+        // Confirma pelo que ficou valendo, e não pelo que foi pedido: se o
+        // valor não sobreviveu à releitura, o problema é aqui e não na página.
+        const effective = readKey(config.getAll() as unknown as Record<string, unknown>, key);
+        if (JSON.stringify(effective) === JSON.stringify(value)) {
+          logInfo('settings', `${key} = ${JSON.stringify(value)}`);
+        } else {
+          logWarn(
+            'settings',
+            `${key}: pedido ${JSON.stringify(value)}, mas vale ${JSON.stringify(effective)}`,
+          );
+        }
+      } catch (err: unknown) {
+        // Sem isto, uma falha ao gravar era silenciosa: a página parecia
+        // simplesmente não responder.
+        const detail = err instanceof Error ? err.message : String(err);
+        logError('settings', `falhou ao gravar ${key}: ${detail}`);
+        void vscode.window.showErrorMessage(msg.settings.saveFailed(key, detail));
+      }
       break;
     }
     case 'requestState':
@@ -144,6 +175,24 @@ function handleMessage(
     case 'migrateNaming':
       void runNamingMigration(config, context);
       break;
+    // Os botões da seção de diagnóstico. A lista fechada impede que a página
+    // dispare qualquer comando do editor.
+    case 'pageReady': {
+      logInfo('settings', `página carregada com ${String(m['controls'])} controles ligados`);
+      break;
+    }
+    case 'pageError': {
+      logError('settings', `erro no script da página: ${String(m['message'])}`);
+      break;
+    }
+    case 'runCommand': {
+      const command = m['command'];
+      const permitidos = ['pawnpro.diagnostics.openLog', 'pawnpro.diagnostics.clear'];
+      if (typeof command === 'string' && permitidos.includes(command)) {
+        void vscode.commands.executeCommand(command);
+      }
+      break;
+    }
   }
 }
 
@@ -172,10 +221,10 @@ async function runNamingMigration(
     if (go !== msg.naming.migrateProceed()) return;
   }
 
-  const backup = backupNamingLists(config);
+  const backup = await backupNamingLists(config);
   let result;
   try {
-    result = migrateNamingLists(config);
+    result = await migrateNamingLists(config);
   } catch {
     void vscode.window.showErrorMessage(msg.naming.migrateFailed());
     return;
@@ -193,6 +242,31 @@ async function runNamingMigration(
   if (panel) sendState(panel, config, context);
 }
 
+/**
+ * Distingue "não configurado" de "gravado vazio".
+ *
+ * No log, um campo vazio não dizia qual dos dois era — e os dois pedem reações
+ * diferentes.
+ */
+function describe(value: unknown): string {
+  if (value === undefined) return '(ausente)';
+  if (value === '') return '(vazio)';
+  return JSON.stringify(value);
+}
+
+/** Lê uma chave em notação de ponto, para conferir o que ficou valendo. */
+function readKey(obj: Record<string, unknown>, dotPath: string): unknown {
+  return dotPath
+    .split('.')
+    .reduce<unknown>(
+      (cursor, part) =>
+        cursor && typeof cursor === 'object'
+          ? (cursor as Record<string, unknown>)[part]
+          : undefined,
+      obj,
+    );
+}
+
 function buildI18n(m: Msg) {
   const s = m.settings;
   return {
@@ -205,6 +279,17 @@ function buildI18n(m: Msg) {
     navSyntax:             s.navSyntax(),
     navInterface:          s.navInterface(),
     navServer:             s.navServer(),
+    navDiagnostics:        s.navDiagnostics(),
+    diagLevel:             s.diagLevel(),
+    diagLevelDesc:         s.diagLevelDesc(),
+    diagLevelOff:          s.diagLevelOff(),
+    diagLevelError:        s.diagLevelError(),
+    diagLevelWarn:         s.diagLevelWarn(),
+    diagLevelInfo:         s.diagLevelInfo(),
+    diagFiles:             s.diagFiles(),
+    diagFilesDesc:         s.diagFilesDesc(),
+    diagOpen:              s.diagOpen(),
+    diagClear:             s.diagClear(),
     compilerPath:          s.compilerPath(),
     compilerPathDesc:      s.compilerPathDesc(),
     compilerAuto:          s.compilerAuto(),
@@ -235,6 +320,7 @@ function buildI18n(m: Msg) {
     analysisSdkPlatformDesc:     s.analysisSdkPlatformDesc(),
     analysisSdkPath:             s.analysisSdkPath(),
     analysisSdkPathDesc:         s.analysisSdkPathDesc(),
+    sdkAuto:                     s.sdkAuto(),
     sdkNone:                     s.sdkNone(),
     formatPreset:                s.formatPreset(),
     formatPresetDesc:            s.formatPresetDesc(),
@@ -315,12 +401,12 @@ function buildI18n(m: Msg) {
     namingRegexNeedsSlashes:     s.namingRegexNeedsSlashes(),
     namingRegexInvalid:          s.namingRegexInvalid(),
     namingRegexNoPreview:        s.namingRegexNoPreview(),
-    namingSemRegra:              s.namingSemRegra(),
+    namingNoRule:              s.namingNoRule(),
     namingAlsoAccepts:           s.namingAlsoAccepts(),
-    fechar:                      s.fechar(),
-    buscarExemplos:              s.buscarExemplos(),
-    nenhumExemploBusca:          s.nenhumExemploBusca(),
-    exemplosCortados:            s.exemplosCortados(MAX_EXAMPLES_UI),
+    close:                      s.close(),
+    searchExamples:              s.searchExamples(),
+    noExampleMatches:          s.noExampleMatches(),
+    examplesTruncated:            s.examplesTruncated(MAX_EXAMPLES_UI),
     serverKeepHistory:           s.serverKeepHistory(),
     serverKeepHistoryDesc:       s.serverKeepHistoryDesc(),
     serverSensitiveCommands:     s.serverSensitiveCommands(),
@@ -347,14 +433,30 @@ function sendState(
   config: PawnProConfigManager,
   context: vscode.ExtensionContext,
 ): void {
-  const cfg = config.getAll();
-  const wmsg = createWebviewMsg(context, config);
-  p.webview.postMessage({
-    type: 'state',
-    payload: cfg,
-    i18n: buildI18n(wmsg),
-    hasInlineNaming: hasInlineNamingLists(config),
-  });
+  try {
+    const cfg = config.getAll();
+    const wmsg = createWebviewMsg(context, config);
+    void p.webview.postMessage({
+      type: 'state',
+      payload: cfg,
+      i18n: buildI18n(wmsg),
+      hasInlineNaming: hasInlineNamingLists(config),
+    });
+    // Quantas seções o payload leva: um estado vazio explicaria a página
+    // aparecer sem valor nenhum nos controles.
+    const sectionCount = Object.keys(cfg).length;
+    const summary = `${sectionCount} seções, accent=${describe(cfg.ui?.accent)}, diagnostics=${describe(cfg.diagnostics?.level)}`;
+    if (sectionCount === 0) {
+      logError('settings', `estado vazio enviado à página (${summary})`);
+    } else {
+      logInfo('settings', `estado enviado à página: ${summary}`);
+    }
+  } catch (err: unknown) {
+    // Uma exceção aqui deixava a página sem dados: textos vazios e controles
+    // sem valor, sem nenhum aviso.
+    const detail = err instanceof Error ? err.message : String(err);
+    logError('settings', `falhou ao montar o estado da página: ${detail}`);
+  }
 }
 
 /**
@@ -371,15 +473,17 @@ const NAV_ICONS: Record<string, string> = {
   // Lupa sobre linhas: a análise do código.
   analise: '<path d="M2 2.75A.75.75 0 0 1 2.75 2h7a.75.75 0 0 1 0 1.5h-7A.75.75 0 0 1 2 2.75Zm0 3A.75.75 0 0 1 2.75 5h4a.75.75 0 0 1 0 1.5h-4A.75.75 0 0 1 2 5.75Zm0 3A.75.75 0 0 1 2.75 8h2.6a.75.75 0 0 1 0 1.5h-2.6A.75.75 0 0 1 2 8.75Z"/><path d="M10.4 7.5a2.9 2.9 0 1 0 1.74 5.22l1.83 1.83a.75.75 0 0 0 1.06-1.06l-1.83-1.83A2.9 2.9 0 0 0 10.4 7.5Zm-1.4 2.9a1.4 1.4 0 1 1 2.8 0 1.4 1.4 0 0 1-2.8 0Z"/>',
   // Chaves de bloco: a formatação.
-  formatacao: '<path d="M6.3 1.6a.75.75 0 0 1 0 1.5c-.6 0-.95.12-1.14.3-.2.19-.31.5-.31 1.05v1.4c0 .8-.3 1.5-.87 1.95.57.45.87 1.15.87 1.95v1.4c0 .55.11.86.31 1.05.19.18.54.3 1.14.3a.75.75 0 0 1 0 1.5c-.83 0-1.62-.16-2.18-.7-.56-.55-.77-1.3-.77-2.15v-1.4c0-.5-.15-.72-.32-.85a1.3 1.3 0 0 0-.55-.25.75.75 0 0 1 0-1.5c.16-.03.38-.11.55-.25.17-.13.32-.35.32-.85v-1.4c0-.85.21-1.6.77-2.15.56-.54 1.35-.7 2.18-.7Zm3.4 0c.83 0 1.62.16 2.18.7.56.55.77 1.3.77 2.15v1.4c0 .5.15.72.32.85.17.14.39.22.55.25a.75.75 0 0 1 0 1.5c-.16.03-.38.11-.55.25-.17.13-.32.35-.32.85v1.4c0 .85-.21 1.6-.77 2.15-.56.54-1.35.7-2.18.7a.75.75 0 0 1 0-1.5c.6 0 .95-.12 1.14-.3.2-.19.31-.5.31-1.05v-1.4c0-.8.3-1.5.87-1.95a2.42 2.42 0 0 1-.87-1.95v-1.4c0-.55-.11-.86-.31-1.05-.19-.18-.54-.3-1.14-.3a.75.75 0 0 1 0-1.5Z"/>',
+  formatting: '<path d="M6.3 1.6a.75.75 0 0 1 0 1.5c-.6 0-.95.12-1.14.3-.2.19-.31.5-.31 1.05v1.4c0 .8-.3 1.5-.87 1.95.57.45.87 1.15.87 1.95v1.4c0 .55.11.86.31 1.05.19.18.54.3 1.14.3a.75.75 0 0 1 0 1.5c-.83 0-1.62-.16-2.18-.7-.56-.55-.77-1.3-.77-2.15v-1.4c0-.5-.15-.72-.32-.85a1.3 1.3 0 0 0-.55-.25.75.75 0 0 1 0-1.5c.16-.03.38-.11.55-.25.17-.13.32-.35.32-.85v-1.4c0-.85.21-1.6.77-2.15.56-.54 1.35-.7 2.18-.7Zm3.4 0c.83 0 1.62.16 2.18.7.56.55.77 1.3.77 2.15v1.4c0 .5.15.72.32.85.17.14.39.22.55.25a.75.75 0 0 1 0 1.5c-.16.03-.38.11-.55.25-.17.13-.32.35-.32.85v1.4c0 .85-.21 1.6-.77 2.15-.56.54-1.35.7-2.18.7a.75.75 0 0 1 0-1.5c.6 0 .95-.12 1.14-.3.2-.19.31-.5.31-1.05v-1.4c0-.8.3-1.5.87-1.95a2.42 2.42 0 0 1-.87-1.95v-1.4c0-.55-.11-.86-.31-1.05-.19-.18-.54-.3-1.14-.3a.75.75 0 0 1 0-1.5Z"/>',
   // Etiqueta: o nome dado a cada coisa.
-  nomenclatura: '<path d="M8.6 1.5H13A1.5 1.5 0 0 1 14.5 3v4.4a1.5 1.5 0 0 1-.44 1.06l-5.1 5.1a1.5 1.5 0 0 1-2.12 0L1.94 8.66a1.5 1.5 0 0 1 0-2.12l5.1-5.1A1.5 1.5 0 0 1 8.6 1.5ZM13 3H8.6L3.5 8.1l4.9 4.9L13 7.9V3Zm-2.4 1.4a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/>',
+  naming: '<path d="M8.6 1.5H13A1.5 1.5 0 0 1 14.5 3v4.4a1.5 1.5 0 0 1-.44 1.06l-5.1 5.1a1.5 1.5 0 0 1-2.12 0L1.94 8.66a1.5 1.5 0 0 1 0-2.12l5.1-5.1A1.5 1.5 0 0 1 8.6 1.5ZM13 3H8.6L3.5 8.1l4.9 4.9L13 7.9V3Zm-2.4 1.4a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/>',
   // Pincel: as cores da sintaxe.
   sintaxe: '<path d="M11.6 1.6a2.05 2.05 0 0 1 2.9 2.9l-.9.9-2.9-2.9.9-.9Zm-1.96 1.96 2.9 2.9-5.6 5.6a1.5 1.5 0 0 1-.7.4l-3.1.8a.75.75 0 0 1-.92-.92l.8-3.1a1.5 1.5 0 0 1 .4-.7l5.6-5.6Zm-4.54 6.66-.45 1.73 1.73-.45-1.28-1.28Z"/>',
   // Janela: a interface do editor.
   interface: '<path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9Zm1.5 0v1.6h9V3.5h-9Zm9 3.1h-9v5.9h9V6.6Z"/>',
+  // Prancheta com pulso: o registro do que aconteceu.
+  diagnostico: '<path d="M5.5 1.5A1.5 1.5 0 0 1 7 0h2a1.5 1.5 0 0 1 1.5 1.5V2H12a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 12 16H4a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 4 2h1.5v-.5ZM7 1.5V3h2V1.5H7ZM4 3.5v11h8v-11h-1.5V4a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5v-.5H4Z"/><path d="M5.25 9.5h1.4l.85-1.7a.6.6 0 0 1 1.08.02l1.02 2.3.5-.92a.6.6 0 0 1 .53-.31h1.02a.65.65 0 0 1 0 1.3h-.64l-.95 1.75a.6.6 0 0 1-1.08-.03L7.96 9.6l-.5.94a.6.6 0 0 1-.53.31h-1.68a.65.65 0 0 1 0-1.3Z"/>',
   // Torre de servidor.
-  servidor: '<path d="M2.5 2.5A1.5 1.5 0 0 1 4 1h8a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 12 7H4a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5 0v3h8v-3H4Zm-1.5 7A1.5 1.5 0 0 1 4 8h8a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 12 14H4a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5 0v3h8v-3H4Z"/><path d="M5.5 3.25a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm0 7a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Z"/>',
+  server: '<path d="M2.5 2.5A1.5 1.5 0 0 1 4 1h8a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 12 7H4a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5 0v3h8v-3H4Zm-1.5 7A1.5 1.5 0 0 1 4 8h8a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 12 14H4a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5 0v3h8v-3H4Z"/><path d="M5.5 3.25a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm0 7a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Z"/>',
 };
 
 /** Envolve o traço do ícone no `<svg>` da navegação. */
@@ -403,7 +507,7 @@ function namingStyleRow(category: string): string {
       st => /* html */`
         <label class="style-badge">
           <input type="checkbox" id="naming-style-${category}-${st}"
-            onchange="toggleNamingStyle('${category}', '${st}', this.checked)">
+            data-on="change" data-action="toggleNamingStyle" data-args='["${category}","${st}"]' data-from="checked">
           <span>${labels[st] ?? st}</span>
         </label>`,
     )
@@ -418,11 +522,11 @@ function namingStyleRow(category: string): string {
       <div class="row-desc">
         <code class="naming-preview" id="naming-preview-${category}"></code>
         <button type="button" class="naming-more" id="naming-more-${category}" hidden></button>
-        <p class="naming-vazio" id="naming-vazio-${category}" hidden>
+        <p class="naming-empty" id="naming-empty-${category}" hidden>
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm0 1.2a5.3 5.3 0 0 1 3.2 1.08L3.78 11.2A5.3 5.3 0 0 1 8 2.7Zm0 10.6a5.3 5.3 0 0 1-3.2-1.08l7.42-7.42A5.3 5.3 0 0 1 8 13.3Z"/></svg>
-          <span id="naming-vazio-texto-${category}"></span>
+          <span id="naming-empty-text-${category}"></span>
         </p>
-        <p class="regex-erro" id="naming-regex-erro-${category}" role="alert" hidden></p>
+        <p class="regex-error" id="naming-regex-error-${category}" role="alert" hidden></p>
       </div>
     </div>
     <div class="row-control style-checks">
@@ -431,8 +535,8 @@ function namingStyleRow(category: string): string {
         spellcheck="false" autocapitalize="off" autocomplete="off"
         placeholder="/^g_[a-z][a-zA-Z0-9]*$/"
         data-i18n-aria="namingRegex"
-        oninput="onNamingRegexInput('${category}')"
-        onchange="commitNamingRegex('${category}')" />
+        data-on="input" data-action="onNamingRegexInput" data-args='["${category}"]'
+        data-on="change" data-action="commitNamingRegex" data-args='["${category}"]' />
     </div>
   </div>`;
 }
@@ -485,9 +589,14 @@ function getHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<!-- Sem 'unsafe-inline' em script-src: com o nonce, só o que a extensão gerou
-     executa. O estilo ainda precisa dele por causa do <style> com a cor de
-     destaque, que depende da configuração. -->
+<!-- Sem 'unsafe-inline' em script-src: com o nonce, só o script que a extensão
+     gerou executa. O estilo ainda precisa dele por causa do <style> com a cor
+     de destaque, que depende da configuração.
+
+     A página não usa atributo de evento (onclick/onchange): a política os
+     bloquearia — nonce não vale para atributo, e o sintoma seria a tela
+     inteira muda, sem erro visível. Os controles declaram a intenção em
+     data-on/data-set/data-action, e o settings.js os liga por delegação. -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource}; script-src 'nonce-${nonce}';">
 <title>PawnPro</title>
@@ -509,11 +618,12 @@ ${themeCss}
   <a data-target="includes" class="nav-link">${navIcon('includes')}<span data-i18n="navIncludes"></span></a>
   <a data-target="build" class="nav-link">${navIcon('build')}<span data-i18n="navBuild"></span></a>
   <a data-target="analise" class="nav-link">${navIcon('analise')}<span data-i18n="navAnalysis"></span></a>
-  <a data-target="formatacao" class="nav-link">${navIcon('formatacao')}<span data-i18n="navFormat"></span></a>
-  <a data-target="nomenclatura" class="nav-link">${navIcon('nomenclatura')}<span data-i18n="navNaming"></span></a>
+  <a data-target="formatting" class="nav-link">${navIcon('formatting')}<span data-i18n="navFormat"></span></a>
+  <a data-target="naming" class="nav-link">${navIcon('naming')}<span data-i18n="navNaming"></span></a>
   <a data-target="sintaxe" class="nav-link">${navIcon('sintaxe')}<span data-i18n="navSyntax"></span></a>
   <a data-target="interface" class="nav-link">${navIcon('interface')}<span data-i18n="navInterface"></span></a>
-  <a data-target="servidor" class="nav-link">${navIcon('servidor')}<span data-i18n="navServer"></span></a>
+  <a data-target="server" class="nav-link">${navIcon('server')}<span data-i18n="navServer"></span></a>
+  <a data-target="diagnostico" class="nav-link">${navIcon('diagnostico')}<span data-i18n="navDiagnostics"></span></a>
 </nav>
 
 <main>
@@ -529,7 +639,7 @@ ${themeCss}
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="compiler-autoDetect" onchange="onAutoDetectChange(this.checked)">
+        <input type="checkbox" id="compiler-autoDetect" data-on="change" data-action="onAutoDetectChange" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -542,7 +652,7 @@ ${themeCss}
     </div>
     <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="compiler-path" placeholder="ex: C:/pawno/pawncc.exe"
-        onchange="set('compiler.path', this.value.trim())">
+        data-on="change" data-set="compiler.path" data-from="trim">
     </div>
   </div>
   <div class="row wide">
@@ -578,7 +688,7 @@ ${themeCss}
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="build-showCommand" onchange="set('build.showCommand', this.checked)">
+        <input type="checkbox" id="build-showCommand" data-on="change" data-set="build.showCommand" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -590,7 +700,7 @@ ${themeCss}
       <div class="row-desc" data-i18n="outputEncodingDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
-      <select id="output-encoding" onchange="set('output.encoding', this.value)">
+      <select id="output-encoding" data-on="change" data-set="output.encoding" data-from="value">
 ${ENCODING_OPTIONS}
       </select>
     </div>
@@ -606,7 +716,7 @@ ${ENCODING_OPTIONS}
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="analysis-warnUnusedInInc" onchange="set('analysis.warnUnusedInInc', this.checked)">
+        <input type="checkbox" id="analysis-warnUnusedInInc" data-on="change" data-set="analysis.warnUnusedInInc" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -619,7 +729,7 @@ ${ENCODING_OPTIONS}
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="analysis-suppressDiagnosticsInInc" onchange="set('analysis.suppressDiagnosticsInInc', this.checked)">
+        <input type="checkbox" id="analysis-suppressDiagnosticsInInc" data-on="change" data-set="analysis.suppressDiagnosticsInInc" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -631,7 +741,8 @@ ${ENCODING_OPTIONS}
       <div class="row-desc" data-i18n="analysisSdkPlatformDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(96px, 23vw, 160px)">
-      <select id="analysis-sdk-platform" onchange="set('analysis.sdk.platform', this.value)">
+      <select id="analysis-sdk-platform" data-on="change" data-set="analysis.sdk.platform" data-from="value">
+        <option value="auto" data-i18n="sdkAuto"></option>
         <option value="omp">open.mp</option>
         <option value="samp">SA-MP</option>
         <option value="none" data-i18n="sdkNone"></option>
@@ -645,12 +756,12 @@ ${ENCODING_OPTIONS}
     </div>
     <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="analysis-sdk-filePath" placeholder="\${workspaceFolder}/pawno/include/a_samp.inc"
-        onchange="set('analysis.sdk.filePath', this.value.trim())">
+        data-on="change" data-set="analysis.sdk.filePath" data-from="trim">
     </div>
   </div>
 </div>
 
-<div class="section" id="formatacao">
+<div class="section" id="formatting">
   <h2 data-i18n="navFormat"></h2>
   <div class="preset-header">
     <div class="row-label" data-i18n="formatPreset"></div>
@@ -658,7 +769,7 @@ ${ENCODING_OPTIONS}
   </div>
   <div class="preset-grid" id="format-preset-grid">
     <button type="button" class="preset-card" data-preset="allman"
-      onclick="selectPreset('allman')">
+      data-on="click" data-action="selectPreset" data-args='["allman"]'>
       <pre class="preset-preview">if (x)
 {
     foo();
@@ -666,21 +777,21 @@ ${ENCODING_OPTIONS}
       <span class="preset-name" data-i18n="formatPresetAllman"></span>
     </button>
     <button type="button" class="preset-card" data-preset="knr"
-      onclick="selectPreset('knr')">
+      data-on="click" data-action="selectPreset" data-args='["knr"]'>
       <pre class="preset-preview">if (x) {
     foo();
 }</pre>
       <span class="preset-name" data-i18n="formatPresetKnr"></span>
     </button>
     <button type="button" class="preset-card" data-preset="compact"
-      onclick="selectPreset('compact')">
+      data-on="click" data-action="selectPreset" data-args='["compact"]'>
       <pre class="preset-preview">if (x) foo();
 for (i) bar();
 baz();</pre>
       <span class="preset-name" data-i18n="formatPresetCompact"></span>
     </button>
     <button type="button" class="preset-card" data-preset="custom"
-      onclick="selectPreset('custom')">
+      data-on="click" data-action="selectPreset" data-args='["custom"]'>
       <pre class="preset-preview">/* ajuste
    manual
    abaixo */</pre>
@@ -693,7 +804,7 @@ baz();</pre>
       <div class="row-desc" data-i18n="formatBraceStyleDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
-      <select id="format-braceStyle" onchange="set('format.braceStyle', this.value)">
+      <select id="format-braceStyle" data-on="change" data-set="format.braceStyle" data-from="value">
         <option value="nextLine" data-i18n="formatBraceNextLine"></option>
         <option value="sameLine" data-i18n="formatBraceSameLine"></option>
       </select>
@@ -706,7 +817,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="format-spaceAroundOperators" onchange="set('format.spaceAroundOperators', this.checked)">
+        <input type="checkbox" id="format-spaceAroundOperators" data-on="change" data-set="format.spaceAroundOperators" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -719,7 +830,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="format-emptyBlockSameLine" onchange="set('format.emptyBlockSameLine', this.checked)">
+        <input type="checkbox" id="format-emptyBlockSameLine" data-on="change" data-set="format.emptyBlockSameLine" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -732,7 +843,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="format-preserveArrayAlignment" onchange="set('format.preserveArrayAlignment', this.checked)">
+        <input type="checkbox" id="format-preserveArrayAlignment" data-on="change" data-set="format.preserveArrayAlignment" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -740,11 +851,11 @@ baz();</pre>
   </div>
 </div>
 
-<div class="section" id="nomenclatura">
+<div class="section" id="naming">
   <h2 data-i18n="navNaming"></h2>
   <div class="migrate-banner" id="naming-migrate-banner" style="display:none">
     <span data-i18n="namingMigrateNote"></span>
-    <button type="button" class="btn-file" onclick="migrateNaming()" data-i18n="namingMigrate"></button>
+    <button type="button" class="btn-file" data-on="click" data-action="migrateNaming" data-i18n="namingMigrate"></button>
   </div>
   <div class="row">
     <div class="row-info">
@@ -753,7 +864,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="naming-enabled" onchange="set('analysis.naming.enabled', this.checked)">
+        <input type="checkbox" id="naming-enabled" data-on="change" data-set="analysis.naming.enabled" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -766,7 +877,7 @@ baz();</pre>
     </div>
     <div class="row-control" style="min-width:90px">
       <input type="number" id="naming-minLength" min="1" max="64"
-        onchange="set('analysis.naming.minLength', Math.max(1, parseInt(this.value, 10) || 1))">
+        data-on="change" data-set="analysis.naming.minLength" data-from="positiveInt">
     </div>
   </div>
   <div class="row naming-opt">
@@ -776,7 +887,7 @@ baz();</pre>
     </div>
     <div class="row-control" style="min-width:90px">
       <input type="number" id="naming-maxListMb" min="1" max="256"
-        onchange="set('analysis.naming.maxListFileBytes', Math.max(1, parseInt(this.value, 10) || 1) * 1048576)">
+        data-on="change" data-set="analysis.naming.maxListFileBytes" data-from="megabytes">
     </div>
   </div>
   <div class="row naming-opt">
@@ -785,7 +896,7 @@ baz();</pre>
       <div class="row-desc" data-i18n="namingBlocklistDesc"></div>
     </div>
     <div class="row-control">
-      <button type="button" class="btn-file" onclick="openNamingFile('blocklist')" data-i18n="namingOpenFile"></button>
+      <button type="button" class="btn-file" data-on="click" data-action="openNamingFile" data-args='["blocklist"]' data-i18n="namingOpenFile"></button>
     </div>
   </div>
   <div class="row naming-opt">
@@ -794,7 +905,7 @@ baz();</pre>
       <div class="row-desc" data-i18n="namingAllowShortDesc"></div>
     </div>
     <div class="row-control">
-      <button type="button" class="btn-file" onclick="openNamingFile('loopIndices')" data-i18n="namingOpenFile"></button>
+      <button type="button" class="btn-file" data-on="click" data-action="openNamingFile" data-args='["loopIndices"]' data-i18n="namingOpenFile"></button>
     </div>
   </div>
   <details class="naming-styles naming-opt">
@@ -819,7 +930,7 @@ baz();</pre>
       <div class="row-desc" data-i18n="syntaxSchemeDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(132px, 31vw, 220px)">
-      <select id="syntax-scheme" onchange="set('syntax.scheme', this.value)">
+      <select id="syntax-scheme" data-on="change" data-set="syntax.scheme" data-from="value">
         <option value="auto"          data-i18n="schemeAuto"></option>
         <option value="classic_white" data-i18n="schemeClassicLight"></option>
         <option value="modern_white"  data-i18n="schemeModernLight"></option>
@@ -836,7 +947,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="syntax-applyOnStartup" onchange="set('syntax.applyOnStartup', this.checked)">
+        <input type="checkbox" id="syntax-applyOnStartup" data-on="change" data-set="syntax.applyOnStartup" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -853,31 +964,31 @@ baz();</pre>
     </div>
     <div class="row-control accent-picker">
       <label class="accent-swatch auto" title="">
-        <input type="radio" name="accent" value="" onchange="set('ui.accent', '')">
+        <input type="radio" name="accent" value="" data-on="change" data-set="ui.accent" data-value="">
         <span data-i18n="uiAccentAuto"></span>
       </label>
         <label class="accent-swatch" title="blue">
-          <input type="radio" name="accent" value="blue" onchange="set('ui.accent', 'blue')">
+          <input type="radio" name="accent" value="blue" data-on="change" data-set="ui.accent" data-value="blue">
           <span style="--sw: ${ACCENTS.blue.base}"></span>
         </label>
         <label class="accent-swatch" title="purple">
-          <input type="radio" name="accent" value="purple" onchange="set('ui.accent', 'purple')">
+          <input type="radio" name="accent" value="purple" data-on="change" data-set="ui.accent" data-value="purple">
           <span style="--sw: ${ACCENTS.purple.base}"></span>
         </label>
         <label class="accent-swatch" title="green">
-          <input type="radio" name="accent" value="green" onchange="set('ui.accent', 'green')">
+          <input type="radio" name="accent" value="green" data-on="change" data-set="ui.accent" data-value="green">
           <span style="--sw: ${ACCENTS.green.base}"></span>
         </label>
         <label class="accent-swatch" title="amber">
-          <input type="radio" name="accent" value="amber" onchange="set('ui.accent', 'amber')">
+          <input type="radio" name="accent" value="amber" data-on="change" data-set="ui.accent" data-value="amber">
           <span style="--sw: ${ACCENTS.amber.base}"></span>
         </label>
         <label class="accent-swatch" title="pink">
-          <input type="radio" name="accent" value="pink" onchange="set('ui.accent', 'pink')">
+          <input type="radio" name="accent" value="pink" data-on="change" data-set="ui.accent" data-value="pink">
           <span style="--sw: ${ACCENTS.pink.base}"></span>
         </label>
         <label class="accent-swatch" title="teal">
-          <input type="radio" name="accent" value="teal" onchange="set('ui.accent', 'teal')">
+          <input type="radio" name="accent" value="teal" data-on="change" data-set="ui.accent" data-value="teal">
           <span style="--sw: ${ACCENTS.teal.base}"></span>
         </label>
     </div>
@@ -889,7 +1000,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="ui-showIncludePaths" onchange="set('ui.showIncludePaths', this.checked)">
+        <input type="checkbox" id="ui-showIncludePaths" data-on="change" data-set="ui.showIncludePaths" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -902,7 +1013,7 @@ baz();</pre>
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="ui-animateTitle" onchange="set('ui.animateTitle', this.checked)">
+        <input type="checkbox" id="ui-animateTitle" data-on="change" data-set="ui.animateTitle" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -914,7 +1025,7 @@ baz();</pre>
       <div class="row-desc" data-i18n="uiInterfaceLocaleDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(120px, 29vw, 200px)">
-      <select id="ui-locale" onchange="set('ui.locale', this.value)">
+      <select id="ui-locale" data-on="change" data-set="ui.locale" data-from="value">
 ${LOCALE_OPTIONS}
       </select>
     </div>
@@ -925,14 +1036,14 @@ ${LOCALE_OPTIONS}
       <div class="row-desc" data-i18n="uiLocaleDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(120px, 29vw, 200px)">
-      <select id="locale" onchange="set('locale', this.value)">
+      <select id="locale" data-on="change" data-set="locale" data-from="value">
 ${LOCALE_OPTIONS}
       </select>
     </div>
   </div>
 </div>
 
-<div class="section" id="servidor">
+<div class="section" id="server">
   <h2 data-i18n="navServer"></h2>
   <div class="row">
     <div class="row-info">
@@ -940,7 +1051,7 @@ ${LOCALE_OPTIONS}
       <div class="row-desc" data-i18n="serverTypeDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
-      <select id="server-type" onchange="set('server.type', this.value)">
+      <select id="server-type" data-on="change" data-set="server.type" data-from="value">
         <option value="auto" data-i18n="serverTypeAuto"></option>
         <option value="samp" data-i18n="serverTypeSamp"></option>
         <option value="omp"  data-i18n="serverTypeOmp"></option>
@@ -954,7 +1065,7 @@ ${LOCALE_OPTIONS}
     </div>
     <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="server-path" placeholder="\${workspaceFolder}/samp-server.exe"
-        onchange="set('server.path', this.value.trim())">
+        data-on="change" data-set="server.path" data-from="trim">
     </div>
   </div>
   <div class="row">
@@ -964,7 +1075,7 @@ ${LOCALE_OPTIONS}
     </div>
     <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="server-cwd" placeholder="\${workspaceFolder}"
-        onchange="set('server.cwd', this.value.trim())">
+        data-on="change" data-set="server.cwd" data-from="trim">
     </div>
   </div>
   <div class="row wide">
@@ -983,7 +1094,7 @@ ${LOCALE_OPTIONS}
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="server-clearOnStart" onchange="set('server.clearOnStart', this.checked)">
+        <input type="checkbox" id="server-clearOnStart" data-on="change" data-set="server.clearOnStart" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -996,7 +1107,7 @@ ${LOCALE_OPTIONS}
     </div>
     <div class="row-control">
       <label class="toggle">
-        <input type="checkbox" id="server-history-enabled" onchange="set('server.history.enabled', this.checked)">
+        <input type="checkbox" id="server-history-enabled" data-on="change" data-set="server.history.enabled" data-from="checked">
         <span class="toggle-track"></span>
         <span class="toggle-thumb"></span>
       </label>
@@ -1017,7 +1128,7 @@ ${LOCALE_OPTIONS}
       <div class="row-desc" data-i18n="serverFollowLogDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
-      <select id="server-output-follow" onchange="set('server.output.follow', this.value)">
+      <select id="server-output-follow" data-on="change" data-set="server.output.follow" data-from="value">
         <option value="visible" data-i18n="followVisible"></option>
         <option value="always"  data-i18n="followAlways"></option>
         <option value="off"     data-i18n="followOff"></option>
@@ -1031,7 +1142,7 @@ ${LOCALE_OPTIONS}
     </div>
     <div class="row-control" style="min-width:clamp(168px, 40vw, 280px)">
       <input type="text" id="server-logPath" placeholder="\${workspaceFolder}/server_log.txt"
-        onchange="set('server.logPath', this.value.trim())">
+        data-on="change" data-set="server.logPath" data-from="trim">
     </div>
   </div>
   <div class="row">
@@ -1040,9 +1151,36 @@ ${LOCALE_OPTIONS}
       <div class="row-desc" data-i18n="serverLogEncodingDesc"></div>
     </div>
     <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
-      <select id="server-logEncoding" onchange="set('server.logEncoding', this.value)">
+      <select id="server-logEncoding" data-on="change" data-set="server.logEncoding" data-from="value">
 ${ENCODING_OPTIONS}
       </select>
+    </div>
+  </div>
+</div>
+<div class="section" id="diagnostico">
+  <h2 data-i18n="navDiagnostics"></h2>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="diagLevel"></div>
+      <div class="row-desc" data-i18n="diagLevelDesc"></div>
+    </div>
+    <div class="row-control" style="min-width:clamp(108px, 26vw, 180px)">
+      <select id="diagnostics-level" data-on="change" data-set="diagnostics.level" data-from="value">
+        <option value="off"   data-i18n="diagLevelOff"></option>
+        <option value="error" data-i18n="diagLevelError"></option>
+        <option value="warn"  data-i18n="diagLevelWarn"></option>
+        <option value="info"  data-i18n="diagLevelInfo"></option>
+      </select>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-label" data-i18n="diagFiles"></div>
+      <div class="row-desc" data-i18n="diagFilesDesc"></div>
+    </div>
+    <div class="row-control">
+      <button type="button" class="btn-file" data-on="click" data-action="runCommand" data-args='["pawnpro.diagnostics.openLog"]' data-i18n="diagOpen"></button>
+      <button type="button" class="btn-file" data-on="click" data-action="runCommand" data-args='["pawnpro.diagnostics.clear"]' data-i18n="diagClear"></button>
     </div>
   </div>
 </div>
@@ -1050,23 +1188,23 @@ ${ENCODING_OPTIONS}
 
 </main>
 
-<dialog class="exemplos-modal" id="exemplos-modal">
-  <div class="exemplos-modal-corpo">
-    <div class="exemplos-modal-topo">
-      <code id="exemplos-modal-titulo"></code>
+<dialog class="examples-modal" id="examples-modal">
+  <div class="examples-modal-body">
+    <div class="examples-modal-header">
+      <code id="examples-modal-title"></code>
     </div>
     <div class="search-box">
-      <input id="exemplos-modal-busca" class="search" type="text"
-        data-i18n-ph="buscarExemplos" data-i18n-aria="buscarExemplos" />
-      <span class="exemplos-modal-conta" id="exemplos-modal-conta"></span>
+      <input id="examples-modal-search" class="search" type="text"
+        data-i18n-ph="searchExamples" data-i18n-aria="searchExamples" />
+      <span class="examples-modal-count" id="examples-modal-count"></span>
     </div>
-    <ul id="exemplos-modal-lista"></ul>
-    <p class="exemplos-modal-vazio" id="exemplos-modal-vazio" hidden
-       data-i18n="nenhumExemploBusca"></p>
-    <p class="exemplos-modal-corte" id="exemplos-modal-corte" hidden
-       data-i18n="exemplosCortados"></p>
-    <div class="exemplos-modal-rodape">
-      <button type="button" id="exemplos-modal-fechar" data-i18n="fechar"></button>
+    <ul id="examples-modal-list"></ul>
+    <p class="examples-modal-empty" id="examples-modal-empty" hidden
+       data-i18n="noExampleMatches"></p>
+    <p class="examples-modal-truncated" id="examples-modal-truncated" hidden
+       data-i18n="examplesTruncated"></p>
+    <div class="examples-modal-footer">
+      <button type="button" id="examples-modal-close" data-i18n="close"></button>
     </div>
   </div>
 </dialog>

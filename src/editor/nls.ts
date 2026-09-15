@@ -19,8 +19,8 @@ export type Translate = (ptKey: string, ...args: (string | number)[]) => string;
  * O `vscode-l10n` não pluraliza, e a saída fácil — "{0} item(ns) movido(s)" —
  * não é português: cada forma vira uma chave própria, traduzida por inteiro.
  */
-function plural(n: number, um: string, muitos: string): string {
-  return n === 1 ? um : muitos;
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }
 
 export function createMsg(t: Translate) {
@@ -48,10 +48,16 @@ export function createMsg(t: Translate) {
     notRunning: () => t('Servidor não está em execução.'),
     failedStart: (err: string) => t('Falha ao iniciar servidor: {0}', err),
     rconFailed: (err: string) => t('Falha ao enviar RCON: {0}', err),
+    rconTimeout: (millis: number) => t('O servidor não respondeu ao comando RCON em {0} ms.', String(millis)),
+    // Sem código quando o processo morre por sinal: "código ?" não diria nada.
+    exitedOnStart: (code: number | undefined) =>
+      code === undefined
+        ? t('O servidor encerrou ao iniciar. Verifique o console para ver o que houve.')
+        : t('O servidor encerrou ao iniciar (código {0}). Verifique o console para ver o que houve.', String(code)),
     rconInvalidPassword: () => t('Senha RCON vazia ou inválida ("changename"). Comando não enviado.'),
     rconRemoteBlocked:  () => t('O envio por RCON vale só para o servidor local — a senha trafega em texto claro. Use o terminal para um servidor remoto.'),
     rconHint: () => t('Envie apenas o comando, ex.: "gmx" ou "say oii".'),
-    portInUse: (porta: number) => t('Já existe um servidor respondendo na porta {0}.', String(porta)),
+    portInUse: (port: number) => t('Já existe um servidor respondendo na porta {0}.', String(port)),
     rconDisabled: () => t('O RCON está desligado no config.json do servidor (rcon.enable). Ligue-o para enviar comandos pelo painel.'),
     btnEnableRcon: () => t('Ligar o RCON'),
     alreadyRunningDebug: () => t('O servidor já está no ar pela sessão de depuração.'),
@@ -84,6 +90,26 @@ export function createMsg(t: Translate) {
     cacheCleaned: () => t('PawnPro: cache limpo.'),
     activationError: (err: string) => t('[PawnPro] Erro de ativação: {0}', err),
     sdkFileNotFound: (platform: string) => t('PawnPro: arquivo SDK ({0}) não encontrado. Configure "analysis.sdk.filePath" em .pawnpro/config.json.', platform),
+    coreMissing: () => t('PawnPro: o núcleo não está em execução. Configuração, IntelliSense, painel do servidor e compilação ficam indisponíveis.'),
+    engineFailed: () => t('PawnPro: a engine caiu vezes demais e não vai subir sozinha. Use "PawnPro: Limpar Cache" para tentar de novo.'),
+    engineRestarted: (restarts: number) => t('PawnPro: a engine caiu e voltou ({0}ª vez).', String(restarts)),
+  },
+
+  diagnostics: {
+    pickTitle: () => t('Nível do registro de diagnóstico'),
+    levelCurrent: () => t('em uso'),
+    levelSet: (level: string) => t('PawnPro: registro de diagnóstico em "{0}".', level),
+    noWorkspace: () => t('PawnPro: abra uma pasta para o registro ter onde ser gravado.'),
+    emptyLog: () => t('PawnPro: não há registro ainda. Ligue o nível em "PawnPro: Nível do diagnóstico" e reproduza o problema.'),
+    cleared: () => t('PawnPro: registro de diagnóstico apagado.'),
+    levelLabel: (level: string) => {
+      switch (level) {
+        case 'error': return t('Apenas erros');
+        case 'warn':  return t('Erros e avisos');
+        case 'info':  return t('Tudo — erros, avisos e o curso normal');
+        default:      return t('Desligado — nada é gravado');
+      }
+    },
   },
 
   iconTheme: {
@@ -134,6 +160,19 @@ export function createMsg(t: Translate) {
     navSyntax:    () => t('Sintaxe'),
     navInterface: () => t('Interface'),
     navServer:    () => t('Servidor'),
+    saveFailed:   (key: string, detail: string) => t('PawnPro: não foi possível gravar "{0}": {1}', key, detail),
+    navDiagnostics: () => t('Diagnóstico'),
+
+    diagLevel:      () => t('Nível do registro'),
+    diagLevelDesc:  () => t('O que é gravado em .pawnpro/logs/. Cada nível inclui os anteriores: "Tudo" traz erros, avisos e o curso normal. Desligado, nada é escrito e nenhum arquivo é criado.'),
+    diagLevelOff:   () => t('Desligado'),
+    diagLevelError: () => t('Apenas erros'),
+    diagLevelWarn:  () => t('Erros e avisos'),
+    diagLevelInfo:  () => t('Tudo'),
+    diagFiles:      () => t('Arquivos do registro'),
+    diagFilesDesc:  () => t('pawnpro.log reúne a extensão, o núcleo e a engine na ordem em que aconteceu; os demais isolam cada um.'),
+    diagOpen:       () => t('Abrir'),
+    diagClear:      () => t('Apagar'),
 
     compilerPath:        () => t('Caminho do compilador'),
     compilerPathDesc:    () => t('Caminho para o executável pawncc. Deixe vazio para usar a detecção automática.'),
@@ -165,9 +204,11 @@ export function createMsg(t: Translate) {
     analysisSuppressInc:         () => t('Silenciar diagnósticos em includes'),
     analysisSuppressIncDesc:     () => t('Arquivos .inc não exibem erros nem avisos.'),
     analysisSdkPlatform:         () => t('Plataforma SDK'),
-    analysisSdkPlatformDesc:     () => t('omp: detecta qawno/include/open.mp.inc automaticamente. samp: configure o caminho abaixo. none: desativa suporte a SDK.'),
+    analysisSdkPlatformDesc:     () => t('auto: usa o SDK do open.mp se encontrar o open.mp.inc (em qawno/include ou nos includes); senão, segue como SA-MP. omp: detecta qawno/include/open.mp.inc automaticamente. samp: configure o caminho abaixo. none: desativa suporte a SDK.'),
     analysisSdkPath:             () => t('Caminho do SDK'),
     analysisSdkPathDesc:         () => t('Arquivo .inc centralizador do SDK. Necessário apenas para SA-MP.'),
+    // Mesmo texto do "Automático" do tema e do tipo de servidor: uma tradução só.
+    sdkAuto:                     () => t('Automático'),
     sdkNone:                     () => t('Nenhum'),
 
     formatPreset:          () => t('Estilo de formatação'),
@@ -195,10 +236,10 @@ export function createMsg(t: Translate) {
     namingRegexInvalid:    () => t('Expressão regular inválida.'),
     namingRegexNoPreview: () => t('Padrão complexo: sem exemplos aqui. Continua valendo na análise.'),
     namingAlsoAccepts: () => t('Ver exemplos aceitos'),
-    fechar: () => t('Fechar'),
-    buscarExemplos: () => t('Filtrar exemplos'),
-    nenhumExemploBusca: () => t('Nenhum exemplo corresponde ao filtro.'),
-    exemplosCortados: (n: number) => t('Limite de exibição atingido: mostrando apenas {0} exemplos.', String(n)),
+    close: () => t('Fechar'),
+    searchExamples: () => t('Filtrar exemplos'),
+    noExampleMatches: () => t('Nenhum exemplo corresponde ao filtro.'),
+    examplesTruncated: (n: number) => t('Limite de exibição atingido: mostrando apenas {0} exemplos.', String(n)),
     uiAccent:              () => t('Cor de destaque'),
     uiAccentDesc:          () => t('Cor dos botões e do item ativo nas páginas da extensão. Não altera o realce de sintaxe.'),
     uiAccentAuto:          () => t('Automático'),
@@ -215,7 +256,7 @@ export function createMsg(t: Translate) {
     namingMigrateNote:     () => t('Há listas de nomes salvas no formato antigo (no config.json).'),
     namingStyleGroup:      () => t('Estilos de nomenclatura por categoria'),
     namingStyleGroupDesc:  () => t('Convenções de caixa aceitas para cada tipo de identificador.'),
-    namingSemRegra:        () => t('Nenhuma regra selecionada.'),
+    namingNoRule:        () => t('Nenhuma regra selecionada.'),
     namingStyleFunctions:  () => t('Estilo de funções'),
     namingStyleGlobals:    () => t('Estilo de variáveis globais'),
     namingStyleLocals:     () => t('Estilo de variáveis locais'),
@@ -319,18 +360,16 @@ export function createMsg(t: Translate) {
     compilerListLink: () => t('Ver os compiladores verificados'),
     componentsTitle: () => t('Componentes'),
     extensionLabel:  () => t('Extensão PawnPro'),
-    engineLabel:     () => t('Engine LSP (pawnpro-engine)'),
-    debuggerLabel:   () => t('Adaptador do depurador (pawnpro-debugger)'),
+    coreLabel:       () => t('Núcleo (pawnpro-core)'),
     linksTitle:      () => t('Links'),
     linkDocs:        () => t('Documentação'),
     linkServerGuide: () => t('Guia do servidor: comandos, favoritos e log'),
     linkExtension:   () => t('Repositório da extensão'),
-    linkEngine:      () => t('Repositório da engine LSP'),
-    linkDebugger:    () => t('Repositório do depurador'),
+    linkCore:        () => t('Repositório do núcleo'),
     linkIssues:      () => t('Reportar um problema'),
     debuggerTitle:   () => t('Depurador: instalar no servidor'),
-    debuggerIntro:   () => t('O adaptador vem na extensão e inicia sozinho. A única etapa manual é instalar o **plugin do servidor** — uma vez por servidor. O mesmo binário serve **SA-MP** e **open.mp**.'),
-    stepDownload:    () => t('**1. Baixe o plugin** na [release do PawnPro Debugger]({0}): `pawnpro_debug.so` (Linux) ou `pawnpro_debug.dll` (Windows). Não renomeie.'),
+    debuggerIntro:   () => t('A depuração está sendo migrada para dentro do núcleo e volta na próxima versão. Quando voltar, a única etapa manual continua sendo instalar o **plugin do servidor** — uma vez por servidor, e o mesmo binário serve **SA-MP** e **open.mp**.'),
+    stepDownload:    () => t('**1. Baixe o plugin** na [release do PawnPro Core]({0}): `pawnpro_debug.so` (Linux) ou `pawnpro_debug.dll` (Windows). Não renomeie.'),
     stepInstallOmp:  () => t('**2a. open.mp** — copie o binário para a pasta `components/`. O servidor o descobre sozinho; nenhum registro é necessário.'),
     stepInstallSamp: () => t('**2b. SA-MP** — copie para `plugins/` e adicione `pawnpro_debug.so` à linha `plugins` do `server.cfg`.'),
     usageTitle:      () => t('Depurar'),
@@ -415,14 +454,14 @@ export function createMsg(t: Translate) {
   debug: {
     defaultName:     () => t('Depurar script Pawn (PawnPro)'),
     noProgram:       () => t('Defina o caminho do `.amx` (campo "program") para depurar.'),
-    adapterNotFound: () => t('Adaptador de depuração não encontrado. Compile/instale o PawnPro Debugger.'),
+    adapterNotFound: () => t('A depuração está indisponível nesta versão: ela está sendo migrada para dentro do núcleo. Volta na próxima.'),
     compiling:       () => t('Compilando com informação de depuração...'),
     compileFailed:   () => t('Falha ao compilar o script com informação de depuração. Verifique o painel de saída.'),
     programNotFound: (p: string) => t('Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo "program" no launch.json.', p),
     serverNotFound:  () => t('Servidor não encontrado. Configure `server.path` ou deixe o executável na raiz do workspace.'),
     missingPluginFile: (p: string) => t('Instale o plugin de depuração em {0}.', p),
-    pluginArchMismatch: (plugin: string, servidor: string) =>
-      t('O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.', plugin, servidor),
+    pluginArchMismatch: (plugin: string, server: string) =>
+      t('O plugin de depuração é {0} e o servidor é {1}. Instale a versão {1}.', plugin, server),
     pluginNameClash: (p: string) =>
       t('Há um arquivo em {0}, mas não é o plugin de depuração do PawnPro (nome em conflito). Substitua-o pelo plugin oficial.', p),
     missingPluginReg:  (kind: string) =>

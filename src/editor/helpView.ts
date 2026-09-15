@@ -13,12 +13,11 @@ const ISSUES_URL = 'https://github.com/NullSablex/PawnPro/issues';
 const OPENMP_COMPILER_URL = 'https://github.com/openmultiplayer/compiler/releases';
 const COMPILERS_DOCS_URL = 'https://pawnpro.nullsablex.com/compilers/';
 
+
 interface PackageJson {
   version: string;
-  engineVersion?: string;
-  engineRepository?: string;
-  debuggerVersion?: string;
-  debuggerRepository?: string;
+  coreVersion?: string;
+  coreRepository?: string;
 }
 
 export function registerHelpView(
@@ -75,10 +74,10 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
     vscode.Uri.joinPath(context.extensionUri, 'out', 'assets', 'css', 'help.min.css'),
   );
   const pkg = context.extension.packageJSON as PackageJson;
-  const engineVersion = pkg.engineVersion ?? '—';
-  const debuggerVersion = pkg.debuggerVersion ?? '—';
-  const engineRepo = pkg.engineRepository ?? EXTENSION_REPO;
-  const debuggerRepo = pkg.debuggerRepository ?? EXTENSION_REPO;
+  // A engine e o adaptador deixaram de ter versão e binário próprios: hoje são
+  // partes do núcleo, e é a versão dele que diz o que está rodando.
+  const coreVersion = pkg.coreVersion ?? '—';
+  const coreRepo = pkg.coreRepository ?? EXTENSION_REPO;
 
   const logoUri = webview.asWebviewUri(
     vscode.Uri.file(path.join(context.extensionPath, 'images', 'logo.png')),
@@ -86,20 +85,20 @@ function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, ms
 
   const components = [
     row(msg.help.extensionLabel(), `v${pkg.version}`),
-    row(msg.help.engineLabel(), `v${engineVersion}`),
-    row(msg.help.debuggerLabel(), `v${debuggerVersion}`),
+    row(msg.help.coreLabel(), `v${coreVersion}`),
   ].join('\n');
 
   const links = [
     link(msg.help.linkDocs(), DOCS_URL),
     link(msg.help.linkServerGuide(), SERVER_DOCS_URL),
     link(msg.help.linkExtension(), EXTENSION_REPO),
-    link(msg.help.linkEngine(), engineRepo),
-    link(msg.help.linkDebugger(), debuggerRepo),
+    link(msg.help.linkCore(), coreRepo),
     link(msg.help.linkIssues(), ISSUES_URL),
   ].join('\n');
 
-  const debuggerReleases = `${debuggerRepo}/releases`;
+  // O plugin do servidor sai no mesmo release do núcleo: um repositório, um
+  // build, uma versão.
+  const debuggerReleases = `${coreRepo}/releases`;
 
   return /* html */`<!DOCTYPE html>
 <html lang="pt-BR">

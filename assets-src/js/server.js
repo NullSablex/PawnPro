@@ -2,7 +2,7 @@ const vscode = acquireVsCodeApi();
 
 // Ícones e traduções vêm do <script type="application/json"> no HTML: são
 // dados da extensão, e um script externo não pode interpolá-los.
-const _dados = JSON.parse(document.getElementById('dados-painel').textContent);
+const panelData = JSON.parse(document.getElementById('panel-data').textContent);
 
 // Os ícones chegam como dados (`{ d, attrs }`), não como markup: montar os nós
 // dispensa parsear HTML, que é o padrão que o CodeQL sinaliza.
@@ -23,10 +23,10 @@ function setIcon(el, paths) {
   el.appendChild(svg);
 }
 // Mesmo traço do botão principal, reaproveitado nas linhas da lista.
-const ICON_SEND = _dados.icons.send;
-const ICON_STAR = { on: _dados.icons.starOn, off: _dados.icons.starOff };
-const ICON_EMPTY = _dados.icons.empty;
-const T = _dados.i18n;
+const ICON_SEND = panelData.icons.send;
+const ICON_STAR = { on: panelData.icons.starOn, off: panelData.icons.starOff };
+const ICON_EMPTY = panelData.icons.empty;
+const T = panelData.i18n;
 const $ = sel => document.querySelector(sel);
 const input = $('#cmd');
 const btn = $('#send');

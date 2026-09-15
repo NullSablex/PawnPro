@@ -17,7 +17,7 @@ import { withProgress, newDebugPhase, type DebugPhase } from './progress.js';
 
 /**
  * Integração do debugger Pawn (tipo `pawn`). A extensão NÃO hospeda o código Rust
- * do debugger — apenas localiza e lança o binário do adaptador DAP (`dap-adapter`),
+ * do debugger — apenas localiza e lança o binário do adaptador DAP,
  * que fala DAP com o editor via stdio. O adaptador, por sua vez, sobe o servidor
  * do jogo como processo FILHO e conversa com o plugin (dentro dele) via IPC local.
  *
@@ -115,7 +115,14 @@ export function registerDebugAdapter(
   );
 }
 
-/** Localiza o binário do adaptador DAP, no mesmo padrão da engine. */
+/**
+ * Localiza o binário do adaptador DAP.
+ *
+ * Ele **não vem mais no VSIX**: a depuração está sendo migrada para dentro do
+ * núcleo, como a engine já foi. A busca continua aqui para quem compila o
+ * adaptador ao lado — enquanto isso não acontece, é o único jeito de depurar.
+ * Sem binário, o factory avisa e a sessão não começa.
+ */
 function findAdapterBinary(context: vscode.ExtensionContext): string | null {
   const ext = process.platform === 'win32' ? '.exe' : '';
   const name = `dap-adapter${ext}`;
@@ -282,7 +289,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
   private async prepareServer(config: vscode.DebugConfiguration): Promise<boolean> {
     const amxPath = String(config.program);
     const ws = this.workspaceRoot() ?? path.dirname(amxPath);
-    const resolved = resolveServerConfig(this.config.getAll().server, ws);
+    const resolved = await resolveServerConfig(this.config.getAll().server, ws);
     if (!resolved.exe) {
       void vscode.window.showErrorMessage(msg.debug.serverNotFound());
       return false;
@@ -290,7 +297,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     const cwd = typeof config.cwd === 'string' && config.cwd ? config.cwd : resolved.cwd;
 
     // Preflight: o plugin precisa estar instalado e registrado no servidor.
-    const pre = checkDebugPlugin(cwd);
+    const pre = await checkDebugPlugin(cwd);
     if (!pre.ok) {
       const missing: string[] = [];
       if (pre.archMismatch) {
@@ -349,8 +356,8 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     const port = srvCfg?.port ?? 7777;
     if (!(await pingServer(host, port))) return true;
 
-    const exe = resolveServerConfig(cfg.server, this.workspaceRoot() ?? cwd).exe;
-    const pids = projectServersOnPort(port, exe);
+    const exe = (await resolveServerConfig(cfg.server, this.workspaceRoot() ?? cwd)).exe;
+    const pids = await projectServersOnPort(port, exe);
     if (!pids.length) {
       // Outro programa, ou processo de outro usuário: dizer "sobrou um
       // servidor" seria falso, e oferecer encerrar, perigoso.
@@ -376,7 +383,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     return withProgress(
       (many ? msg.server.killingOrphans : msg.server.killingOrphan)(),
       async () => {
-        await Promise.all(pids.map(pid => killProcess(pid)));
+        await Promise.all(pids.map((pid) => killProcess(pid, exe)));
         // A porta é a confirmação real: um processo pode morrer sem liberá-la
         // de imediato. Subir o servidor sobre uma porta ainda ocupada só
         // recriaria o conflito que acabamos de tentar resolver.
@@ -425,13 +432,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
       void vscode.window.showErrorMessage(msg.debug.programNotFound(amxPath));
       return false;
     }
-    const ws = this.workspaceRoot() ?? path.dirname(source);
-    const args = buildCompileArgs({
-      config: this.config.getAll(),
-      filePath: source,
-      workspaceRoot: ws,
-      forceDebug: true,
-    });
+    const { args } = await buildCompileArgs({ filePath: source, forceDebug: true });
     // Compilar é a etapa mais lenta e roda antes de qualquer sinal na tela:
     // sem isto o usuário aperta F5 e não vê nada até a sessão subir ou falhar.
     const compile = () =>

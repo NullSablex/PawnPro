@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PAWNPRO_DIR, PawnProConfigManager } from '../core/config.js';
+import { PAWNPRO_DIR, PawnProConfigManager, type NamingMigrationResult } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
-import { sendConfigurationToEngine } from './lspClient.js';
 
 let configManager: PawnProConfigManager | undefined;
 let stateManager: PawnProStateManager | undefined;
@@ -20,14 +19,18 @@ export function getWorkspaceRoot(): string {
 
 /**
  * Recuperação de emergência para um `config.json` grande demais para o teto
- * normal (que faria a extensão ignorá-lo e tudo quebrar). Lê o JSON CRU sem o
+ * normal (que faria o núcleo ignorá-lo e tudo quebrar). Lê o JSON CRU sem o
  * teto, extrai as listas de naming para os arquivos `.ban`/`.allow`, faz backup
  * dos itens e remove-os do JSON, devolvendo-o a um tamanho são.
+ *
+ * É a única escrita no `config.json` fora do núcleo, e de propósito: o núcleo
+ * recusa ler o arquivo acima do teto, justamente o caso a recuperar. Ao fim, o
+ * núcleo relê.
  *
  * Devolve `{ removed, backup }` em caso de sucesso, ou `null` se não havia nada
  * a recuperar / o arquivo não pôde ser lido ou parseado.
  */
-export function recoverLargeConfig(): { removed: number; backup: string | null } | null {
+export async function recoverLargeConfig(): Promise<{ removed: number; backup: string | null } | null> {
   const root = getWorkspaceRoot();
   if (!root) return null;
   const cfgPath = path.join(root, PAWNPRO_DIR, 'config.json');
@@ -85,7 +88,7 @@ export function recoverLargeConfig(): { removed: number; backup: string | null }
   } catch {
     return null;
   }
-  configManager?.reload();
+  await configManager?.reload();
   return { removed, backup };
 }
 
@@ -129,27 +132,11 @@ function listFileHeader(title: string): string {
 
 /**
  * Garante a existência dos arquivos de lista do assistente de nomes
- * (`.ban`/`.allow`) na pasta `.pawnpro/`, semeando-os com os padrões da config
- * quando ausentes. Não sobrescreve arquivos existentes (respeita edições do dev).
+ * (`.ban`/`.allow`), semeados com os padrões da config quando ausentes. Não
+ * sobrescreve arquivos existentes (respeita edições do dev).
  */
-export function ensureNamingFiles(config: PawnProConfigManager): void {
-  const naming = config.getAll().analysis.naming;
-  seedListFile(naming.blocklistFile, 'PawnPro — nomes proibidos', naming.blocklist);
-  seedListFile(
-    naming.loopIndicesFile,
-    'PawnPro — índices de loop tolerados',
-    naming.allowShortInLoops,
-  );
-}
-
-function seedListFile(filePath: string, title: string, items: string[]): void {
-  if (!filePath || fs.existsSync(filePath)) return;
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, listFileHeader(title) + items.join('\n') + '\n');
-  } catch {
-    // Falha ao semear não é fatal — a engine cai no fallback inline.
-  }
+export async function ensureNamingFiles(config: PawnProConfigManager): Promise<void> {
+  await config.ensureNamingFiles();
 }
 
 /** Há listas inline obsoletas (não-vazias) no JSON do projeto a migrar? */
@@ -174,40 +161,8 @@ export function inlineNamingBytes(config: PawnProConfigManager): number {
  * `.ban`/`.allow`, anexando aos termos já presentes no arquivo (sem perder
  * edições) e removendo o inline do JSON. O arquivo passa a ser a fonte única.
  */
-export interface NamingMigrationResult {
-  /** Termos movidos da blocklist inline para o `.ban`. */
-  blocklist: number;
-  /** Termos movidos dos índices de loop inline para o `.allow`. */
-  loopIndices: number;
-}
-
-export function migrateNamingLists(config: PawnProConfigManager): NamingMigrationResult {
-  const naming = config.getAll().analysis.naming;
-  const migrateOne = (
-    filePath: string,
-    title: string,
-    inline: string[],
-    key: 'blocklist' | 'allowShortInLoops',
-  ): number => {
-    if (inline.length === 0) return 0;
-    appendListFile(filePath, title, inline);
-    config.deleteKey(`analysis.naming.${key}`, 'project');
-    return inline.length;
-  };
-  return {
-    blocklist: migrateOne(
-      naming.blocklistFile,
-      'PawnPro — nomes proibidos',
-      config.rawProjectNamingList('blocklist'),
-      'blocklist',
-    ),
-    loopIndices: migrateOne(
-      naming.loopIndicesFile,
-      'PawnPro — índices de loop tolerados',
-      config.rawProjectNamingList('allowShortInLoops'),
-      'allowShortInLoops',
-    ),
-  };
+export async function migrateNamingLists(config: PawnProConfigManager): Promise<NamingMigrationResult> {
+  return config.migrateNaming();
 }
 
 /**
@@ -215,18 +170,11 @@ export function migrateNamingLists(config: PawnProConfigManager): NamingMigratio
  * allowShortInLoops) — não do config.json inteiro. Devolve o caminho do backup,
  * ou `null` se não houver nada a salvar / falha. O dev confere e apaga depois.
  */
-export function backupNamingLists(config: PawnProConfigManager): string | null {
-  const blocklist = config.rawProjectNamingList('blocklist');
-  const loop = config.rawProjectNamingList('allowShortInLoops');
-  if (blocklist.length === 0 && loop.length === 0) return null;
-
+export async function backupNamingLists(config: PawnProConfigManager): Promise<string | null> {
   const root = getWorkspaceRoot();
   if (!root) return null;
-  const dest = makeBackupPath(root);
   try {
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.writeFileSync(dest, JSON.stringify({ blocklist, allowShortInLoops: loop }, null, 2) + '\n');
-    return dest;
+    return await config.backupNaming(makeBackupPath(root));
   } catch {
     return null;
   }
@@ -245,68 +193,61 @@ function appendListFile(filePath: string, title: string, items: string[]): void 
         .map(l => l.trim())
         .filter(l => l && !l.startsWith('#')),
     );
-    const novos = items.filter(t => !present.has(t.trim()));
-    if (novos.length === 0) return;
+    const fresh = items.filter(t => !present.has(t.trim()));
+    if (fresh.length === 0) return;
     const base = existing || listFileHeader(title);
     const sep = base.endsWith('\n') || base === '' ? '' : '\n';
-    fs.writeFileSync(filePath, base + sep + novos.join('\n') + '\n');
+    fs.writeFileSync(filePath, base + sep + fresh.join('\n') + '\n');
   } catch {
     // Falha não é fatal — o inline permanece e a engine usa o fallback.
   }
 }
 
+/**
+ * Cria a configuração e o estado do projeto.
+ *
+ * `ready` resolve quando a configuração chegou do núcleo — `false` se ele não
+ * respondeu, e os padrões seguem valendo. Quem precisa registrar algo antes de
+ * qualquer espera (o depurador) registra antes de aguardá-la.
+ *
+ * O núcleo observa os `config.json` sozinho e avisa pela notificação; a
+ * extensão não vigia mais esses arquivos, e não reenvia nada à engine — o
+ * núcleo entrega a ela diretamente.
+ */
 export function activateConfigBridge(
   context: vscode.ExtensionContext,
-): { config: PawnProConfigManager; state: PawnProStateManager } {
+): { config: PawnProConfigManager; state: PawnProStateManager; ready: Promise<boolean> } {
   const projectRoot = getWorkspaceRoot();
 
-  configManager = new PawnProConfigManager(projectRoot);
-  stateManager = new PawnProStateManager(projectRoot);
+  configManager = PawnProConfigManager.create(projectRoot);
+  stateManager = PawnProStateManager.create(projectRoot);
+  const config = configManager;
+  const state = stateManager;
 
   // Semeia os arquivos de lista quando o assistente de nomes está ligado, para
   // o dev tê-los prontos para editar em vez de mantê-los no JSON.
-  if (configManager.getAll().analysis.naming.enabled) {
-    ensureNamingFiles(configManager);
-  }
-
-  context.subscriptions.push(
-    configManager.onChange(() => {
-      sendConfigurationToEngine(configManager!, projectRoot);
-      if (configManager!.getAll().analysis.naming.enabled) {
-        ensureNamingFiles(configManager!);
-      }
-    }),
-  );
-
-  if (projectRoot) {
-    const pattern = new vscode.RelativePattern(projectRoot, '.pawnpro/config.json');
-    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    const reload = () => configManager?.reload();
-    watcher.onDidCreate(reload);
-    watcher.onDidChange(reload);
-    watcher.onDidDelete(reload);
-    context.subscriptions.push(watcher);
-  }
-
-  const globalPath = configManager.globalConfigPath;
-  try {
-    const dir = path.dirname(globalPath);
-    if (fs.existsSync(dir)) {
-      const fsWatcher = fs.watch(dir, (_: string, filename: string | null) => {
-        if (filename === 'config.json') configManager?.reload();
-      });
-      context.subscriptions.push({ dispose: () => fsWatcher.close() });
+  const seedNamingFiles = () => {
+    if (config.loaded && config.getAll().analysis.naming.enabled) {
+      void config.ensureNamingFiles().catch(() => undefined);
     }
-  } catch {
-    // diretório global pode não existir ainda
-  }
+  };
 
+  // O estado vem junto: o painel do servidor lê os favoritos ao abrir. A falha
+  // dele não pesa em `ready` — sem ele o painel só começa vazio.
+  const ready = Promise.all([config.load(), state.load()]).then(([loaded]) => {
+    seedNamingFiles();
+    return loaded;
+  });
+
+  context.subscriptions.push(config.onChange(seedNamingFiles));
+
+  // Outra janela do mesmo projeto também grava o estado.
   if (projectRoot) {
     const statePattern = new vscode.RelativePattern(projectRoot, '.pawnpro/state.json');
     const stateWatcher = vscode.workspace.createFileSystemWatcher(statePattern);
-    stateWatcher.onDidChange(() => stateManager?.load());
+    stateWatcher.onDidChange(() => void state.load());
     context.subscriptions.push(stateWatcher);
   }
 
-  return { config: configManager, state: stateManager };
+  return { config, state, ready };
 }

@@ -8,10 +8,44 @@ import { PawnProStateManager } from '../core/state.js';
 import { ServerViewProvider } from './serverView.js';
 import { getWorkspaceRoot } from './configBridge.js';
 import { msg } from './nls.js';
+import { logError, logInfo, logWarn } from '../core/logger.js';
 import { withProgress } from './progress.js';
 import type { SampCfgData, OutputSink } from '../core/types.js';
+import type { RconFailure } from '../core/server.js';
 
 const IS_WINDOWS = process.platform === 'win32';
+
+/**
+ * Mostra a recusa do RCON pela condição que o núcleo nomeou.
+ *
+ * O núcleo devolve o motivo como nome justamente para cada um ter a sua
+ * mensagem; exibido cru ("RCON: serverDown"), ele não diz nada a quem usa. As
+ * condições esperadas saem como aviso; só a falha de verdade sai como erro.
+ */
+function showRconFailure(failure: RconFailure | undefined, detail: string): void {
+  switch (failure?.kind) {
+    case 'serverDown':
+      void vscode.window.showWarningMessage(`PawnPro: ${msg.server.notRunning()}`);
+      return;
+    case 'disabled':
+      void vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconDisabled()}`);
+      return;
+    case 'invalidPassword':
+      void vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconInvalidPassword()}`);
+      return;
+    case 'remoteBlocked':
+      void vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconRemoteBlocked()}`);
+      return;
+    case 'timeout':
+      void vscode.window.showWarningMessage(`PawnPro: ${msg.server.rconTimeout(failure.millis)}`);
+      return;
+    case 'io':
+      void vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(failure.message)}`);
+      return;
+    default:
+      void vscode.window.showErrorMessage(`PawnPro: ${msg.server.rconFailed(detail)}`);
+  }
+}
 
 function createOutputSink(channel: vscode.OutputChannel): OutputSink {
   return {
@@ -106,9 +140,9 @@ class ServerController {
    * Vale para qualquer origem: o arquivo de log existe independentemente de o
    * servidor ter subido pelo painel ou pelo depurador.
    */
-  private ensureTail(): void {
+  private async ensureTail(): Promise<void> {
     if (IS_WINDOWS) return;
-    const resolved = resolveServerConfig(this.config.getAll().server, getWorkspaceRoot());
+    const resolved = await resolveServerConfig(this.config.getAll().server, getWorkspaceRoot());
     if (!resolved.logPath) return;
     // `start` limpa o painel e recomeça a leitura. Como a vigilância chama isto
     // a cada poucos segundos enquanto o servidor está no ar, sem a guarda o log
@@ -163,7 +197,7 @@ class ServerController {
   private async refreshRconFromServerCfg() {
     const cfg = this.config.getAll();
     const ws = getWorkspaceRoot();
-    const resolved = resolveServerConfig(cfg.server, ws);
+    const resolved = await resolveServerConfig(cfg.server, ws);
     this.rconCfg = await loadServerConfig(resolved.cwd, cfg.server.type);
   }
 
@@ -211,12 +245,13 @@ class ServerController {
         // que fecha a rajada de datagramas, e nesse intervalo o tail do log já
         // despejou as linhas — o comando aparecia embaixo do próprio resultado.
         this.tailer.appendLine(`> ${txt}`);
+        logInfo('rcon', `enviando "${txt}" para ${cfg.host}:${cfg.port}`);
         const out = await client.send(txt, 1500);
         // O servidor grava no log toda mensagem que devolve pelo console, então
         // com o tail ativo a resposta já vem por ali — e com timestamp e nível,
         // que a via RCON não tem. Repeti-la aqui duplicaria cada comando.
         if (out && out.trim()) {
-          if (!this.tailer.ativo) this.tailer.appendLine(out.trim());
+          if (!this.tailer.active) this.tailer.appendLine(out.trim());
         } else {
           // Comandos como `gmx` e `players` (sem ninguém on-line) executam mas
           // não devolvem texto. Sem esta linha, o sucesso silencioso ficava
@@ -226,9 +261,12 @@ class ServerController {
         this.tailer.markVisible();
         return;
       } catch (err: unknown) {
-        vscode.window.showErrorMessage(
-          `PawnPro: ${msg.server.rconFailed(err instanceof Error ? err.message : String(err))}`,
-        );
+        const detail = err instanceof Error ? err.message : String(err);
+        // O motivo da recusa vem do core como uma condição nomeada; é o que
+        // distingue "servidor parado" de "senha errada".
+        const failure = (err as { failure?: RconFailure }).failure;
+        logError('rcon', `"${txt}" falhou: ${failure?.kind ?? detail}`);
+        showRconFailure(failure, detail);
         return;
       }
     } else if (!local) {
@@ -271,8 +309,8 @@ class ServerController {
   private async isOwnServer(): Promise<boolean> {
     if (this.debugSession) return true;
     const { port } = this.currentAddress();
-    const exe = resolveServerConfig(this.config.getAll().server, getWorkspaceRoot()).exe;
-    return projectServersOnPort(port, exe).length > 0;
+    const exe = (await resolveServerConfig(this.config.getAll().server, getWorkspaceRoot())).exe;
+    return (await projectServersOnPort(port, exe)).length > 0;
   }
 
   /**
@@ -296,8 +334,8 @@ class ServerController {
     // do config.json do repositório, e sem esta checagem um gamemode com
     // `"port": 53` transformaria o botão de encerrar numa arma contra serviços
     // do sistema.
-    const exe = resolveServerConfig(this.config.getAll().server, getWorkspaceRoot()).exe;
-    const pids = projectServersOnPort(port, exe);
+    const exe = (await resolveServerConfig(this.config.getAll().server, getWorkspaceRoot())).exe;
+    const pids = await projectServersOnPort(port, exe);
     if (!pids.length) {
       // A porta responde, mas nada ali passou no filtro: é outro programa, ou
       // um processo de outro usuário. Dizer "sobrou um servidor" seria falso, e
@@ -326,7 +364,7 @@ class ServerController {
       async () => {
         // Em paralelo: os processos são independentes, e em série cada um
         // somaria seu próprio prazo de SIGTERM antes do seguinte.
-        const ok = await Promise.all(pids.map(pid => killProcess(pid)));
+        const ok = await Promise.all(pids.map((pid) => killProcess(pid, exe)));
         // A porta é a confirmação real: um processo pode morrer sem liberá-la
         // de imediato.
         return {
@@ -355,6 +393,7 @@ class ServerController {
 
 
   async start({ restarting = false }: { restarting?: boolean } = {}) {
+    logInfo('server', `iniciar pedido (reiniciando=${restarting})`);
     // Antes de qualquer I/O: a sessão de depuração é um fato já conhecido, e
     // subir outro servidor por cima dela é que seria o erro. Sondar a porta e
     // reler o `server.cfg` para depois descartar o resultado é trabalho jogado
@@ -418,7 +457,7 @@ class ServerController {
 
     const cfg = this.config.getAll();
     const ws = getWorkspaceRoot();
-    const resolved = resolveServerConfig(cfg.server, ws);
+    const resolved = await resolveServerConfig(cfg.server, ws);
 
     if (!resolved.exe) {
       vscode.window.showErrorMessage(`PawnPro: ${msg.server.notConfigured()}`);
@@ -456,7 +495,13 @@ class ServerController {
       // `await`, não `void`: sem ele o `start` resolvia antes de o servidor
       // subir, e o `restart` dava o ciclo por concluído com a espera ainda
       // correndo — anunciando um fim que ninguém tinha observado.
-      const isUp = await withProgress(title, () => this.waitForPort(true, 15000));
+      //
+      // O terminal roda o próprio executável: quando o processo termina, o
+      // editor preenche `exitStatus`. A partir daí não há mais quem abra a
+      // porta, e seguir esperando até o prazo mantinha "iniciando" na tela
+      // para um servidor que já não existia.
+      const exited = () => t.exitStatus !== undefined;
+      const isUp = await withProgress(title, () => this.waitForPort(true, 15000, exited));
       if (isUp) this.registry.markOrigin('terminal');
       await this.currentStatus();
       if (isUp) {
@@ -465,6 +510,10 @@ class ServerController {
         vscode.window.showInformationMessage(
           `PawnPro: ${restarting ? msg.server.restarted() : msg.server.started()}`,
         );
+      } else if (t.exitStatus) {
+        const code = t.exitStatus.code;
+        logError('server', `o servidor encerrou ao iniciar (código ${code ?? 'ausente'})`);
+        vscode.window.showErrorMessage(`PawnPro: ${msg.server.exitedOnStart(code)}`);
       } else {
         // O prazo esgotou com a porta muda: o terminal existe, mas o servidor
         // não subiu. Sem isto o clique terminava em silêncio e o painel ficava
@@ -487,6 +536,7 @@ class ServerController {
    * continua respondendo, o usuário fica sabendo em vez de descobrir depois.
    */
   async stop({ restarting = false }: { restarting?: boolean } = {}): Promise<boolean> {
+    logInfo('server', `parar pedido (reiniciando=${restarting})`);
     // A porta responde, mas quem está ali não é deste projeto e não há
     // terminal nosso: não há o que parar. Sem isto o usuário esperava o prazo
     // inteiro para receber a mesma resposta.
@@ -590,14 +640,22 @@ class ServerController {
    * Serve para os dois sentidos: subir (esperar responder) e parar (esperar
    * calar). Antes eram dois laços iguais com a condição invertida.
    *
+   * `stopWhen` encerra a espera antes do prazo quando não há mais o que
+   * esperar — o processo que devia abrir a porta já terminou, por exemplo.
+   *
    * @returns `true` se chegou ao estado dentro do prazo.
    */
-  private async waitForPort(expectedAlive: boolean, timeoutMs: number): Promise<boolean> {
+  private async waitForPort(
+    expectedAlive: boolean,
+    timeoutMs: number,
+    stopWhen: () => boolean = () => false,
+  ): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
     // Endereço lido uma vez: se a config mudar de porta no meio da espera, o
     // certo é esta espera falhar — e não passar a sondar outro alvo.
     const { host, port } = this.currentAddress();
     while (Date.now() < deadline) {
+      if (stopWhen()) return false;
       if ((await pingServer(host, port, 500)) === expectedAlive) return true;
       await delay(400);
     }
@@ -607,6 +665,7 @@ class ServerController {
 
 
   async restart() {
+    logInfo('server', 'reiniciar pedido');
     // Servidor da depuração: quem o detém é o adaptador, então o pedido vai
     // pelo editor. O adaptador troca o processo por baixo e mantém a sessão
     // viva, reresolvendo os breakpoints contra o `.amx` recompilado — que é o

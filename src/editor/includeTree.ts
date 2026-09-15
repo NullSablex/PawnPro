@@ -1,9 +1,7 @@
-import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { listIncFilesRecursive, listNatives, buildIncludePaths } from '../core/includes.js';
+import { includePaths, listIncFilesRecursive, listNatives } from '../core/includes.js';
 import { PawnProConfigManager } from '../core/config.js';
-import { getWorkspaceRoot } from './configBridge.js';
 
 abstract class BaseItem extends vscode.TreeItem {
   abstract readonly kind: 'include' | 'native';
@@ -69,7 +67,7 @@ class IncludesTreeProvider implements vscode.TreeDataProvider<Item> {
 
   async getChildren(el?: Item): Promise<Item[]> {
     if (!el) {
-      const root = this.pickIncludeRoot();
+      const root = await this.pickIncludeRoot();
       if (!root) return [];
       const incs = await listIncFilesRecursive(root);
       const uniq = [...new Set(incs)].sort((a, b) => a.localeCompare(b));
@@ -83,16 +81,9 @@ class IncludesTreeProvider implements vscode.TreeDataProvider<Item> {
     return [];
   }
 
-  private pickIncludeRoot(): string | undefined {
-    const cfg = this.config.getAll();
-    const ws = getWorkspaceRoot();
-    const paths = buildIncludePaths(cfg, ws);
-    for (const dir of paths) {
-      try {
-        if (fs.statSync(dir).isDirectory()) return dir;
-      } catch { /* ignore */ }
-    }
-    return undefined;
+  /** A primeira raiz de include: o núcleo só devolve pastas que existem. */
+  private async pickIncludeRoot(): Promise<string | undefined> {
+    return (await includePaths())[0];
   }
 }
 

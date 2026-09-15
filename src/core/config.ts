@@ -1,16 +1,30 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { onNotification, request } from './client.js';
 import type { PawnProConfig } from './types.js';
 
 /**
- * Teto de tamanho do config.json. Config legítima fica em KB; é uma barreira de
- * segurança contra arquivos absurdos (memória/parse), não restrição de uso.
- * Acima disto, o arquivo é ignorado. Fixo (não exposto na configuração).
+ * Pasta de configuração do PawnPro, no projeto e no diretório do usuário.
+ *
+ * O nome estava repetido em oito lugares, entre o core e a camada do editor:
+ * renomeá-la exigiria achar todos.
  */
-const MAX_CONFIG_BYTES = 32 * 1024 * 1024;
+export const PAWNPRO_DIR = '.pawnpro';
 
-const DEFAULTS: PawnProConfig = {
+/**
+ * Prazo da primeira carga.
+ *
+ * Um núcleo que não responde não pode segurar a ativação: passado o prazo, a
+ * extensão segue com os padrões. Se a resposta chegar depois, a notificação
+ * `config.changed` a entrega do mesmo jeito.
+ */
+const LOAD_TIMEOUT_MS = 5_000;
+
+/**
+ * Os padrões da configuração, valendo só enquanto o núcleo não respondeu.
+ *
+ * Quem lê e mescla a configuração é o núcleo; estes valores existem para a
+ * extensão abrir sem ele. `config.test.ts` exige que sejam iguais aos dele.
+ */
+export const DEFAULTS: PawnProConfig = {
   compiler: { path: '', args: [], autoDetect: true },
   includePaths: ['${workspaceFolder}/pawno/include'],
   output: { encoding: 'windows1252' },
@@ -54,228 +68,161 @@ const DEFAULTS: PawnProConfig = {
     preserveArrayAlignment: false,
   },
   locale: '',
+  diagnostics: { level: 'off' },
 };
 
 type Listener = (cfg: PawnProConfig) => void;
+type Scope = 'global' | 'project';
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
+/** O que o núcleo devolve a cada leitura ou escrita. */
+export interface ConfigSnapshot {
+  config: PawnProConfig;
+  globalPath: string;
+  projectPath: string;
+  /** As listas de naming como o projeto as escreveu, sem mesclagem. */
+  rawProjectNaming: { blocklist: string[]; allowShortInLoops: string[] };
+  /** Chaves ignoradas por terem o tipo errado. */
+  rejected: string[];
 }
 
-const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-
-function isSafeKey(key: string): boolean {
-  return !FORBIDDEN_KEYS.has(key);
+/** Quantos termos a migração moveu de cada lista. */
+export interface NamingMigrationResult {
+  blocklist: number;
+  loopIndices: number;
 }
 
-function deepMerge<T extends Record<string, unknown>>(base: T, override: Record<string, unknown>): T {
-  const result = { ...base } as Record<string, unknown>;
-  for (const key of Object.keys(override)) {
-    if (!isSafeKey(key)) continue;
-    const bv = result[key];
-    const ov = override[key];
-    if (isPlainObject(bv) && isPlainObject(ov)) {
-      result[key] = deepMerge(bv as Record<string, unknown>, ov);
-    } else if (ov !== undefined) {
-      result[key] = ov;
-    }
+/** A gravação foi pedida sem o núcleo de pé. */
+export class ConfigUnavailableError extends Error {
+  constructor() {
+    super('configuração indisponível: o núcleo do PawnPro não está em execução');
+    this.name = 'ConfigUnavailableError';
   }
-  return result as T;
-}
-
-function readJsonFile(filePath: string): Record<string, unknown> | null {
-  try {
-    // Barra arquivos absurdamente grandes antes de ler/parsear.
-    if (fs.statSync(filePath).size > MAX_CONFIG_BYTES) return null;
-    const raw = fs.readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    return isPlainObject(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeJsonFile(filePath: string, data: unknown): void {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-
-  const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  fs.renameSync(tmp, filePath);
-}
-
-function substituteWorkspace(value: unknown, workspaceRoot: string): unknown {
-  if (typeof value === 'string') {
-    return value.replace(/\$\{workspaceFolder\}/g, workspaceRoot);
-  }
-  if (Array.isArray(value)) {
-    return value.map(v => substituteWorkspace(v, workspaceRoot));
-  }
-  if (isPlainObject(value)) {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      out[k] = substituteWorkspace(v, workspaceRoot);
-    }
-    return out;
-  }
-  return value;
 }
 
 /**
- * Pasta de configuração do PawnPro, no projeto e no diretório do usuário.
+ * A configuração do projeto, como o núcleo a resolveu.
  *
- * O nome estava repetido em oito lugares, entre o core e a camada do editor:
- * renomeá-la exigiria achar todos.
+ * Quem lê, mescla e grava os `config.json` é o núcleo. Aqui fica a última
+ * versão que ele mandou — por isso as leituras continuam síncronas — e as
+ * escritas viram pedidos. O núcleo avisa toda mudança por `config.changed`
+ * antes de responder ao pedido que a causou: quando o `await` de uma escrita
+ * termina, o cache já está atualizado.
  */
-export const PAWNPRO_DIR = '.pawnpro';
-
 export class PawnProConfigManager {
-  private globalPath: string;
-  private projectPath: string;
-  private merged: PawnProConfig = structuredClone(DEFAULTS);
-  private raw: { global: Record<string, unknown>; project: Record<string, unknown> } = {
-    global: {},
-    project: {},
-  };
+  private snapshot: ConfigSnapshot | null = null;
   private listeners: Listener[] = [];
 
-  constructor(private projectRoot: string) {
-    this.globalPath = path.join(os.homedir(), PAWNPRO_DIR, 'config.json');
-    this.projectPath = path.join(projectRoot, PAWNPRO_DIR, 'config.json');
-    this.reload();
-  }
-
-  private applyMerge(): void {
-    const merged = deepMerge(
-      deepMerge(structuredClone(DEFAULTS) as unknown as Record<string, unknown>, this.raw.global),
-      this.raw.project,
-    ) as unknown as PawnProConfig;
-
-    this.merged = substituteWorkspace(merged, this.projectRoot) as PawnProConfig;
-    this.notify();
-  }
-
-  get globalConfigPath(): string { return this.globalPath; }
-  get projectConfigPath(): string { return this.projectPath; }
+  private constructor(private readonly projectRoot: string) {}
 
   /**
-   * Lista de uma chave de naming tal como escrita no JSON do projeto (não o
-   * merged com defaults). Usado pela migração para saber o que o dev de fato
-   * colocou inline. Vazio se ausente ou não for um array de strings.
+   * Cria o gerenciador e passa a ouvir o núcleo. A carga vem em `load()`:
+   * separar as duas deixa a ativação registrar o que precisa antes de esperar.
    */
-  rawProjectNamingList(key: 'blocklist' | 'allowShortInLoops'): string[] {
-    const analysis = this.raw.project['analysis'];
-    if (!isPlainObject(analysis)) return [];
-    const naming = analysis['naming'];
-    if (!isPlainObject(naming)) return [];
-    const list = naming[key];
-    return Array.isArray(list) ? list.filter((v): v is string => typeof v === 'string') : [];
+  static create(projectRoot: string): PawnProConfigManager {
+    const manager = new PawnProConfigManager(projectRoot);
+    onNotification('config.changed', (params) => manager.apply(params as ConfigSnapshot));
+    return manager;
   }
 
-  reload(): void {
-    this.raw.global = readJsonFile(this.globalPath) ?? {};
-    this.raw.project = readJsonFile(this.projectPath) ?? {};
-    this.applyMerge();
+  /** Pede ao núcleo a configuração do projeto. `false` deixa os padrões valendo. */
+  async load(): Promise<boolean> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('o núcleo não respondeu a tempo')), LOAD_TIMEOUT_MS);
+    });
+    try {
+      const opened = request<ConfigSnapshot>('config.open', { workspaceRoot: this.projectRoot });
+      this.apply(await Promise.race([opened, timeout]));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** `true` quando a configuração veio do núcleo, e não dos padrões. */
+  get loaded(): boolean {
+    return this.snapshot !== null;
+  }
+
+  get globalConfigPath(): string {
+    return this.snapshot?.globalPath ?? '';
+  }
+
+  get projectConfigPath(): string {
+    return this.snapshot?.projectPath ?? '';
+  }
+
+  /** Chaves que o núcleo ignorou por terem o tipo errado. */
+  get rejectedKeys(): readonly string[] {
+    return this.snapshot?.rejected ?? [];
+  }
+
+  /**
+   * Lista de naming tal como escrita no JSON do projeto, não a mesclada: a
+   * migração precisa saber o que o desenvolvedor de fato colocou inline.
+   */
+  rawProjectNamingList(key: 'blocklist' | 'allowShortInLoops'): string[] {
+    return this.snapshot?.rawProjectNaming[key] ?? [];
   }
 
   getAll(): Readonly<PawnProConfig> {
-    return this.merged;
+    return this.snapshot?.config ?? DEFAULTS;
   }
 
   get<K extends keyof PawnProConfig>(section: K): PawnProConfig[K] {
-    return this.merged[section];
+    return this.getAll()[section];
   }
 
-  set<K extends keyof PawnProConfig>(
+  /** Grava campos de uma seção, numa escrita só. */
+  async set<K extends keyof PawnProConfig>(
     section: K,
     value: Partial<PawnProConfig[K]>,
-    scope: 'global' | 'project',
-  ): void {
-    if (!isSafeKey(section as string)) {
-      throw new Error('Invalid config section');
-    }
-    const filePath = scope === 'global' ? this.globalPath : this.projectPath;
-    const current = readJsonFile(filePath) ?? {};
-
-    if (isPlainObject(current[section]) && isPlainObject(value)) {
-      const merged: Record<string, unknown> = { ...(current[section] as Record<string, unknown>) };
-      for (const key of Object.keys(value as Record<string, unknown>)) {
-        if (isSafeKey(key)) merged[key] = (value as Record<string, unknown>)[key];
-      }
-      current[section] = merged;
-    } else {
-      current[section] = value as unknown;
-    }
-
-    writeJsonFile(filePath, current);
-    this.reload();
+    scope: Scope,
+  ): Promise<void> {
+    const isSection = typeof value === 'object' && value !== null && !Array.isArray(value);
+    const entries = isSection
+      ? Object.entries(value).map(([key, v]) => ({ key: `${String(section)}.${key}`, value: v }))
+      : [{ key: String(section), value }];
+    await this.write('config.set', { entries, scope });
   }
 
-  setKey(dotPath: string, value: unknown, scope: 'global' | 'project'): void {
-    const filePath = scope === 'global' ? this.globalPath : this.projectPath;
-    const current = readJsonFile(filePath) ?? {};
-
-    const parts = dotPath.split('.');
-    if (parts.length === 0 || parts.some((p) => p.length === 0)) {
-      throw new Error('Invalid config key');
-    }
-
-    const isPollutionKey = (k: string): boolean =>
-      k === '__proto__' || k === 'constructor' || k === 'prototype';
-
-    let cursor: Record<string, unknown> = current;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const key = parts[i];
-      // Validação no ponto de uso: a chave é checada imediatamente antes de
-      // indexar o objeto, bloqueando __proto__/constructor/prototype.
-      if (!isSafeKey(key) || isPollutionKey(key)) {
-        throw new Error('Invalid config key: prototype pollution attempt');
-      }
-
-      const hasOwn = Object.prototype.hasOwnProperty.call(cursor, key);
-      if (!hasOwn || !isPlainObject(cursor[key])) {
-        cursor[key] = {};
-      }
-      cursor = cursor[key] as Record<string, unknown>;
-    }
-    const leaf = parts[parts.length - 1];
-    if (!isSafeKey(leaf) || isPollutionKey(leaf)) {
-      throw new Error('Invalid config key: prototype pollution attempt');
-    }
-    cursor[leaf] = value;
-
-    writeJsonFile(filePath, current);
-    this.reload();
+  async setKey(dotPath: string, value: unknown, scope: Scope): Promise<void> {
+    await this.write('config.set', { entries: [{ key: dotPath, value }], scope });
   }
 
   /** Remove uma chave do JSON do escopo (no-op se ausente). */
-  deleteKey(dotPath: string, scope: 'global' | 'project'): void {
-    const filePath = scope === 'global' ? this.globalPath : this.projectPath;
-    const current = readJsonFile(filePath);
-    if (!current) return;
+  async deleteKey(dotPath: string, scope: Scope): Promise<void> {
+    await this.write('config.delete', { key: dotPath, scope });
+  }
 
-    const parts = dotPath.split('.');
+  /** Pede ao núcleo que releia os arquivos agora, sem esperar o observador. */
+  async reload(): Promise<void> {
+    if (!this.loaded) return;
+    await this.write('config.reload', {});
+  }
 
-    let cursor: Record<string, unknown> = current;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const key = parts[i];
-      // Validação no ponto de uso: bloqueia __proto__/constructor/prototype
-      // imediatamente antes de indexar.
-      if (!isSafeKey(key)) {
-        throw new Error('Invalid config key: prototype pollution attempt');
-      }
-      const next = cursor[key];
-      if (!isPlainObject(next)) return; // caminho não existe — nada a remover
-      cursor = next;
-    }
-    const leaf = parts[parts.length - 1];
-    if (!isSafeKey(leaf)) {
-      throw new Error('Invalid config key: prototype pollution attempt');
-    }
-    delete cursor[leaf];
+  /** Cria os arquivos `.ban`/`.allow` que ainda não existem. */
+  async ensureNamingFiles(): Promise<void> {
+    await this.write('config.ensureNamingFiles', {});
+  }
 
-    writeJsonFile(filePath, current);
-    this.reload();
+  /** Salva em `path` só os termos que a migração vai mover. */
+  async backupNaming(path: string): Promise<string | null> {
+    this.requireLoaded();
+    const saved = await request<{ path: string | null }>('config.backupNaming', { path });
+    return saved.path;
+  }
+
+  /** Move as listas inline para os arquivos e as tira do JSON. */
+  async migrateNaming(): Promise<NamingMigrationResult> {
+    this.requireLoaded();
+    const done = await request<{ moved: NamingMigrationResult; snapshot: ConfigSnapshot }>(
+      'config.migrateNaming',
+    );
+    this.apply(done.snapshot);
+    return done.moved;
   }
 
   onChange(listener: Listener): { dispose(): void } {
@@ -288,13 +235,29 @@ export class PawnProConfigManager {
     };
   }
 
-  static get defaults(): Readonly<PawnProConfig> {
-    return DEFAULTS;
+  private async write(method: string, params: Record<string, unknown>): Promise<void> {
+    this.requireLoaded();
+    this.apply(await request<ConfigSnapshot>(method, params));
   }
 
-  private notify(): void {
+  /**
+   * Sem núcleo não há quem mescle e grave com segurança: gravar por fora
+   * recriaria o segundo dono da configuração que o núcleo existe para evitar.
+   */
+  private requireLoaded(): void {
+    if (!this.loaded) throw new ConfigUnavailableError();
+  }
+
+  /**
+   * O núcleo avisa a mudança e em seguida responde com o mesmo estado: sem a
+   * comparação, cada escrita chegaria duas vezes a quem assina.
+   */
+  private apply(next: ConfigSnapshot): void {
+    const same = this.snapshot !== null && JSON.stringify(this.snapshot) === JSON.stringify(next);
+    this.snapshot = next;
+    if (same) return;
     for (const fn of this.listeners) {
-      try { fn(this.merged); } catch { /* ignore listener errors */ }
+      try { fn(next.config); } catch { /* um assinante com defeito não cala os outros */ }
     }
   }
 }

@@ -6,6 +6,38 @@ function set(key, value) {
   vscode.postMessage({ type: 'set', key, value });
 }
 
+// Um erro no script da página deixava tudo sem reagir, sem sinal nenhum.
+// Reportado à extensão, ele vai parar no log de diagnóstico.
+window.addEventListener('error', (e) => {
+  vscode.postMessage({
+    type: 'pageError',
+    message: `${e.message} (${e.filename}:${e.lineno})`,
+  });
+});
+
+// Violação de política de segurança não dispara `error`: se o CSP bloquear os
+// manipuladores inline (`onchange="set(...)"`), os controles ficam mudos sem
+// nenhum sinal. É o que este ouvinte torna visível.
+window.addEventListener('securitypolicyviolation', (e) => {
+  vscode.postMessage({
+    type: 'pageError',
+    message: `CSP bloqueou ${e.violatedDirective}: ${e.blockedURI || e.sourceFile || 'inline'}`,
+  });
+});
+
+// Confirma que o script chegou ao fim e que os controles têm a que se ligar.
+window.addEventListener('DOMContentLoaded', () => {
+  vscode.postMessage({
+    type: 'pageReady',
+    controls: document.querySelectorAll('[onchange],[onclick]').length,
+  });
+});
+
+// Botões que pedem uma ação à extensão em vez de gravar configuração.
+function runCommand(command) {
+  vscode.postMessage({ type: 'runCommand', command });
+}
+
 // Detecção automática ligada: o caminho manual é irrelevante (válido é usado,
 // inválido/vazio cai na detecção), então o campo é ocultado.
 function onAutoDetectChange(on) {
@@ -84,7 +116,9 @@ function applyState(cfg) {
   setSelect('output-encoding',   cfg.output?.encoding ?? 'windows1252');
   setCheck('analysis-warnUnusedInInc',          cfg.analysis?.warnUnusedInInc ?? false);
   setCheck('analysis-suppressDiagnosticsInInc', cfg.analysis?.suppressDiagnosticsInInc ?? false);
-  setSelect('analysis-sdk-platform', cfg.analysis?.sdk?.platform ?? 'omp');
+  // `auto` é o padrão da configuração: sem a opção na lista, o seletor mostrava
+  // "open.mp" enquanto a análise seguia no modo automático.
+  setSelect('analysis-sdk-platform', cfg.analysis?.sdk?.platform ?? 'auto');
   setInput('analysis-sdk-filePath',  cfg.analysis?.sdk?.filePath ?? '');
   const fmtPreset = cfg.format?.preset ?? 'allman';
   markPresetCard(fmtPreset);
@@ -115,6 +149,7 @@ function applyState(cfg) {
   setCheck('ui-showIncludePaths',   cfg.ui?.showIncludePaths ?? false);
   setSelect('ui-locale',            cfg.ui?.locale ?? '');
   setSelect('locale',               cfg.locale ?? '');
+  setSelect('diagnostics-level',    cfg.diagnostics?.level ?? 'off');
   setSelect('server-type',          cfg.server?.type ?? 'auto');
   setInput('server-path',           cfg.server?.path ?? '');
   setInput('server-cwd',            cfg.server?.cwd ?? '\${workspaceFolder}');
@@ -420,7 +455,7 @@ function updateRegexStatus(category, settled) {
   }
   input.classList.toggle('invalid', error !== '');
   input.title = error;
-  const warn = document.getElementById('naming-regex-erro-' + category);
+  const warn = document.getElementById('naming-regex-error-' + category);
   if (warn) {
     warn.textContent = error;
     warn.hidden = error === '';
@@ -476,11 +511,11 @@ function updateNamingPreview(category, accepted) {
   el.textContent = lines.join('\\n');
 
   // Sem critério, a caixa de exemplo some e nada explicaria por quê.
-  const empty = document.getElementById('naming-vazio-' + category);
+  const empty = document.getElementById('naming-empty-' + category);
   if (empty) {
     empty.hidden = lines.length > 0;
-    const txt = document.getElementById('naming-vazio-texto-' + category);
-    if (txt) txt.textContent = _i18n.namingSemRegra || '';
+    const txt = document.getElementById('naming-empty-text-' + category);
+    if (txt) txt.textContent = _i18n.namingNoRule || '';
   }
 
   // A caixa mostra um exemplo por critério. Um padrão costuma aceitar mais de
@@ -533,14 +568,14 @@ function regexSamples(category, raw) {
 const MAX_EXAMPLES = Number(document.body.dataset.maxExamples) || 300;
 
 function showPatternExamples(category, raw) {
-  const dlg = document.getElementById('exemplos-modal');
-  const h = document.getElementById('exemplos-modal-titulo');
-  const ul = document.getElementById('exemplos-modal-lista');
-  const counter = document.getElementById('exemplos-modal-conta');
-  const search = document.getElementById('exemplos-modal-busca');
-  const empty = document.getElementById('exemplos-modal-vazio');
-  const cut = document.getElementById('exemplos-modal-corte');
-  const close = document.getElementById('exemplos-modal-fechar');
+  const dlg = document.getElementById('examples-modal');
+  const h = document.getElementById('examples-modal-title');
+  const ul = document.getElementById('examples-modal-list');
+  const counter = document.getElementById('examples-modal-count');
+  const search = document.getElementById('examples-modal-search');
+  const empty = document.getElementById('examples-modal-empty');
+  const cut = document.getElementById('examples-modal-truncated');
+  const close = document.getElementById('examples-modal-close');
   if (!dlg || !h || !ul) return;
 
   h.textContent = raw;
@@ -669,3 +704,71 @@ mainEl.addEventListener('scroll', () => {
     a.classList.toggle('active', a.getAttribute('data-target') === current);
   });
 });
+
+/**
+ * Liga os controles da página por delegação, a partir de atributos `data-*`.
+ *
+ * Antes cada controle trazia o manipulador no próprio HTML
+ * (`onchange="set('ui.accent', this.value)"`). A política de segurança da
+ * WebView bloqueia atributo de evento — nonce não vale para atributo —, e o
+ * resultado era a página inteira muda: o clique não chamava nada e nada era
+ * gravado, sem erro visível.
+ *
+ * O HTML agora só declara a intenção:
+ *
+ *   data-on="change"  o evento que dispara
+ *   data-set="chave"  grava esta chave da configuração
+ *   data-from="..."   de onde sai o valor: value, checked, trim, positiveInt,
+ *                     megabytes; ausente, usa data-value como literal
+ *   data-action="fn"  chama esta ação, com data-args (JSON) e o valor do
+ *                     elemento no fim, quando houver data-from
+ */
+const ACTIONS = {
+  selectPreset,
+  runCommand,
+  openNamingFile,
+  migrateNaming,
+  toggleNamingStyle,
+  onAutoDetectChange,
+  onNamingRegexInput,
+  commitNamingRegex,
+};
+
+function controlValue(el) {
+  switch (el.dataset.from) {
+    case 'checked':     return el.checked;
+    case 'value':       return el.value;
+    case 'trim':        return el.value.trim();
+    case 'positiveInt': return Math.max(1, parseInt(el.value, 10) || 1);
+    // O campo é em megabytes; a configuração guarda bytes.
+    case 'megabytes':   return Math.max(1, parseInt(el.value, 10) || 1) * 1048576;
+    default:            return el.dataset.value;
+  }
+}
+
+function dispatch(e) {
+  const alvo = e.target instanceof Element ? e.target.closest('[data-on]') : null;
+  if (!alvo || !alvo.dataset.on.split(/\s+/).includes(e.type)) return;
+
+  if (alvo.dataset.set !== undefined) {
+    set(alvo.dataset.set, controlValue(alvo));
+    return;
+  }
+
+  const acao = ACTIONS[alvo.dataset.action];
+  if (!acao) {
+    // Um `data-action` sem função é erro de programação, não do usuário: sem
+    // este aviso, o controle ficaria mudo do mesmo jeito que antes.
+    vscode.postMessage({
+      type: 'pageError',
+      message: `ação desconhecida no HTML: ${alvo.dataset.action}`,
+    });
+    return;
+  }
+  const args = alvo.dataset.args ? JSON.parse(alvo.dataset.args) : [];
+  acao(...(alvo.dataset.from ? [...args, controlValue(alvo)] : args));
+}
+
+for (const evento of ['change', 'click', 'input']) {
+  document.addEventListener(evento, dispatch);
+}

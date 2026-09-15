@@ -203,7 +203,7 @@
      que e o que o dialog modal faz por padrao numa pagina comum. */
   /* Recuo proprio, na mesma tecnica do --pad-x da pagina mas em escala menor:
      o do corpo vai a 36px, exagerado dentro de uma caixa de 480px. */
-  .exemplos-modal {
+  .examples-modal {
     --modal-pad: clamp(12px, 4vw, 18px);
     position: fixed;
     inset: 0;
@@ -219,14 +219,14 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     overflow: hidden;
   }
-  .exemplos-modal::backdrop { background: rgba(0, 0, 0, 0.5); }
+  .examples-modal::backdrop { background: rgba(0, 0, 0, 0.5); }
   /* Cabecalho, busca e rodape fixos; so a lista rola. */
-  .exemplos-modal-corpo {
+  .examples-modal-body {
     display: flex;
     flex-direction: column;
     max-height: 80vh;
   }
-  .exemplos-modal-topo {
+  .examples-modal-header {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -237,7 +237,7 @@
      que identifica o que se esta vendo, e some justamente quando e complexo. */
   /* Cabeçalho é para ser lido: cor plena do editor, não a esmaecida de código
      embutido em texto, e um fundo próprio que separa o padrão do resto. */
-  #exemplos-modal-titulo {
+  #examples-modal-title {
     flex: 1;
     min-width: 0;
     padding: 6px 8px;
@@ -253,7 +253,7 @@
   }
   /* Distintivo com a contagem: legível por contraste de fundo, sem depender de
      opacidade — que é o que some contra o fundo escuro do widget. */
-  .exemplos-modal-conta {
+  .examples-modal-count {
     flex: 0 0 auto;
     /* Cabe o maior valor possível — 300/300, sete caracteres — para a largura
        não mudar a cada filtragem e empurrar o campo de busca ao lado. */
@@ -269,13 +269,13 @@
   }
   /* Busca e contagem na mesma faixa: ao lado do padrão, a contagem mudava de
      largura a cada filtragem e empurrava o bloco do regex. */
-  .exemplos-modal .search-box {
+  .examples-modal .search-box {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px var(--modal-pad) 0;
   }
-  .exemplos-modal input.search {
+  .examples-modal input.search {
     flex: 1;
     min-width: 0;
     height: 26px;
@@ -287,11 +287,11 @@
     font-size: 12px;
     outline: none;
   }
-  .exemplos-modal input.search:focus {
+  .examples-modal input.search:focus {
     border-color: var(--vscode-focusBorder);
   }
   /* Mesma rolagem da lista de favoritos: fina, na cor do tema, sem trilho. */
-  .exemplos-modal ul {
+  .examples-modal ul {
     margin: 0;
     padding: 6px var(--modal-pad) 10px;
     overflow-y: auto;
@@ -302,28 +302,28 @@
     scrollbar-width: thin;
     scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
   }
-  .exemplos-modal ul::-webkit-scrollbar { width: 10px; }
-  .exemplos-modal ul::-webkit-scrollbar-track { background: transparent; }
-  .exemplos-modal ul::-webkit-scrollbar-thumb {
+  .examples-modal ul::-webkit-scrollbar { width: 10px; }
+  .examples-modal ul::-webkit-scrollbar-track { background: transparent; }
+  .examples-modal ul::-webkit-scrollbar-thumb {
     background: var(--vscode-scrollbarSlider-background);
     border: 3px solid transparent;
     border-radius: 6px;
     background-clip: content-box;
   }
-  .exemplos-modal ul::-webkit-scrollbar-thumb:hover {
+  .examples-modal ul::-webkit-scrollbar-thumb:hover {
     background: var(--vscode-scrollbarSlider-hoverBackground);
     background-clip: content-box;
   }
-  .exemplos-modal li {
+  .examples-modal li {
     padding: 4px 0;
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 0.95em;
     overflow-wrap: anywhere;
   }
-  .exemplos-modal li + li {
+  .examples-modal li + li {
     border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.12));
   }
-  .exemplos-modal-vazio {
+  .examples-modal-empty {
     margin: 0;
     padding: 16px var(--modal-pad);
     text-align: center;
@@ -332,7 +332,7 @@
   }
   /* Aviso de corte: e um AVISO, entao usa as cores de aviso do editor e uma
      faixa propria. Como texto secundario ele sumia contra o fundo do widget. */
-  .exemplos-modal-corte {
+  .examples-modal-truncated {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -346,7 +346,7 @@
     font-size: 0.85em;
     line-height: 1.4;
   }
-  .exemplos-modal-corte::before {
+  .examples-modal-truncated::before {
     content: '!';
     flex: 0 0 auto;
     display: inline-flex;
@@ -360,13 +360,13 @@
     font-size: 11px;
     font-weight: 700;
   }
-  .exemplos-modal-rodape {
+  .examples-modal-footer {
     display: flex;
     justify-content: flex-end;
     padding: 10px var(--modal-pad) var(--modal-pad);
     border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
   }
-  .exemplos-modal button {
+  .examples-modal button {
     padding: 6px 18px;
     border: 0;
     border-radius: 3px;
@@ -375,13 +375,13 @@
     font: inherit;
     cursor: pointer;
   }
-  .exemplos-modal button:hover {
+  .examples-modal button:hover {
     background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
   }
   /* Categoria sem criterio nenhum: no lugar do exemplo, diz o que isso
      significa. Mesma ideia do estado vazio da lista de favoritos: um icone que
      situa e uma linha curta. */
-  .naming-vazio {
+  .naming-empty {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -389,7 +389,7 @@
     font-size: 0.8rem;
     color: var(--vscode-descriptionForeground);
   }
-  .naming-vazio svg {
+  .naming-empty svg {
     flex: 0 0 auto;
     width: 14px;
     height: 14px;
@@ -402,7 +402,7 @@
   /* Coluna propria: a grade dos estilos usa grid-auto-flow column com linhas
      fixas, entao um filho a mais entrava no fluxo das colunas e empurrava um
      botao para fora. O erro fica ABAIXO dela, nao dentro. */
-  .regex-erro {
+  .regex-error {
     display: flex;
     align-items: flex-start;
     gap: 6px;
@@ -416,7 +416,7 @@
     line-height: 1.45;
     color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, #f14c4c));
   }
-  .regex-erro::before {
+  .regex-error::before {
     content: '!';
     flex: 0 0 auto;
     display: inline-flex;

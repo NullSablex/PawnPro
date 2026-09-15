@@ -173,6 +173,13 @@ export interface PawnProConfig {
   analysis: AnalysisConfig;
   format: FormatConfig;
   locale: string;
+  diagnostics: DiagnosticsConfig;
+}
+
+/** Registro de diagnóstico em arquivo. Desligado por padrão. */
+export interface DiagnosticsConfig {
+  /** `off`, `error`, `warn` ou `info`. */
+  level: string;
 }
 
 export interface ServerState {

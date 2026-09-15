@@ -20,5 +20,8 @@
   "debug.server": "Caminho do executável do servidor (SA-MP/open.mp). Vazio: usa a detecção automática da extensão.",
   "debug.cwd": "Diretório de trabalho ao iniciar o servidor para depuração.",
   "debug.session": "Identificador da sessão de depuração (socket local entre o adaptador e o plugin). Gerado automaticamente se vazio.",
-  "debug.stopOnEntry": "Pausar logo na entrada do script."
+  "debug.stopOnEntry": "Pausar logo na entrada do script.",
+  "pawnpro.diagnostics.setLevel": "Nível do diagnóstico",
+  "pawnpro.diagnostics.openLog": "Abrir o log de diagnóstico",
+  "pawnpro.diagnostics.clear": "Apagar o log de diagnóstico"
 }

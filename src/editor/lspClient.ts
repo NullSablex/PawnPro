@@ -1,142 +1,59 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as net from 'net';
 import * as vscode from 'vscode';
 import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
-  TransportKind,
+  StreamInfo,
 } from 'vscode-languageclient/node';
 import type { PawnProConfigManager } from '../core/config.js';
-import { buildIncludePaths } from '../core/includes.js';
-import { resolveLocale } from './locale.js';
+import { request, startCore } from '../core/client.js';
 
-export function resolveSdkFilePath(
-  platform: string,
-  configuredPath: string,
-  includePaths: string[],
-  workspaceRoot: string,
-): string | null {
-  if (platform === 'none') return null;
-
-  if (configuredPath) {
-    return fs.existsSync(configuredPath) ? configuredPath : null;
-  }
-
-  if (platform === 'omp' || platform === 'auto') {
-    const wsDefault = path.join(workspaceRoot, 'qawno', 'include', 'open.mp.inc');
-    if (fs.existsSync(wsDefault)) return wsDefault;
-    for (const dir of includePaths) {
-      const candidate = path.join(dir, 'open.mp.inc');
-      if (fs.existsSync(candidate)) return candidate;
-    }
-  }
-
-  return null;
-}
+/**
+ * A engine não é mais um processo à parte: ela vive dentro do core, que a
+ * hospeda num soquete local e é quem lhe entrega a configuração. Aqui só
+ * pedimos o endereço e ligamos o cliente nele — nada de
+ * `initializationOptions`, que a engine passou a ignorar de propósito para não
+ * haver duas fontes.
+ */
 
 let client: LanguageClient | null = null;
 let savedContext: vscode.ExtensionContext | null = null;
 let savedConfig: PawnProConfigManager | null = null;
 let savedWorkspaceRoot: string | undefined;
 
-type EngineSettings = { resolvedPaths: string[]; sdkFilePath: string };
-
-function buildEngineSettings(
-  cfg: ReturnType<import('../core/config.js').PawnProConfigManager['getAll']>,
-  workspaceRoot: string | undefined,
-): EngineSettings {
-  const resolvedPaths = buildIncludePaths(cfg, workspaceRoot ?? '');
-  const sdkFilePath = resolveSdkFilePath(
-    cfg.analysis.sdk.platform,
-    cfg.analysis.sdk.filePath,
-    resolvedPaths,
-    workspaceRoot ?? '',
-  ) ?? '';
-  return { resolvedPaths, sdkFilePath };
-}
-
-
-/**
- * Opções de formatação enviadas à engine. O preset é sempre enviado; os ajustes
- * finos só acompanham quando o preset é `custom` — presets prontos definem seus
- * próprios valores na engine.
- */
-function buildFormatOptions(
-  cfg: ReturnType<PawnProConfigManager['getAll']>,
-): Record<string, unknown> {
-  const fmt = cfg.format;
-  const opts: Record<string, unknown> = { formatPreset: fmt.preset };
-  if (fmt.preset === 'custom') {
-    opts.formatBraceStyle = fmt.braceStyle;
-    opts.formatSpaceAroundOperators = fmt.spaceAroundOperators;
-    opts.formatEmptyBlockSameLine = fmt.emptyBlockSameLine;
-  }
-  // Ortogonal ao preset: vale para Allman/K&R/Compacto/Custom.
-  opts.formatPreserveArrayAlignment = fmt.preserveArrayAlignment;
-  return opts;
-}
-
-/**
- * Configuração do assistente de nomes enviada à engine como objeto aninhado
- * `naming`. A engine desserializa direto na sua `NamingConfig` (chaves camelCase),
- * então o formato deve espelhar `core/types.ts:NamingConfig`.
- */
-function buildNamingOptions(
-  cfg: ReturnType<PawnProConfigManager['getAll']>,
-): Record<string, unknown> {
-  return { naming: cfg.analysis.naming };
-}
-
-function findBinary(context: vscode.ExtensionContext): string | null {
-  const ext      = process.platform === 'win32' ? '.exe' : '';
-  const name     = `pawnpro-engine${ext}`;
-  const artifact = `pawnpro-engine-${process.platform}-${process.arch}${ext}`;
-
-  const candidates = [
-    path.join(context.extensionPath, 'engines', artifact),
-    path.join(context.extensionPath, '..', 'pawnpro-engine', 'target', 'debug', name),
-    path.join(context.extensionPath, '..', 'pawnpro-engine', 'target', 'release', name),
-  ];
-
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-  return null;
-}
-
 export async function startLspClient(
   context: vscode.ExtensionContext,
   config: PawnProConfigManager,
   workspaceRoot: string | undefined,
 ): Promise<boolean> {
-  const binaryPath = findBinary(context);
-
-  if (!binaryPath) {
-    console.log('[PawnPro] engine binary not found — IntelliSense unavailable');
-    return false;
-  }
-
-  console.log(`[PawnPro] engine found: ${binaryPath}`);
-
   savedContext = context;
   savedConfig = config;
   savedWorkspaceRoot = workspaceRoot;
 
-  if (process.platform !== 'win32') {
-    // O binário pode já estar executável, ou ser de outro dono — quem diz se
-    // dá para usá-lo é o spawn logo abaixo, não este chmod.
-    try { fs.chmodSync(binaryPath, 0o755); } catch { /* sem permissão para ajustar */ }
+  if (!startCore(context.extensionPath)) {
+    console.log('[PawnPro] core não encontrado — IntelliSense indisponível');
+    return false;
   }
 
-  const cfg = config.getAll();
-  const { resolvedPaths, sdkFilePath } = buildEngineSettings(cfg, workspaceRoot);
+  let address: string;
+  try {
+    // O core lê a configuração do projeto e a entrega à engine antes de ela
+    // começar a atender; quando esta chamada volta, já está tudo no lugar.
+    const started = await request<{ address: string }>('engine.start', {
+      workspaceRoot: workspaceRoot ?? '',
+      editorLanguage: vscode.env.language,
+    });
+    address = started.address;
+  } catch (e) {
+    console.error('[PawnPro] o core recusou subir a engine:', e);
+    return false;
+  }
 
-  const serverOptions: ServerOptions = {
-    run:   { command: binaryPath, transport: TransportKind.stdio },
-    debug: { command: binaryPath, transport: TransportKind.stdio },
+  const serverOptions: ServerOptions = () => {
+    const socket = net.connect(address);
+    const info: StreamInfo = { reader: socket, writer: socket };
+    return Promise.resolve(info);
   };
 
   const clientOptions: LanguageClientOptions = {
@@ -144,29 +61,14 @@ export async function startLspClient(
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{pwn,inc,p,pawn}'),
     },
-    initializationOptions: {
-      workspaceFolder: workspaceRoot ?? '',
-      includePaths: resolvedPaths,
-      warnUnusedInInc: cfg.analysis.warnUnusedInInc,
-      suppressDiagnosticsInInc: cfg.analysis.suppressDiagnosticsInInc,
-      sdkFilePath,
-      locale: resolveLocale(cfg),
-      ...buildFormatOptions(cfg),
-      ...buildNamingOptions(cfg),
-    },
     progressOnInitialization: false,
   };
 
-  client = new LanguageClient(
-    'pawnpro-engine',
-    'PawnPro Engine',
-    serverOptions,
-    clientOptions,
-  );
+  client = new LanguageClient('pawnpro-engine', 'PawnPro Engine', serverOptions, clientOptions);
 
   context.subscriptions.push(client);
   await client.start();
-  console.log('[PawnPro] LSP engine started');
+  console.log(`[PawnPro] engine atendendo em ${address}`);
   return true;
 }
 
@@ -182,24 +84,4 @@ export async function restartLspClient(): Promise<void> {
   await client.stop();
   client = null;
   await startLspClient(savedContext, savedConfig, savedWorkspaceRoot);
-}
-
-export function sendConfigurationToEngine(
-  config: PawnProConfigManager,
-  workspaceRoot: string | undefined,
-): void {
-  if (!client) return;
-  const cfg = config.getAll();
-  const { resolvedPaths, sdkFilePath } = buildEngineSettings(cfg, workspaceRoot);
-  void client.sendNotification('workspace/didChangeConfiguration', {
-    settings: {
-      includePaths: resolvedPaths,
-      warnUnusedInInc: cfg.analysis.warnUnusedInInc,
-      suppressDiagnosticsInInc: cfg.analysis.suppressDiagnosticsInInc,
-      sdkFilePath,
-      locale: resolveLocale(cfg),
-      ...buildFormatOptions(cfg),
-      ...buildNamingOptions(cfg),
-    },
-  });
 }

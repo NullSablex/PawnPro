@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { detectPawncc, buildCompileArgs, runCompile } from '../core/compiler.js';
-import { computeMinimalArgs, detectSupportedFlags } from '../core/flags.js';
 import { PawnProConfigManager } from '../core/config.js';
 import { getWorkspaceRoot } from './configBridge.js';
 import { msg } from './nls.js';
+import { logError, logInfo } from '../core/logger.js';
 
 let buildChannel: vscode.OutputChannel | undefined;
 function getBuildChannel(context: vscode.ExtensionContext): vscode.OutputChannel {
@@ -25,8 +25,8 @@ export function registerCompileCommand(
       try {
         const cfg = config.getAll();
         const ws = getWorkspaceRoot();
-        const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
-        config.setKey('compiler.path', exe, 'project');
+        const exe = await detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
+        await config.setKey('compiler.path', exe, 'project');
         vscode.window.showInformationMessage(msg.compiler.detected(exe));
       } catch (err: unknown) {
         vscode.window.showErrorMessage(err instanceof Error ? err.message : String(err));
@@ -59,7 +59,6 @@ export function registerCompileCommand(
       channel.show(true);
 
       const cfg = config.getAll();
-      const ws = getWorkspaceRoot();
 
       await vscode.window.withProgress(
         {
@@ -68,22 +67,17 @@ export function registerCompileCommand(
           cancellable: false,
         },
         async () => {
-          const compileArgs = buildCompileArgs({
-            config: cfg,
-            filePath,
-            workspaceRoot: ws,
-          });
+          const { args: compileArgs, presetArgs } = await buildCompileArgs({ filePath });
 
           for (const flag of compileArgs.removedFlags) {
             channel.appendLine(`[PawnPro] Removendo flag não suportada para este pawncc: ${flag}`);
           }
 
-          if (cfg.compiler.args.length === 0) {
-            const exe = detectPawncc(cfg.compiler.path || undefined, cfg.compiler.autoDetect, ws);
-            const supported = detectSupportedFlags(exe);
-            const preset = computeMinimalArgs(supported);
-            config.setKey('compiler.args', preset, 'project');
-            channel.appendLine(`[PawnPro] Nenhum argumento configurado. Aplicando preset mínimo: ${preset.join(' ')}`);
+          // O núcleo montou com o preset porque a configuração não trazia
+          // argumentos; gravá-lo deixa à vista o que passou a valer.
+          if (presetArgs) {
+            await config.setKey('compiler.args', presetArgs, 'project');
+            channel.appendLine(`[PawnPro] Nenhum argumento configurado. Aplicando preset mínimo: ${presetArgs.join(' ')}`);
           }
 
           if (cfg.build.showCommand) {
@@ -92,6 +86,7 @@ export function registerCompileCommand(
             channel.appendLine(`[PawnPro] ${show(compileArgs.exe)} ${compileArgs.args.map(show).join(' ')}`);
           }
 
+          logInfo('compiler', `compilando ${baseName} com ${compileArgs.exe} ${compileArgs.args.join(' ')}`);
           const result = await runCompile(
             compileArgs.exe,
             compileArgs.args,
@@ -102,14 +97,18 @@ export function registerCompileCommand(
           channel.append(result.output);
 
           if (result.exitCode === 0) {
+            logInfo('compiler', `${baseName} compilado`);
             vscode.window.showInformationMessage(msg.compiler.success(baseName));
           } else {
+            logError('compiler', `${baseName} falhou (código ${result.exitCode})`);
             vscode.window.showErrorMessage(msg.compiler.failed(baseName));
           }
         },
       );
     } catch (err: unknown) {
-      vscode.window.showErrorMessage(`${msg.compiler.compilerNotFound('')}: ${err instanceof Error ? err.message : String(err)}`);
+      const detail = err instanceof Error ? err.message : String(err);
+      logError('compiler', `a compilação não chegou a rodar: ${detail}`);
+      vscode.window.showErrorMessage(`${msg.compiler.compilerNotFound('')}: ${detail}`);
     } finally {
       compilingFiles.delete(filePath);
     }
