@@ -11,7 +11,8 @@ permissions: {}
 jobs:
   greeting:
     name: Greet first-time contributors
-    # Não saúda bots (ex.: dependabot[bot]): a saudação é para novos contribuidores humanos.
+    # Bot nenhum é saudado. O filtro vale também dentro do script, pelo tipo da
+    # conta, que não depende do sufixo `[bot]` no nome.
     if: ${{ !endsWith(github.actor, '[bot]') }}
     runs-on: ubuntu-latest
     permissions:
@@ -19,10 +20,12 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          issue_message: |
+      # O `actions/first-interaction` saudava a mesma pessoa a cada issue ou PR,
+      # inclusive o dono do repositório. A verificação aqui é explícita: só quem
+      # não é membro do projeto, e só na primeira issue ou no primeiro PR dela.
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ISSUE_MESSAGE: |
             Olá! 👋
 
             Obrigado por abrir sua primeira *issue* neste repositório. 🎉
@@ -34,7 +37,7 @@ jobs:
             - Comentar caso tenha mais detalhes para adicionar.
 
             Valeu pela contribuição! 🙌
-          pr_message: |
+          PR_MESSAGE: |
             Olá! 👋
 
             Muito obrigado pelo seu primeiro *pull request* neste repositório. 🎉
@@ -43,6 +46,37 @@ jobs:
             Enquanto isso, confira se:
             - O PR está ligado a alguma issue (se aplicável);
             - A descrição explica bem o que foi feito;
-            - Todos os testes estão passando.
+            - `npm run compile` e `npm test` passam.
 
             Agradecemos demais sua contribuição. 🙌
+        with:
+          script: |
+            const isPr = context.eventName === 'pull_request_target';
+            const item = isPr ? context.payload.pull_request : context.payload.issue;
+            const author = item.user;
+
+            if (author.type === 'Bot') return;
+            // Dono, membros e colaboradores não estão chegando agora.
+            if (['OWNER', 'MEMBER', 'COLLABORATOR'].includes(item.author_association)) return;
+
+            // A listagem de issues traz os PRs junto; `pull_request` distingue.
+            // Uma página basta: com qualquer outro item do mesmo tipo, não é a
+            // primeira vez.
+            const { data } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              creator: author.login,
+              state: 'all',
+              per_page: 100,
+            });
+            const earlier = data.some(
+              (other) => other.number !== item.number && Boolean(other.pull_request) === isPr,
+            );
+            if (earlier) return;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: item.number,
+              body: isPr ? process.env.PR_MESSAGE : process.env.ISSUE_MESSAGE,
+            });
