@@ -4,10 +4,10 @@ Mapa de como iniciar, parar e reiniciar funcionam nos dois painéis, e por quê.
 Serve para revisar mudanças sem reabrir a investigação toda: os laços, os
 critérios de decisão e as armadilhas já conhecidas.
 
-Arquivos: [`src/editor/server.ts`](../src/editor/server.ts),
-[`src/editor/serverRegistry.ts`](../src/editor/serverRegistry.ts),
-[`src/editor/debugAdapter.ts`](../src/editor/debugAdapter.ts),
-[`src/core/debugCycle.ts`](../src/core/debugCycle.ts).
+Arquivos: [`src/editor/server.ts`](https://github.com/NullSablex/PawnPro/blob/master/src/editor/server.ts),
+[`src/editor/serverRegistry.ts`](https://github.com/NullSablex/PawnPro/blob/master/src/editor/serverRegistry.ts),
+[`src/editor/debugAdapter.ts`](https://github.com/NullSablex/PawnPro/blob/master/src/editor/debugAdapter.ts),
+[`src/core/debugCycle.ts`](https://github.com/NullSablex/PawnPro/blob/master/src/core/debugCycle.ts).
 Adaptador DAP: `crates/debugger/adapter/` no repositório irmão `pawnpro-core`.
 
 ---
