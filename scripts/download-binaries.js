@@ -6,9 +6,10 @@
 //   os processos do servidor e responde ao RCON — sem ele a extensão abre, mas
 //   sem IntelliSense, painel do servidor nem compilação. Um binário por
 //   plataforma do host. A engine deixou de ter release própria: virou uma
-//   biblioteca dentro do core.
-// O adaptador de depuração saiu: ele está sendo migrado para dentro do core,
-// como a engine já foi. Enquanto isso, o VSIX traz um binário só.
+//   biblioteca dentro do core, e o adaptador de depuração também.
+//   Junto dos binários vem `pawnpro-core-THIRD-PARTY.txt`, com as licenças das
+//   bibliotecas Rust compiladas neles: redistribuir o binário obriga a levar
+//   os avisos junto.
 //
 // Uso:
 //   node scripts/download-binaries.js                 # plataforma atual
@@ -32,8 +33,8 @@ const pkg = JSON.parse(
   fs.readFileSync(path.join(import.meta.dirname, '..', 'package.json'), 'utf8'),
 );
 
-const enginesDir = path.join(import.meta.dirname, '..', 'engines');
-fs.mkdirSync(enginesDir, { recursive: true });
+const binDir = path.join(import.meta.dirname, '..', 'bin');
+fs.mkdirSync(binDir, { recursive: true });
 
 /** Definição de cada componente. `optional` = não quebra o build se faltar. */
 const COMPONENTS = [
@@ -53,6 +54,8 @@ const COMPONENTS = [
       { platform: 'win32',  arch: 'x64',   artifact: 'pawnpro-core-win32-x64.exe'       },
       { platform: 'darwin', arch: 'x64',   artifact: 'pawnpro-core-darwin-x64'          },
       { platform: 'darwin', arch: 'arm64', artifact: 'pawnpro-core-darwin-arm64'        },
+      // Vale para qualquer plataforma: acompanha todo binário empacotado.
+      { platform: '*',      arch: '*',     artifact: 'pawnpro-core-THIRD-PARTY.txt', notice: true },
     ],
   },
 ];
@@ -70,13 +73,17 @@ function argValue(flag) {
 /** Resolve os alvos de um componente conforme os argumentos de linha de comando. */
 function resolveTargets(component) {
   if (artifactArg) {
-    return component.targets.filter(t => t.artifact === artifactArg);
+    const chosen = component.targets.filter(t => t.artifact === artifactArg);
+    // Pedir um binário traz os avisos junto: o VSIX de uma plataforma também
+    // redistribui as bibliotecas compiladas nele.
+    const notices = chosen.some(t => !t.notice) ? component.targets.filter(t => t.notice) : [];
+    return [...chosen, ...notices];
   }
   if (downloadAll) {
     return component.targets;
   }
   return component.targets.filter(
-    t => t.platform === process.platform && t.arch === process.arch,
+    t => t.notice || (t.platform === process.platform && t.arch === process.arch),
   );
 }
 
@@ -188,7 +195,7 @@ async function processComponent(component) {
     return;
   }
   console.log(`${tag} ${label(component)} v${component.version}`);
-  if (!downloadAll && !artifactArg && targets.length === 0) {
+  if (!downloadAll && !artifactArg && targets.every(t => t.notice)) {
     console.warn(`${tag} Plataforma não suportada: ${process.platform}-${process.arch}`);
     return;
   }
@@ -199,9 +206,9 @@ async function processComponent(component) {
   const baseUrl = `https://github.com/${repoPath}/releases/download/v${component.version}`;
 
   const pending = targets.filter(t => {
-    const dest = path.join(enginesDir, t.artifact);
+    const dest = path.join(binDir, t.artifact);
     if (fs.existsSync(dest)) {
-      console.log(`${tag} Já existe: engines/${t.artifact} — pulando`);
+      console.log(`${tag} Já existe: bin/${t.artifact} — pulando`);
       return false;
     }
     return true;
@@ -233,7 +240,7 @@ async function processComponent(component) {
   }
 
   for (const target of pending) {
-    const dest = path.join(enginesDir, target.artifact);
+    const dest = path.join(binDir, target.artifact);
     const url = `${baseUrl}/${target.artifact}`;
     console.log(`${tag} Baixando ${target.artifact} (${target.platform}-${target.arch})...`);
     console.log(`  ${url}`);
@@ -264,10 +271,10 @@ async function processComponent(component) {
     }
     console.log(`${tag} checksum ok: ${target.artifact}`);
 
-    if (target.platform !== 'win32') {
+    if (!target.notice && target.platform !== 'win32') {
       fs.chmodSync(dest, 0o755);
     }
-    console.log(`${tag} Salvo: engines/${target.artifact}`);
+    console.log(`${tag} Salvo: bin/${target.artifact}`);
   }
 }
 

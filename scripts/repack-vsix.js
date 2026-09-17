@@ -2,7 +2,7 @@
  * repack-vsix.js
  *
  * Pós-processamento do VSIX gerado pelo vsce:
- * - Injeta os binários do motor Rust (engines/) na pasta extension/engines/
+ * - Injeta os binários nativos (bin/) na pasta extension/bin/
  *
  * Nota: as dependências JS (o cliente LSP, etc.) já estão embutidas no bundle
  * gerado pelo esbuild (out/editor/extension.js), portanto não precisam ser
@@ -33,24 +33,31 @@ async function main() {
   const buf = fs.readFileSync(vsixPath);
   const zip = await JSZip.loadAsync(buf);
 
-  // Binários do motor Rust (engines/ → extension/engines/)
-  const enginesDir = path.join(cwd, 'engines');
-  if (fs.existsSync(enginesDir)) {
-    const binaries = fs.readdirSync(enginesDir).filter(f => !f.startsWith('.'));
+  // Binários nativos (bin/ → extension/bin/)
+  const binDir = path.join(cwd, 'bin');
+  if (fs.existsSync(binDir)) {
+    const binaries = fs.readdirSync(binDir).filter(f => !f.startsWith('.'));
     if (binaries.length === 0) {
-      console.warn('[repack] Pasta engines/ está vazia — nenhum binário incluído');
+      console.warn('[repack] Pasta bin/ está vazia — nenhum binário incluído');
+    }
+    // O binário do core leva bibliotecas de terceiros compiladas nele, e as
+    // licenças delas exigem que os avisos acompanhem a redistribuição.
+    const NOTICES = 'pawnpro-core-THIRD-PARTY.txt';
+    if (binaries.some(b => b.startsWith('pawnpro-core-') && b !== NOTICES) && !binaries.includes(NOTICES)) {
+      console.error(`[repack] bin/${NOTICES} ausente: o VSIX não pode sair sem os avisos de licença do core`);
+      process.exit(1);
     }
     for (const bin of binaries) {
-      const src = path.join(enginesDir, bin);
-      const dest = path.posix.join('extension', 'engines', bin);
+      const src = path.join(binDir, bin);
+      const dest = path.posix.join('extension', 'bin', bin);
       // `unixPermissions` é obrigatório: sem isto o JSZip grava a entrada com
       // o modo padrão, o bit de execução se perde, e o editor não consegue
       // lançar o binário — a depuração falha com "permissão negada".
-      zip.file(dest, fs.readFileSync(src), { unixPermissions: 0o755 });
-      console.log(`[repack] Binário empacotado: engines/${bin}`);
+      zip.file(dest, fs.readFileSync(src), { unixPermissions: bin.endsWith('.txt') ? 0o644 : 0o755 });
+      console.log(`[repack] Empacotado: bin/${bin}`);
     }
   } else {
-    console.warn('[repack] Pasta engines/ não encontrada — motor Rust não incluído no VSIX');
+    console.warn('[repack] Pasta bin/ não encontrada — núcleo não incluído no VSIX');
   }
 
   // `platform: 'UNIX'` é o que faz o JSZip gravar de fato os `unixPermissions`

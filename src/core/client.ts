@@ -48,9 +48,8 @@ function findBinary(extensionPath: string): string | null {
   const name = `pawnpro-core${ext}`;
   const artifact = `pawnpro-core-${process.platform}-${process.arch}${ext}`;
 
-  // O empacotado no VSIX é o que vale quando existe. `engines/` é a pasta dos
-  // binários nativos — o nome vem de quando a engine era o único deles.
-  const packaged = path.join(extensionPath, 'engines', artifact);
+  // O empacotado no VSIX, em `bin/`, é o que vale quando existe.
+  const packaged = path.join(extensionPath, 'bin', artifact);
   if (fs.existsSync(packaged)) return packaged;
 
   // Durante o desenvolvimento, o core compilado no repositório vizinho. Entre

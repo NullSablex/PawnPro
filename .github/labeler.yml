@@ -14,7 +14,7 @@
       - any-glob-to-any-file:
           - "src/editor/lspClient.ts"
           - "src/editor/debugAdapter.ts"
-          - "engines/**"
+          - "bin/**"
 
 i18n:
   - changed-files:
