@@ -15,7 +15,8 @@ import * as readline from 'readline';
 type Pending = {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
-  timer: NodeJS.Timeout;
+  /** Ausente nos pedidos sem teto. */
+  timer: NodeJS.Timeout | undefined;
 };
 
 /**
@@ -166,10 +167,18 @@ export function coreIsRunning(): boolean {
 /**
  * Chama um método do core.
  *
+ * `timeoutMs: null` tira o teto: para o que tem duração legítima sem limite,
+ * como compilar um gamemode grande — cortar no meio mostraria falha de uma
+ * compilação que deu certo.
+ *
  * @throws {CoreError} quando o core recusa a chamada.
  * @throws {Error} quando o core não está de pé.
  */
-export function request<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+export function request<T>(
+  method: string,
+  params: Record<string, unknown> = {},
+  options: { timeoutMs?: number | null } = {},
+): Promise<T> {
   if (!child) {
     return Promise.reject(new Error('o core não está em execução'));
   }
@@ -177,12 +186,16 @@ export function request<T>(method: string, params: Record<string, unknown> = {})
   const message = JSON.stringify({ jsonrpc: '2.0', id, method, params });
 
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pending.delete(id);
-      reject(new Error(`o core não respondeu a \`${method}\` em ${REQUEST_TIMEOUT_MS} ms`));
-    }, REQUEST_TIMEOUT_MS);
+    const limit = options.timeoutMs === undefined ? REQUEST_TIMEOUT_MS : options.timeoutMs;
+    const timer =
+      limit === null
+        ? undefined
+        : setTimeout(() => {
+            pending.delete(id);
+            reject(new Error(`o core não respondeu a \`${method}\` em ${limit} ms`));
+          }, limit);
     // Um pedido pendente não pode segurar o editor aberto no encerramento.
-    timer.unref?.();
+    timer?.unref?.();
 
     pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
     child?.stdin.write(`${message}\n`, (err) => {

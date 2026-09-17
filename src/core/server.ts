@@ -1,35 +1,9 @@
 import * as path from 'path';
-import * as fs from 'fs';
-import * as fsp from 'fs/promises';
-import * as iconv from 'iconv-lite';
 import { request } from './client.js';
-import type { SampCfgData, OutputSink, PawnProConfig } from './types.js';
+import type { SampCfgData, OutputSink } from './types.js';
 
 function stripQuotes(p: string): string {
   return path.normalize(p.trim().replace(/^["']|["']$/g, ''));
-}
-
-const SERVER_NAMES = process.platform === 'win32'
-  ? ['omp-server.exe', 'samp-server.exe', 'samp03svr.exe']
-  : ['omp-server', 'samp03svr', 'samp-server'];
-
-export async function detectServerExecutable(workspaceRoot: string): Promise<string | null> {
-  return request<string | null>('server.detectExecutable', { workspaceRoot });
-}
-
-
-/**
- * Decide se `cwd` é um servidor open.mp ou SA-MP.
- *
- * A presença de `config.json` sozinha não decide: o open.mp só o gera na
- * primeira execução (antes disso o diretório parece SA-MP), e outras
- * ferramentas usam esse nome para os próprios arquivos (fazendo um servidor
- * SA-MP parecer open.mp). Daí a ordem abaixo, do sinal mais forte ao mais
- * fraco — o executável é inequívoco, o `config.json` só conta quando tem a
- * cara do arquivo do open.mp.
- */
-export async function detectServerType(cwd: string): Promise<'samp' | 'omp'> {
-  return request<'samp' | 'omp'>('server.detectType', { cwd });
 }
 
 export async function loadServerConfig(
@@ -37,18 +11,6 @@ export async function loadServerConfig(
   serverType: import('./types.js').ServerType = 'auto',
 ): Promise<SampCfgData> {
   return request<SampCfgData>('server.loadConfig', { cwd, type: serverType });
-}
-
-async function readRange(filePath: string, start: number, end: number): Promise<Buffer> {
-  const fh = await fsp.open(filePath, 'r');
-  try {
-    const len = Math.max(0, end - start);
-    const buf = Buffer.allocUnsafe(len);
-    const { bytesRead } = await fh.read(buf, 0, len, start);
-    return bytesRead === len ? buf : buf.subarray(0, bytesRead);
-  } finally {
-    await fh.close();
-  }
 }
 
 const LOG_POLL_INTERVAL_MS = 100;
@@ -59,7 +21,7 @@ export class LogTailer {
   private reading = false;
   private file = '';
   private lastSize = 0;
-  private decode = (b: Buffer) => iconv.decode(b, 'windows1252');
+  private encoding = 'windows1252';
 
   private followMode: 'visible' | 'always' | 'off' = 'visible';
   private assumeVisible = false;
@@ -103,11 +65,12 @@ export class LogTailer {
   async start(filePath: string, encoding: string) {
     this.stop();
     this.file = stripQuotes(filePath);
-    this.decode = (b: Buffer) => iconv.decode(b, encoding || 'windows1252');
+    this.encoding = encoding || 'windows1252';
 
+    // Começa do fim: abrir o painel não deve despejar o log de execuções
+    // anteriores. Quem lê e decodifica é o núcleo.
     try {
-      const st = await fsp.stat(this.file);
-      this.lastSize = st.size;
+      this.lastSize = (await readLog(this.file, null, this.encoding)).size;
     } catch { this.lastSize = 0; }
 
     // Sem `clear()`: este sink é compartilhado com a saída do RCON, e apagá-lo
@@ -122,15 +85,12 @@ export class LogTailer {
       this.reading = true;
 
       try {
-        const st = await fsp.stat(this.file).catch(() => null);
-        if (st && typeof st.size === 'number') {
-          if (st.size < this.lastSize) {
-            this.lastSize = st.size;
-          } else if (st.size > this.lastSize) {
-            const buf = await readRange(this.file, this.lastSize, st.size);
-            if (buf.length) this.append(this.decode(buf));
-            this.lastSize = st.size;
-          }
+        // Um log recriado pelo servidor ao reiniciar recomeça do início no
+        // núcleo: o que está lá é o log novo, e não pode ser pulado.
+        const chunk = await readLog(this.file, this.lastSize, this.encoding).catch(() => null);
+        if (chunk) {
+          if (chunk.text) this.append(chunk.text);
+          this.lastSize = chunk.size;
         }
       } finally {
         this.reading = false;
@@ -148,9 +108,6 @@ export class LogTailer {
     this.assumeVisible = false;
   }
 }
-
-/** Limite de cada campo do pacote: o protocolo escreve o tamanho em 16 bits. */
-const RCON_FIELD_MAX = 0xFFFF;
 
 /**
  * `true` se o endereço é a própria máquina.
@@ -244,49 +201,49 @@ export class SampRconClient {
   }
 }
 
-export async function resolveServerConfig(config: PawnProConfig['server'], workspaceRoot: string) {
-  const serverType = config.type ?? 'auto';
-
-  let exe = config.path;
-  if (!exe) {
-    exe = (await detectServerExecutable(workspaceRoot)) || '';
-  }
-
-  let cwd = config.cwd || workspaceRoot;
-  if (exe && !config.cwd) {
-    cwd = path.dirname(exe);
-  }
-
-  let logPath = config.logPath || '';
-  if (!logPath && cwd) {
-    logPath = await resolveLogPath(cwd, serverType);
-  }
-
-  return {
-    exe,
-    cwd,
-    args: config.args,
-    clearOnStart: config.clearOnStart,
-    logPath,
-    logEncoding: (config.logEncoding || 'windows1252').toLowerCase(),
-    follow: config.output.follow,
-  };
+/** O servidor como o núcleo o resolve a partir da configuração do projeto. */
+export interface ResolvedServer {
+  /** Vazio quando nenhum executável foi configurado nem encontrado. */
+  exe: string;
+  cwd: string;
+  args: string[];
+  clearOnStart: boolean;
+  /** Vazio sem pasta onde procurar. */
+  logPath: string;
+  logEncoding: string;
+  follow: 'visible' | 'always' | 'off';
 }
 
-async function resolveLogPath(cwd: string, serverType: import('./types.js').ServerType): Promise<string> {
-  if (serverType === 'omp') return path.join(cwd, ompLogFile(cwd));
-  if (serverType === 'samp') return path.join(cwd, 'server_log.txt');
-  return (await detectServerType(cwd)) === 'omp'
-    ? path.join(cwd, ompLogFile(cwd))
-    : path.join(cwd, 'server_log.txt');
+/**
+ * Executável, pasta, argumentos e log do servidor.
+ *
+ * Quem resolve é o núcleo, com a configuração que ele possui — a mesma que a
+ * sessão de depuração e o painel usam. Resolver aqui, com uma cópia dela, era
+ * uma segunda implementação livre para discordar da primeira.
+ */
+export function resolveServerConfig(workspaceRoot: string): Promise<ResolvedServer> {
+  return request<ResolvedServer>('server.resolve', { workspaceRoot });
 }
 
-function ompLogFile(cwd: string): string {
-  try {
-    const json = JSON.parse(fs.readFileSync(path.join(cwd, 'config.json'), 'utf8')) as Record<string, unknown>;
-    const logging = json?.['logging'] as Record<string, unknown> | undefined;
-    return String(logging?.['file'] || 'log.txt');
-  } catch { return 'log.txt'; }
+/** O que o log cresceu desde `from`; sem `from`, só o tamanho atual. */
+function readLog(
+  path: string,
+  from: number | null,
+  encoding: string,
+): Promise<{ size: number; text: string }> {
+  return request('server.readLog', { path, from, encoding });
+}
+
+/**
+ * Quais comandos não podem ir para o histórico nem para os favoritos, na
+ * mesma ordem.
+ *
+ * O histórico vai para `.pawnpro/state.json`, em texto claro e dentro do
+ * projeto: um `login <senha>` ali seria commitado junto. A regra é do núcleo.
+ */
+export function sensitiveCommands(commands: string[], extras: string[]): Promise<boolean[]> {
+  if (commands.length === 0) return Promise.resolve([]);
+  return request<boolean[]>('server.sensitiveCommands', { commands, extras });
 }
 
 /** Arquitetura de um executável ou biblioteca. */

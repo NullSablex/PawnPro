@@ -1,4 +1,3 @@
-import * as net from 'net';
 import * as vscode from 'vscode';
 import {
   LanguageClient,
@@ -7,6 +6,7 @@ import {
   StreamInfo,
 } from 'vscode-languageclient/node';
 import type { PawnProConfigManager } from '../core/config.js';
+import { connectChannel } from '../core/channel.js';
 import { request, startCore } from '../core/client.js';
 
 /**
@@ -51,7 +51,7 @@ export async function startLspClient(
   }
 
   const serverOptions: ServerOptions = () => {
-    const socket = net.connect(address);
+    const socket = connectChannel(address, 'lsp');
     const info: StreamInfo = { reader: socket, writer: socket };
     return Promise.resolve(info);
   };

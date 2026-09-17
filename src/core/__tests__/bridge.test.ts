@@ -4,6 +4,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { startCore, stopCore, coreIsRunning, request } from '../client.js';
+import { connectChannel } from '../channel.js';
+import type { ResolvedServer } from '../server.js';
+import type { CompileResult } from '../types.js';
+import { encodeMessage, MessageReader } from '../dapFraming.js';
 
 /**
  * A ponte entre a extensão e o binário.
@@ -38,27 +42,28 @@ test('o core sobe e responde a quem pergunta o que ele sabe fazer', { skip: !ava
   assert.match(version.version, /^\d+\.\d+\.\d+$/);
   // Todo método que a extensão chama precisa estar na lista que o core anuncia.
   for (const method of [
-    'server.detectType',
-    'server.detectExecutable',
     'server.loadConfig',
+    'server.resolve',
+    'server.readLog',
+    'server.sensitiveCommands',
     'server.pidsOnPort',
     'server.projectServersOnPort',
     'server.kill',
     'server.ping',
     'rcon.send',
     'debug.preflight',
+    'debug.start',
     'compiler.detect',
     'compiler.buildArgs',
+    'compiler.run',
+    'project.changelogSection',
     'includes.paths',
     'includes.listFiles',
     'includes.listNatives',
     'includes.resolveSdk',
     'engine.start',
-    'engine.stop',
-    'engine.status',
-    'engine.reload',
     'config.open',
-    'config.get',
+    'config.inlineNamingLists',
     'config.set',
     'config.delete',
     'config.reload',
@@ -166,19 +171,90 @@ test('a engine sobe e informa onde atende', { skip: !available }, async () => {
   });
   assert.ok(started.address.length > 0);
 
-  const status = await request<{ running: boolean; address: string }>('engine.status');
-  assert.equal(status.running, true);
-  assert.equal(status.address, started.address);
-
   // No Unix o endereço é um soquete de verdade, e só o dono o alcança.
   if (process.platform !== 'win32') {
     assert.ok(fs.existsSync(started.address), 'o soquete não existe');
     const mode = fs.statSync(path.dirname(started.address)).mode & 0o777;
     assert.equal(mode, 0o700);
   }
+});
 
-  assert.equal(await request<boolean>('engine.reload'), true);
-  assert.equal(await request<boolean>('engine.stop'), true);
+test('o depurador atende no mesmo soquete da engine', { skip: !available }, async () => {
+  const engine = await request<{ address: string }>('engine.start', {
+    workspaceRoot: os.tmpdir(),
+    editorLanguage: 'pt-br',
+  });
+  const debug = await request<{ address: string }>('debug.start');
+  assert.equal(debug.address, engine.address, 'um soquete só para os dois');
+
+  // Uma sessão DAP de verdade, pela apresentação e pelo enquadramento que o
+  // editor usa.
+  const socket = connectChannel(debug.address, 'dap');
+  const reader = new MessageReader();
+  const answer = new Promise<Record<string, unknown>>((resolve, reject) => {
+    socket.on('data', (chunk: Buffer) => {
+      for (const message of reader.push(chunk)) {
+        const m = message as Record<string, unknown>;
+        if (m.type === 'response' && m.command === 'initialize') resolve(m);
+      }
+    });
+    socket.on('error', reject);
+  });
+  socket.write(encodeMessage({ seq: 1, type: 'request', command: 'initialize', arguments: {} }));
+  const response = await answer;
+  socket.destroy();
+
+  assert.equal(response.success, true);
+  const body = response.body as { supportsRestartRequest?: boolean };
+  assert.equal(body.supportsRestartRequest, true);
+});
+
+test('o núcleo resolve, compila, lê o log e filtra o histórico com os campos que a extensão lê', { skip: !available }, async () => {
+  const projectDir = path.join(os.tmpdir(), `pawnpro-bridge-${process.pid}`);
+  fs.rmSync(projectDir, { recursive: true, force: true });
+  fs.mkdirSync(projectDir, { recursive: true });
+  try {
+    await request('config.open', { workspaceRoot: projectDir });
+
+    const resolved = await request<ResolvedServer>('server.resolve', { workspaceRoot: projectDir });
+    for (const key of ['exe', 'cwd', 'args', 'clearOnStart', 'logPath', 'logEncoding', 'follow']) {
+      assert.ok(key in resolved, `server.resolve sem \`${key}\``);
+    }
+    assert.equal(typeof resolved.exe, 'string', 'sem executável é texto vazio, não null');
+
+    // Um "compilador" que é o próprio Node: o que importa é o formato da resposta.
+    const compiled = await request<CompileResult>('compiler.run', {
+      exe: process.execPath,
+      args: ['-e', 'console.log("compilado")'],
+      cwd: projectDir,
+    });
+    assert.equal(compiled.exitCode, 0);
+    assert.equal(compiled.output.trim(), 'compilado');
+
+    const log = path.join(projectDir, 'server_log.txt');
+    fs.writeFileSync(log, 'antes\n');
+    const start = await request<{ size: number; text: string }>('server.readLog', { path: log, from: null });
+    assert.equal(start.text, '', 'abrir o painel não despeja o log antigo');
+    fs.appendFileSync(log, 'depois\n');
+    const next = await request<{ size: number; text: string }>('server.readLog', { path: log, from: start.size });
+    assert.equal(next.text, 'depois\n');
+
+    const flags = await request<boolean[]>('server.sensitiveCommands', {
+      commands: ['login segredo123', 'kick 0', 'meucmd abc'],
+      extras: ['meucmd'],
+    });
+    assert.deepEqual(flags, [true, false, true]);
+
+    const lists = await request<{ present: boolean; bytes: number }>('config.inlineNamingLists');
+    assert.deepEqual(lists, { present: false, bytes: 0 });
+
+    const changelog = path.join(projectDir, 'CHANGELOG.md');
+    fs.writeFileSync(changelog, '# Changelog\n\n## [9.9.9] - hoje\n\n- novidade\n\n## [9.9.8]\n\n- antiga\n');
+    const section = await request<string>('project.changelogSection', { path: changelog, version: '9.9.9' });
+    assert.equal(section, '- novidade');
+  } finally {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  }
 });
 
 test('o registro de diagnóstico só grava quando é ligado', { skip: !available }, async () => {
@@ -204,12 +280,12 @@ test('o registro de diagnóstico só grava quando é ligado', { skip: !available
       /uma falha/,
     );
 
-    // O core registra o que ele mesmo faz, no mesmo arquivo. `detectType` é
+    // O core registra o que ele mesmo faz, no mesmo arquivo. `loadConfig` é
     // uma ação; a sondagem periódica da porta é silenciada de propósito, para
     // não afogar o log com uma linha a cada poucos segundos.
-    await request('server.detectType', { cwd: projectDir });
+    await request('server.loadConfig', { cwd: projectDir });
     const coreLog = fs.readFileSync(path.join(logs, 'core.log'), 'utf8');
-    assert.match(coreLog, /server\.detectType/);
+    assert.match(coreLog, /server\.loadConfig/);
     await request('server.pidsOnPort', { port: 59999 });
     assert.ok(
       !fs.readFileSync(path.join(logs, 'core.log'), 'utf8').includes('pidsOnPort'),

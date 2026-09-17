@@ -79,8 +79,6 @@ export interface ConfigSnapshot {
   config: PawnProConfig;
   globalPath: string;
   projectPath: string;
-  /** As listas de naming como o projeto as escreveu, sem mesclagem. */
-  rawProjectNaming: { blocklist: string[]; allowShortInLoops: string[] };
   /** Chaves ignoradas por terem o tipo errado. */
   rejected: string[];
 }
@@ -157,14 +155,6 @@ export class PawnProConfigManager {
   /** Chaves que o núcleo ignorou por terem o tipo errado. */
   get rejectedKeys(): readonly string[] {
     return this.snapshot?.rejected ?? [];
-  }
-
-  /**
-   * Lista de naming tal como escrita no JSON do projeto, não a mesclada: a
-   * migração precisa saber o que o desenvolvedor de fato colocou inline.
-   */
-  rawProjectNamingList(key: 'blocklist' | 'allowShortInLoops'): string[] {
-    return this.snapshot?.rawProjectNaming[key] ?? [];
   }
 
   getAll(): Readonly<PawnProConfig> {

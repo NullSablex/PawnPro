@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'crypto';
 import { PawnProStateManager } from '../core/state.js';
+import { sensitiveCommands } from '../core/server.js';
+import { logWarn } from '../core/logger.js';
 import type { PawnProConfigManager } from '../core/config.js';
 import { webviewThemeCss } from './webviewTheme.js';
 import { createWebviewMsg } from './webviewNls.js';
@@ -97,70 +99,6 @@ function esc(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/**
- * Comandos cujo nome já indica credencial.
- *
- * O histórico e os favoritos vão para `.pawnpro/state.json`, em texto claro e
- * dentro do projeto — um `login` ali seria commitado junto. O comando ainda é
- * enviado; só não fica registrado.
- */
-const SENSITIVE_COMMANDS = [
-  /^login(\s|$)/i,
-  /^rcon_password(\s|$)/i,
-  /^password(\s|$)/i,
-  /^changepass(word)?(\s|$)/i,
-  /^setpass(word)?(\s|$)/i,
-];
-
-/**
- * Palavras que, num argumento, anunciam que o próximo termo é credencial —
- * `meucomando --senha 1234`, `auth token abc`.
- */
-const SECRET_LABELS =
-  /^-{0,2}(pass|passwd|password|senha|pwd|token|key|chave|secret|segredo|auth|apikey)$/i;
-
-/**
- * `true` se o termo parece uma credencial solta.
- *
- * Deliberadamente conservador: só entra o que mistura letras e dígitos e é
- * longo o suficiente. Um `kick 0`, um `weather 11` ou um `setpos 1.5 -2.0`
- * são argumentos comuns e não podem sumir do histórico por engano — o custo
- * de um falso positivo aqui é o recurso deixar de servir.
- */
-function looksLikeSecret(termo: string): boolean {
-  if (termo.length < 8) return false;
-  if (/^[\d.,:-]+$/.test(termo)) return false;          // números, ip, coordenada
-  if (!/[a-z]/i.test(termo) || !/\d/.test(termo)) return false;
-  return true;
-}
-
-/**
- * `true` se o comando traz credencial e não deve ser guardado.
- *
- * Três camadas: o nome do comando, os comandos que o projeto declarou em
- * `server.history.sensitiveCommands`, e um argumento que se anuncie como
- * segredo ou pareça um.
- */
-export function isSensitiveCommand(cmd: string, extras: string[] = []): boolean {
-  const t = cmd.trim().replace(/^\/?rcon\s+/i, '');
-  if (!t) return false;
-  if (SENSITIVE_COMMANDS.some(rx => rx.test(t))) return true;
-
-  const parts = t.split(/\s+/);
-  const head = parts[0].toLowerCase();
-  if (extras.some(e => e.trim().toLowerCase() === head)) return true;
-
-  for (let i = 1; i < parts.length; i++) {
-    // `--senha 1234`: o rótulo entrega o próximo termo.
-    if (SECRET_LABELS.test(parts[i]) && i + 1 < parts.length) return true;
-    // `--senha=1234` num termo só.
-    const [key, ...rest] = parts[i].split('=');
-    if (rest.length > 0 && SECRET_LABELS.test(key)) return true;
-    if (looksLikeSecret(parts[i])) return true;
-  }
-  return false;
-}
-
 export class ServerViewProvider implements vscode.WebviewViewProvider {
   private views = new Set<vscode.WebviewView>();
 
@@ -194,7 +132,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
    * `.pawnpro/state.json`; limpar só na escrita deixaria esses registros para
    * trás, no arquivo e à vista no painel.
    */
-  private purgeSensitive() {
+  private async purgeSensitive() {
     const cfg = this.historyCfg;
     // Com o registro desligado, não basta parar de gravar: o que já está lá
     // precisa sair.
@@ -202,12 +140,29 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
       if (this.favorites.length || this.history.length) this.save([], []);
       return;
     }
-    const extras = cfg.sensitiveCommands;
-    const favs = this.favorites.filter(c => !isSensitiveCommand(c, extras));
-    const hist = this.history.filter(c => !isSensitiveCommand(c, extras));
-    if (favs.length !== this.favorites.length || hist.length !== this.history.length) {
+    const [favorites, history] = [this.favorites, this.history];
+    const flags = await sensitiveCommands([...favorites, ...history], cfg.sensitiveCommands);
+    const favs = favorites.filter((_, i) => !flags[i]);
+    const hist = history.filter((_, i) => !flags[favorites.length + i]);
+    if (favs.length !== favorites.length || hist.length !== history.length) {
       this.save(favs, hist);
+      this.broadcast();
     }
+  }
+
+  /**
+   * Sem resposta do núcleo, nada é gravado — o lado seguro, já que o comando
+   * pode trazer credencial —, mas a falha fica no registro.
+   */
+  private failed(what: string) {
+    return (e: unknown) =>
+      logWarn('serverView', `${what} não foi gravado: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  /** `true` se o comando traz credencial e não pode ser guardado. */
+  private async isSensitive(cmd: string): Promise<boolean> {
+    const [flag] = await sensitiveCommands([cmd], this.historyCfg.sensitiveCommands);
+    return flag ?? false;
   }
 
   private broadcast() {
@@ -234,17 +189,16 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
     return this.config.getAll().server.history ?? { enabled: true, sensitiveCommands: [] };
   }
 
-  private record(cmd: string) {
-    const cfg = this.historyCfg;
-    if (!cfg.enabled) return;
-    if (isSensitiveCommand(cmd, cfg.sensitiveCommands)) return;
+  private async record(cmd: string) {
+    if (!this.historyCfg.enabled) return;
+    if (await this.isSensitive(cmd)) return;
     const newHistory = this.unshiftUnique([...this.history], cmd, 200);
     this.save(this.favorites, newHistory);
     this.broadcast();
   }
 
-  private addFavorite(cmd: string) {
-    if (isSensitiveCommand(cmd, this.historyCfg.sensitiveCommands)) return;
+  private async addFavorite(cmd: string) {
+    if (await this.isSensitive(cmd)) return;
     const newFavs = this.unshiftUnique([...this.favorites], cmd);
     this.save(newFavs, this.history);
     this.broadcast();
@@ -268,7 +222,7 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
 
   resolveWebviewView(view: vscode.WebviewView) {
     // Limpa o que foi gravado antes desta filtragem existir.
-    this.purgeSensitive();
+    void this.purgeSensitive().catch(this.failed('a limpeza do histórico'));
     this.views.add(view);
     view.onDidDispose(() => this.views.delete(view));
 
@@ -291,12 +245,12 @@ export class ServerViewProvider implements vscode.WebviewViewProvider {
           const line = typeof msg['text'] === 'string' ? msg['text'].trim() : '';
           if (!line) break;
           this.onSend(line);
-          this.record(line);
+          void this.record(line).catch(this.failed('o histórico'));
           break;
         }
         case 'addFavorite': {
           const cmd = typeof msg['command'] === 'string' ? msg['command'].trim() : '';
-          if (cmd) this.addFavorite(cmd);
+          if (cmd) void this.addFavorite(cmd).catch(this.failed('o favorito'));
           break;
         }
         case 'removeFavorite': {

@@ -34,15 +34,6 @@ export const ACCENTS: Record<Exclude<AccentColor, ''>, AccentPalette> = {
   teal:   { base: '#00707a', hover: '#005f67', on: '#ffffff' },
 };
 
-/** Ordem de exibição na página de configurações. */
-export const ACCENT_ORDER: Exclude<AccentColor, ''>[] = [
-  'blue',
-  'purple',
-  'green',
-  'amber',
-  'pink',
-  'teal',
-];
 
 /**
  * Bloco CSS que fixa a cor escolhida, para injetar no `<style>` de uma WebView.

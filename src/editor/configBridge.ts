@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PAWNPRO_DIR, PawnProConfigManager, type NamingMigrationResult } from '../core/config.js';
 import { PawnProStateManager } from '../core/state.js';
+import { request } from '../core/client.js';
 
 let configManager: PawnProConfigManager | undefined;
 let stateManager: PawnProStateManager | undefined;
@@ -139,21 +140,12 @@ export async function ensureNamingFiles(config: PawnProConfigManager): Promise<v
   await config.ensureNamingFiles();
 }
 
-/** Há listas inline obsoletas (não-vazias) no JSON do projeto a migrar? */
-export function hasInlineNamingLists(config: PawnProConfigManager): boolean {
-  return (
-    config.rawProjectNamingList('blocklist').length > 0 ||
-    config.rawProjectNamingList('allowShortInLoops').length > 0
-  );
-}
-
-/** Total de bytes que a migração escreveria (para o aviso de tamanho). */
-export function inlineNamingBytes(config: PawnProConfigManager): number {
-  const join = (items: string[]) => Buffer.byteLength(items.join('\n'), 'utf8');
-  return (
-    join(config.rawProjectNamingList('blocklist')) +
-    join(config.rawProjectNamingList('allowShortInLoops'))
-  );
+/**
+ * Se ainda há listas inline obsoletas no JSON do projeto, e quantos bytes a
+ * migração gravaria (para o aviso de tamanho). Quem lê o JSON é o núcleo.
+ */
+export function inlineNamingLists(): Promise<{ present: boolean; bytes: number }> {
+  return request<{ present: boolean; bytes: number }>('config.inlineNamingLists');
 }
 
 /**

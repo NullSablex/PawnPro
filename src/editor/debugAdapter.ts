@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import type { PawnProConfigManager } from '../core/config.js';
+import { connectChannel } from '../core/channel.js';
+import { request, startCore } from '../core/client.js';
 import { buildCompileArgs, runCompile } from '../core/compiler.js';
 import {
   resolveServerConfig,
@@ -14,16 +16,17 @@ import {
 import { resolveLocale } from './locale.js';
 import { msg } from './nls.js';
 import { withProgress, newDebugPhase, type DebugPhase } from './progress.js';
+import { SocketDebugAdapter } from './socketDebugAdapter.js';
+import { DebugCycle, type CycleAction } from '../core/debugCycle.js';
 
 /**
- * Integração do debugger Pawn (tipo `pawn`). A extensão NÃO hospeda o código Rust
- * do debugger — apenas localiza e lança o binário do adaptador DAP,
- * que fala DAP com o editor via stdio. O adaptador, por sua vez, sobe o servidor
- * do jogo como processo FILHO e conversa com o plugin (dentro dele) via IPC local.
+ * Integração do debugger Pawn (tipo `pawn`). O adaptador DAP vive dentro do
+ * core: a extensão pede o endereço (`debug.start`), conecta se apresentando
+ * como `dap` e repassa as mensagens.
  *
- * Por o servidor ser filho do adaptador, encerrar ou REINICIAR a depuração (que
- * mata/relança o adaptador) derruba e recria o servidor automaticamente — sem a
- * extensão precisar rastrear processos. Ver o repositório `pawnpro-debugger`.
+ * A sessão no core sobe o servidor do jogo e o derruba ao terminar ou
+ * reiniciar; o plugin dentro do servidor conecta no mesmo soquete. A extensão
+ * não rastreia processo nenhum.
  */
 /**
  * Barra de progresso do ciclo em andamento, por sessão.
@@ -88,23 +91,26 @@ export function registerDebugAdapter(
           );
         };
         const phase = () => cyclePhases.get(session.id);
+        // A decisão de abrir e fechar mora em `DebugCycle`, testada com a
+        // sequência real de mensagens; aqui só se aplica.
+        const cycle = new DebugCycle();
+        const apply = (action: CycleAction) => {
+          if (action === 'close') phase()?.done();
+          else if (action) begin(action.open === 'restarting' ? msg.server.restarting() : msg.server.stopping());
+        };
         return {
           onWillReceiveMessage(m: unknown) {
             const req = m as { type?: string; command?: string };
-            if (req?.type !== 'request') return;
-            // `restart` e `disconnect` são as ações longas que o usuário dispara
-            // e fica sem retorno. `launch` já tem a barra da compilação, e o
-            // editor mostra a sua própria ao iniciar.
-            if (req.command === 'restart') begin(msg.server.restarting());
-            else if (req.command === 'disconnect') begin(msg.server.stopping());
+            if (req?.type === 'request') apply(cycle.onRequest(req.command));
           },
           onDidSendMessage(m: unknown) {
-            const ev = m as { type?: string; event?: string };
-            if (ev?.type !== 'event') return;
-            // Fim real do ciclo: `continued` (servidor novo rodando) ou
-            // `terminated` (sessão encerrada). O rebuild NÃO fecha: quem
-            // compila reusa esta mesma barra, trocando o título.
-            if (ev.event === 'continued' || ev.event === 'terminated') phase()?.done();
+            const out = m as { type?: string; event?: string; command?: string };
+            if (out?.type === 'event') apply(cycle.onEvent(out.event));
+            else if (out?.type === 'response') apply(cycle.onResponse(out.command));
+          },
+          onWillStopSession() {
+            // Rede de segurança: a sessão está acabando, com ou sem resposta.
+            phase()?.done();
           },
           onExit() {
             phase()?.done();
@@ -113,36 +119,6 @@ export function registerDebugAdapter(
       },
     }),
   );
-}
-
-/**
- * Localiza o binário do adaptador DAP.
- *
- * Ele **não vem mais no VSIX**: a depuração está sendo migrada para dentro do
- * núcleo, como a engine já foi. A busca continua aqui para quem compila o
- * adaptador ao lado — enquanto isso não acontece, é o único jeito de depurar.
- * Sem binário, o factory avisa e a sessão não começa.
- */
-function findAdapterBinary(context: vscode.ExtensionContext): string | null {
-  const ext = process.platform === 'win32' ? '.exe' : '';
-  const name = `dap-adapter${ext}`;
-  const artifact = `pawnpro-dap-adapter-${process.platform}-${process.arch}${ext}`;
-
-  const candidates = [
-    path.join(context.extensionPath, 'engines', artifact),
-    path.join(context.extensionPath, '..', 'pawnpro-debugger', 'target', 'debug', name),
-    path.join(context.extensionPath, '..', 'pawnpro-debugger', 'target', 'release', name),
-    // Build i686 (servidor SA-MP é 32-bit; o adaptador roda na arch do host, mas
-    // em dev o target pode ser o i686 ao lado do plugin).
-    path.join(context.extensionPath, '..', 'pawnpro-debugger', 'target', 'i686-unknown-linux-gnu', 'release', name),
-  ];
-
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-  return null;
 }
 
 /**
@@ -252,9 +228,10 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
       return undefined; // aborta a sessão
     }
 
-    // Compila o source com informação de depuração antes de iniciar. Reaproveita
-    // o compilador da extensão; injeta `-d3` automaticamente apenas se o usuário
-    // não já passar uma flag `-d` (sem mexer na configuração dele).
+    // Compila o source com informação de depuração antes de iniciar. O core
+    // troca qualquer `-d` da configuração por `-d3` só nesta compilação: `-d0`
+    // a `-d2` não bastam para breakpoints e variáveis, e a configuração do
+    // usuário não é alterada.
     console.log('[PawnPro][debug] compilando com -d3...');
     const ok = await this.ensureDebugBuild(String(config.program));
     console.log('[PawnPro][debug] compilação ok =', ok);
@@ -262,34 +239,27 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
       return undefined;
     }
 
-    // Id de sessão do canal plugin↔adaptador. Gerado sempre que ainda não há um
-    // nosso (no reiniciar, o adaptador é relançado e o servidor — que é filho
-    // DELE — morre junto, então não há estado a reconciliar aqui).
-    if (typeof config.session !== 'string' || !config.session.startsWith('pawnpro-')) {
-      config.session = `pawnpro-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    }
-
     // Idioma das mensagens do debugger: mesma fonte do LSP (config `pawnpro.locale`
     // com prioridade sobre o idioma do editor). O adaptador o repassa ao plugin.
     config.locale = resolveLocale(this.config.getAll());
 
     // Resolve o comando do servidor e faz o preflight do plugin. NÃO subimos o
-    // servidor aqui: quem o sobe (como processo FILHO) é o adaptador, para que
-    // ele morra junto com o adaptador ao encerrar/reiniciar — sem o editor ter de
-    // rastrear processos. Passamos o comando resolvido nos `arguments` do launch.
+    // servidor aqui: quem o sobe é a sessão no core, para que ele caia junto com
+    // ela ao encerrar/reiniciar — sem o editor ter de rastrear processos.
+    // Passamos o comando resolvido nos `arguments` do launch.
     const ok2 = await this.prepareServer(config);
     return ok2 ? config : undefined;
   }
 
   /**
    * Resolve o executável/args/cwd do servidor e valida o plugin (preflight),
-   * gravando o comando em `config.serverCommand` para o adaptador executar. Sem
+   * gravando o comando em `config.serverCommand` para a sessão executar. Sem
    * efeitos colaterais de processo. Retorna `false` para abortar a sessão.
    */
   private async prepareServer(config: vscode.DebugConfiguration): Promise<boolean> {
     const amxPath = String(config.program);
     const ws = this.workspaceRoot() ?? path.dirname(amxPath);
-    const resolved = await resolveServerConfig(this.config.getAll().server, ws);
+    const resolved = await resolveServerConfig(ws);
     if (!resolved.exe) {
       void vscode.window.showErrorMessage(msg.debug.serverNotFound());
       return false;
@@ -322,14 +292,14 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
       }
     }
 
-    // A porta precisa estar livre ANTES de o adaptador subir o servidor. Sem
+    // A porta precisa estar livre ANTES de a sessão subir o servidor. Sem
     // isto o F5 sobe um segundo servidor sobre um zumbi de uma execução
     // anterior: os dois disputam o mesmo datagrama UDP, o depurador anexa ao
     // que atender primeiro, e o diagnóstico vira não-determinístico. O painel
     // já tratava isso ao iniciar; este caminho não passava por lá.
     if (!(await this.ensurePortFree(cwd))) return false;
 
-    // O adaptador sobe isto como processo filho (kill-on-drop).
+    // A sessão no core sobe isto e o derruba ao terminar.
     config.serverCommand = {
       exe: resolved.exe,
       args: resolved.args,
@@ -339,7 +309,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
   }
 
   /**
-   * Libera a porta do servidor antes de o adaptador subir o filho.
+   * Libera a porta do servidor antes de a sessão subi-lo.
    *
    * Só oferece encerrar o que é comprovadamente o executável deste projeto e do
    * mesmo usuário (`isProjectServer`): a porta vem do `config.json` do
@@ -356,7 +326,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     const port = srvCfg?.port ?? 7777;
     if (!(await pingServer(host, port))) return true;
 
-    const exe = (await resolveServerConfig(cfg.server, this.workspaceRoot() ?? cwd)).exe;
+    const exe = (await resolveServerConfig(this.workspaceRoot() ?? cwd)).exe;
     const pids = await projectServersOnPort(port, exe);
     if (!pids.length) {
       // Outro programa, ou processo de outro usuário: dizer "sobrou um
@@ -399,8 +369,8 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
 
   /**
    * Garante que o `.amx` exista com debug info: localiza o `.pwn` de mesmo nome
-   * e o compila com `-d3` (injetado só se ausente). Se não houver source, segue
-   * com o `.amx` existente (assume já compilado com `-d3`).
+   * e o compila com `-d3`. Sem source, segue com o `.amx` existente — se ele não
+   * tiver informação de depuração, a sessão no core avisa no console.
    */
   async ensureDebugBuild(
     amxPath: string,
@@ -436,7 +406,7 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
     // Compilar é a etapa mais lenta e roda antes de qualquer sinal na tela:
     // sem isto o usuário aperta F5 e não vê nada até a sessão subir ou falhar.
     const compile = () =>
-      runCompile(args.exe, args.args, args.cwd, this.config.getAll().output.encoding);
+      runCompile(args.exe, args.args, args.cwd);
     let result;
     if (phase) {
       phase.retitle(msg.debug.compiling());
@@ -452,26 +422,25 @@ class PawnConfigurationProvider implements vscode.DebugConfigurationProvider {
   }
 }
 
-/** Cria o descriptor que lança o binário do adaptador. */
+/** Liga a sessão do editor à sessão de depuração no core. */
 class PawnAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
   constructor(private readonly context: vscode.ExtensionContext) {}
 
-  createDebugAdapterDescriptor(
-    session: vscode.DebugSession,
-  ): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-    const bin = findAdapterBinary(this.context);
-    if (!bin) {
-      void vscode.window.showErrorMessage(msg.debug.adapterNotFound());
+  async createDebugAdapterDescriptor(): Promise<vscode.DebugAdapterDescriptor | undefined> {
+    if (!startCore(this.context.extensionPath)) {
+      void vscode.window.showErrorMessage(msg.debug.coreUnavailable());
       return undefined;
     }
+    let address: string;
     try {
-      fs.chmodSync(bin, 0o755);
-    } catch {
-      /* já executável ou Windows */
+      ({ address } = await request<{ address: string }>('debug.start'));
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      void vscode.window.showErrorMessage(msg.debug.coreRefused(detail));
+      return undefined;
     }
-    // O adaptador recebe a config da sessão via DAP (launch); a porta do plugin
-    // vai nos `arguments` do request `launch`, não como env aqui.
-    void session;
-    return new vscode.DebugAdapterExecutable(bin, []);
+    return new vscode.DebugAdapterInlineImplementation(
+      new SocketDebugAdapter(connectChannel(address, 'dap')),
+    );
   }
 }

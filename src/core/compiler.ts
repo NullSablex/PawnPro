@@ -1,5 +1,3 @@
-import { spawn } from 'child_process';
-import * as iconv from 'iconv-lite';
 import { request } from './client.js';
 import type { CompileResult, CompileArgs } from './types.js';
 
@@ -53,25 +51,13 @@ export async function buildCompileArgs(opts: {
   });
 }
 
-export function runCompile(
-  exe: string,
-  args: string[],
-  cwd: string,
-  encoding: string,
-): Promise<CompileResult> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(exe, args, { cwd, shell: false });
-    const chunks: Buffer[] = [];
-
-    proc.stdout.on('data', (d: Buffer) => chunks.push(d));
-    proc.stderr.on('data', (d: Buffer) => chunks.push(d));
-    proc.on('error', reject);
-    proc.on('close', (code, signal) => {
-      resolve({
-        exitCode: code,
-        signal: signal ?? null,
-        output: iconv.decode(Buffer.concat(chunks), encoding || 'windows1252'),
-      });
-    });
-  });
+/**
+ * Executa o compilador pelo núcleo.
+ *
+ * O núcleo roda o processo fora do laço de mensagens — os outros pedidos não
+ * esperam a compilação — e decodifica a saída com a codificação da
+ * configuração do projeto, que é ele quem possui.
+ */
+export function runCompile(exe: string, args: string[], cwd: string): Promise<CompileResult> {
+  return request<CompileResult>('compiler.run', { exe, args, cwd }, { timeoutMs: null });
 }

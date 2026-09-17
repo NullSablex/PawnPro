@@ -8,7 +8,7 @@ import { PawnProStateManager } from '../core/state.js';
 import { ServerViewProvider } from './serverView.js';
 import { getWorkspaceRoot } from './configBridge.js';
 import { msg } from './nls.js';
-import { logError, logInfo, logWarn } from '../core/logger.js';
+import { logError, logInfo } from '../core/logger.js';
 import { withProgress } from './progress.js';
 import type { SampCfgData, OutputSink } from '../core/types.js';
 import type { RconFailure } from '../core/server.js';
@@ -142,7 +142,7 @@ class ServerController {
    */
   private async ensureTail(): Promise<void> {
     if (IS_WINDOWS) return;
-    const resolved = await resolveServerConfig(this.config.getAll().server, getWorkspaceRoot());
+    const resolved = await resolveServerConfig(getWorkspaceRoot());
     if (!resolved.logPath) return;
     // `start` limpa o painel e recomeça a leitura. Como a vigilância chama isto
     // a cada poucos segundos enquanto o servidor está no ar, sem a guarda o log
@@ -197,7 +197,7 @@ class ServerController {
   private async refreshRconFromServerCfg() {
     const cfg = this.config.getAll();
     const ws = getWorkspaceRoot();
-    const resolved = await resolveServerConfig(cfg.server, ws);
+    const resolved = await resolveServerConfig(ws);
     this.rconCfg = await loadServerConfig(resolved.cwd, cfg.server.type);
   }
 
@@ -309,7 +309,7 @@ class ServerController {
   private async isOwnServer(): Promise<boolean> {
     if (this.debugSession) return true;
     const { port } = this.currentAddress();
-    const exe = (await resolveServerConfig(this.config.getAll().server, getWorkspaceRoot())).exe;
+    const exe = (await resolveServerConfig(getWorkspaceRoot())).exe;
     return (await projectServersOnPort(port, exe)).length > 0;
   }
 
@@ -334,7 +334,7 @@ class ServerController {
     // do config.json do repositório, e sem esta checagem um gamemode com
     // `"port": 53` transformaria o botão de encerrar numa arma contra serviços
     // do sistema.
-    const exe = (await resolveServerConfig(this.config.getAll().server, getWorkspaceRoot())).exe;
+    const exe = (await resolveServerConfig(getWorkspaceRoot())).exe;
     const pids = await projectServersOnPort(port, exe);
     if (!pids.length) {
       // A porta responde, mas nada ali passou no filtro: é outro programa, ou
@@ -455,9 +455,8 @@ class ServerController {
       if (conflict === 'busy') return;
     }
 
-    const cfg = this.config.getAll();
     const ws = getWorkspaceRoot();
-    const resolved = await resolveServerConfig(cfg.server, ws);
+    const resolved = await resolveServerConfig(ws);
 
     if (!resolved.exe) {
       vscode.window.showErrorMessage(`PawnPro: ${msg.server.notConfigured()}`);
@@ -549,6 +548,10 @@ class ServerController {
     }
 
     const termRef = this.term;
+    // Parar pelo depurador já mostra a barra do ciclo (o tracker do
+    // debugAdapter acompanha o `terminate`); abrir outra aqui punha duas
+    // "Parando" na tela ao mesmo tempo.
+    let viaDebugger = false;
 
     if (termRef) {
       // `exit` é a saída limpa: dá ao servidor a chance de salvar e desligar os
@@ -572,6 +575,7 @@ class ServerController {
       // Não há o que esperar depois: o adaptador emite `terminated` e, na mesma
       // iteração do laço, mata o filho com SIGKILL e o colhe. Quem confirma a
       // parada é a porta ficar muda, logo abaixo.
+      viaDebugger = true;
       await vscode.debug.stopDebugging(this.debugSession);
     } else {
       // Terceiro dono possível: um servidor DESTE projeto iniciado por fora do
@@ -584,9 +588,10 @@ class ServerController {
     }
 
     // Confirma pela porta, não pelo terminal.
-    const stopped = await withProgress(msg.server.stopping(), () =>
-      this.waitForPort(false, 6000),
-    );
+    const waitSilent = () => this.waitForPort(false, 6000);
+    const stopped = viaDebugger
+      ? await waitSilent()
+      : await withProgress(msg.server.stopping(), waitSilent);
     if (stopped) {
       // A porta calou: o estado é certeza, não estimativa — e por isso a
       // invalidação vem no lugar da sondagem, não depois dela. A tolerância do

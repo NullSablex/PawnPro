@@ -3,12 +3,11 @@ import { randomBytes } from 'crypto';
 import { PawnProConfigManager } from '../core/config.js';
 import { ACCENTS } from '../core/accent.js';
 import { webviewThemeCss } from './webviewTheme.js';
-import { brandAnimationCss, brandAnimationJs } from './brandAnimation.js';
+import { brandAnimationCss } from './brandAnimation.js';
 import {
   backupNamingLists,
   ensureNamingFiles,
-  hasInlineNamingLists,
-  inlineNamingBytes,
+  inlineNamingLists,
   migrateNamingLists,
 } from './configBridge.js';
 import { msg, type Msg } from './nls.js';
@@ -88,7 +87,7 @@ export function registerSettingsView(
           webviewThemeCss(config),
         );
       panel.webview.html = render();
-      sendState(panel, config, context);
+      void sendState(panel, config, context);
 
       // Re-envia o estado (e re-traduz via ui.locale) sempre que a config muda —
       // inclusive quando o próprio idioma da interface é alterado.
@@ -104,7 +103,7 @@ export function registerSettingsView(
           lastAccent = accent;
           panel.webview.html = render();
         }
-        sendState(panel, config, context);
+        void sendState(panel, config, context);
       });
 
       panel.webview.onDidReceiveMessage((message: unknown) => {
@@ -163,7 +162,7 @@ async function handleMessage(
       break;
     }
     case 'requestState':
-      if (panel) sendState(panel, config, context);
+      if (panel) void sendState(panel, config, context);
       break;
     case 'openNamingFile': {
       const which = m['which'];
@@ -205,9 +204,9 @@ async function runNamingMigration(
   config: PawnProConfigManager,
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  if (!hasInlineNamingLists(config)) return;
+  const { present, bytes } = await inlineNamingLists();
+  if (!present) return;
 
-  const bytes = inlineNamingBytes(config);
   const limit = config.getAll().analysis.naming.maxListFileBytes;
   const sizeMb = (bytes / 1048576).toFixed(2);
 
@@ -239,7 +238,7 @@ async function runNamingMigration(
   void vscode.window.showInformationMessage(
     backup ? msg.naming.migrateDoneBackup(summary, backup) : msg.naming.migrateDone(summary),
   );
-  if (panel) sendState(panel, config, context);
+  if (panel) void sendState(panel, config, context);
 }
 
 /**
@@ -428,19 +427,28 @@ function buildI18n(m: Msg) {
   };
 }
 
-function sendState(
+async function sendState(
   p: vscode.WebviewPanel,
   config: PawnProConfigManager,
   context: vscode.ExtensionContext,
-): void {
+): Promise<void> {
   try {
     const cfg = config.getAll();
     const wmsg = createWebviewMsg(context, config);
+    // Sem resposta do núcleo a página sai sem o aviso de migração, não sem
+    // estado.
+    const hasInlineNaming = await inlineNamingLists().then(
+      (lists) => lists.present,
+      (e: unknown) => {
+        logError('settings', `listas inline indisponíveis: ${e instanceof Error ? e.message : String(e)}`);
+        return false;
+      },
+    );
     void p.webview.postMessage({
       type: 'state',
       payload: cfg,
       i18n: buildI18n(wmsg),
-      hasInlineNaming: hasInlineNamingLists(config),
+      hasInlineNaming,
     });
     // Quantas seções o payload leva: um estado vazio explicaria a página
     // aparecer sem valor nenhum nos controles.

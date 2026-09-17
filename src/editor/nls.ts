@@ -368,7 +368,7 @@ export function createMsg(t: Translate) {
     linkCore:        () => t('Repositório do núcleo'),
     linkIssues:      () => t('Reportar um problema'),
     debuggerTitle:   () => t('Depurador: instalar no servidor'),
-    debuggerIntro:   () => t('A depuração está sendo migrada para dentro do núcleo e volta na próxima versão. Quando voltar, a única etapa manual continua sendo instalar o **plugin do servidor** — uma vez por servidor, e o mesmo binário serve **SA-MP** e **open.mp**.'),
+    debuggerIntro:   () => t('A depuração ainda é **instável** nesta versão. A única etapa manual é instalar o **plugin do servidor** — uma vez por servidor, e o mesmo binário serve **SA-MP** e **open.mp**. O plugin precisa ser da mesma versão do PawnPro: ao atualizar a extensão, atualize o plugin.'),
     stepDownload:    () => t('**1. Baixe o plugin** na [release do PawnPro Core]({0}): `pawnpro_debug.so` (Linux) ou `pawnpro_debug.dll` (Windows). Não renomeie.'),
     stepInstallOmp:  () => t('**2a. open.mp** — copie o binário para a pasta `components/`. O servidor o descobre sozinho; nenhum registro é necessário.'),
     stepInstallSamp: () => t('**2b. SA-MP** — copie para `plugins/` e adicione `pawnpro_debug.so` à linha `plugins` do `server.cfg`.'),
@@ -454,7 +454,8 @@ export function createMsg(t: Translate) {
   debug: {
     defaultName:     () => t('Depurar script Pawn (PawnPro)'),
     noProgram:       () => t('Defina o caminho do `.amx` (campo "program") para depurar.'),
-    adapterNotFound: () => t('A depuração está indisponível nesta versão: ela está sendo migrada para dentro do núcleo. Volta na próxima.'),
+    coreUnavailable: () => t('A depuração precisa do núcleo do PawnPro, que não foi encontrado nesta instalação.'),
+    coreRefused:     (detail: string) => t('O núcleo do PawnPro recusou abrir a depuração: {0}', detail),
     compiling:       () => t('Compilando com informação de depuração...'),
     compileFailed:   () => t('Falha ao compilar o script com informação de depuração. Verifique o painel de saída.'),
     programNotFound: (p: string) => t('Script a depurar não encontrado: {0}. Abra o `.pwn` que quer depurar ou corrija o campo "program" no launch.json.', p),

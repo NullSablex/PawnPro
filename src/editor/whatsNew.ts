@@ -4,6 +4,8 @@ import * as path from 'path';
 import type { Msg } from './nls.js';
 import { createWebviewMsg } from './webviewNls.js';
 import type { PawnProConfigManager } from '../core/config.js';
+import { request } from '../core/client.js';
+import { logWarn } from '../core/logger.js';
 import { webviewThemeCss } from './webviewTheme.js';
 
 const VERSION_KEY = 'pawnpro.lastSeenVersion';
@@ -45,33 +47,30 @@ function showPanel(context: vscode.ExtensionContext, config: PawnProConfigManage
     },
   );
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'images', 'icon.svg');
-  panel.webview.html = buildHtml(context, panel.webview, version, msg, webviewThemeCss(config));
+  void changelogSection(context, version).then((sectionMd) => {
+    panel.webview.html = buildHtml(context, panel.webview, version, msg, webviewThemeCss(config), sectionMd);
+  });
 }
 
-function extractSection(changelogPath: string, version: string): string {
-  let raw: string;
+/**
+ * A seção da versão instalada no `CHANGELOG.md`, extraída pelo núcleo. Vazia
+ * quando não há arquivo, a versão não está nele ou o núcleo não respondeu —
+ * e a página diz que não há registro.
+ */
+async function changelogSection(context: vscode.ExtensionContext, version: string): Promise<string> {
+  // O vsce pode gravar o nome em minúsculas.
+  const changelogPath = [
+    path.join(context.extensionPath, 'CHANGELOG.md'),
+    path.join(context.extensionPath, 'changelog.md'),
+  ].find(candidate => fs.existsSync(candidate)) ?? path.join(context.extensionPath, 'CHANGELOG.md');
   try {
-    raw = fs.readFileSync(changelogPath, 'utf8');
-  } catch {
+    return await request<string>('project.changelogSection', { path: changelogPath, version });
+  } catch (e) {
+    logWarn('whatsNew', `changelog indisponível: ${e instanceof Error ? e.message : String(e)}`);
     return '';
   }
-
-  const lines = raw.split(/\r?\n/);
-  const sectionLines: string[] = [];
-  let inside = false;
-
-  for (const line of lines) {
-    if (/^##\s*\[/.test(line)) {
-      if (inside) break;
-      const bracket = line.match(/^##\s*\[([^\]]*)\]/)?.[1];
-      if (bracket === version || bracket?.startsWith(`${version}-`) || bracket?.startsWith(`${version}.`)) inside = true;
-      continue;
-    }
-    if (inside) sectionLines.push(line);
-  }
-
-  return sectionLines.join('\n').trim();
 }
+
 
 function mdToHtml(md: string): string {
   const lines = md.split(/\r?\n/);
@@ -235,16 +234,17 @@ function mdToHtml(md: string): string {
   return out.join('\n');
 }
 
-function buildHtml(context: vscode.ExtensionContext, webview: vscode.Webview, version: string, msg: Msg, themeCss: string): string {
+function buildHtml(
+  context: vscode.ExtensionContext,
+  webview: vscode.Webview,
+  version: string,
+  msg: Msg,
+  themeCss: string,
+  sectionMd: string,
+): string {
   const cssUri = webview.asWebviewUri(
     vscode.Uri.joinPath(context.extensionUri, 'out', 'assets', 'css', 'whats-new.min.css'),
   );
-  // vsce may lowercase the filename
-  const changelogPath = [
-    path.join(context.extensionPath, 'CHANGELOG.md'),
-    path.join(context.extensionPath, 'changelog.md'),
-  ].find(candidate => fs.existsSync(candidate)) ?? path.join(context.extensionPath, 'CHANGELOG.md');
-  const sectionMd = extractSection(changelogPath, version);
   const sectionHtml = sectionMd
     ? mdToHtml(sectionMd)
     : `<p>${msg.whatsNew.noChangelog()}</p>`;

@@ -87,12 +87,7 @@ export function registerCompileCommand(
           }
 
           logInfo('compiler', `compilando ${baseName} com ${compileArgs.exe} ${compileArgs.args.join(' ')}`);
-          const result = await runCompile(
-            compileArgs.exe,
-            compileArgs.args,
-            compileArgs.cwd,
-            cfg.output.encoding,
-          );
+          const result = await runCompile(compileArgs.exe, compileArgs.args, compileArgs.cwd);
 
           channel.append(result.output);
 

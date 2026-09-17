@@ -426,7 +426,6 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "iconv-lite": "^0.7.3",
     "vscode-languageclient": "^10.1.1"
   },
   "overrides": {

@@ -4,7 +4,7 @@
  * Pós-processamento do VSIX gerado pelo vsce:
  * - Injeta os binários do motor Rust (engines/) na pasta extension/engines/
  *
- * Nota: as dependências JS (iconv-lite, etc.) já estão embutidas no bundle
+ * Nota: as dependências JS (o cliente LSP, etc.) já estão embutidas no bundle
  * gerado pelo esbuild (out/editor/extension.js), portanto não precisam ser
  * adicionadas manualmente ao VSIX. A localização de runtime usa a API nativa
  * vscode.l10n; os bundles ficam em l10n/ e entram no VSIX pelo próprio vsce.

@@ -79,7 +79,8 @@ const buildOptions = {
 
   external: ['vscode'],
 
-  // iconv-lite uses require() internally — inject a CJS-compatible require via createRequire
+  // As dependências CommonJS empacotadas (o cliente LSP, entre elas) chamam
+  // `require` para módulos do Node; num bundle ESM ele não existe sem isto.
   banner: {
     js: `import{createRequire}from'module';const require=createRequire(import.meta.url);`,
   },
