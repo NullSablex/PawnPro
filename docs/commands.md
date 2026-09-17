@@ -23,7 +23,7 @@ Os comandos do PawnPro podem ser executados pela paleta de comandos (`Ctrl+Shift
 | `pawnpro.server.start` | Inicia o servidor SA-MP / open.mp |
 | `pawnpro.server.stop` | Para o servidor |
 | `pawnpro.server.restart` | Reinicia o servidor |
-| `pawnpro.server.show` | Exibe o terminal integrado do servidor |
+| `pawnpro.server.show` | Exibe o console do servidor — a saída que reúne o log e as respostas do RCON |
 | `pawnpro.server.showLog` | Exibe o painel de log do servidor e rola até o final |
 
 ## Sintaxe
@@ -52,7 +52,16 @@ Os comandos do PawnPro podem ser executados pela paleta de comandos (`Ctrl+Shift
 | Comando | Descrição |
 |---------|-----------|
 | `pawnpro.openSettings` | Abre o painel de configurações gráfico do PawnPro |
-| `pawnpro.openStore` | Abre a Biblioteca de Recursos (vitrine de plugins/filterscripts/includes) |
+
+## Diagnóstico
+
+Registro do que a extensão, o núcleo e a engine fazem, em `.pawnpro/logs/`. Desligado por padrão.
+
+| Comando | Descrição |
+|---------|-----------|
+| `pawnpro.diagnostics.setLevel` | Escolhe o nível do registro (`off`, `error`, `warn`, `info`) e o grava em `diagnostics.level` |
+| `pawnpro.diagnostics.openLog` | Abre o `pawnpro.log` do projeto |
+| `pawnpro.diagnostics.clear` | Apaga os arquivos de registro |
 
 ## Outros
 
@@ -76,6 +85,7 @@ O item `PawnPro` na barra de status inferior abre um menu rápido com:
 - **Novo Gamemode** — `pawnpro.newScript` com kind `gamemode`
 - **Novo Filterscript** — `pawnpro.newScript` com kind `filterscript`
 - **Novo Include** — `pawnpro.newScript` com kind `include`
+- **Ajuda** — `pawnpro.help`
 
 > Os comandos `pawnpro.server.show` e `pawnpro.server.showLog` **não aparecem** no menu da status bar — estão disponíveis apenas nos botões do header do painel **Servidor** na barra lateral e pela paleta de comandos.
 

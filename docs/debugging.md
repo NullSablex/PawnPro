@@ -1,71 +1,82 @@
 # Depuração
 
-O PawnPro oferece um **depurador visual** para gamemodes Pawn (SA-MP / open.mp):
-breakpoints, *step*, inspeção de variáveis e *call stack*, direto no editor.
+O PawnPro traz um **depurador visual** para scripts Pawn (SA-MP / open.mp):
+breakpoints, passo a passo, inspeção e edição de variáveis e pilha de chamadas,
+direto no editor.
 
-> **Alvo: servidor local de desenvolvimento.** Ao parar num breakpoint, o servidor
-> congela — isso é o comportamento esperado de um depurador, não um problema.
+!!! warning "Instável"
 
-## Como funciona (visão geral)
+    O depurador ainda é considerado instável: funciona no uso descrito aqui,
+    mas pode ter falhas. Se encontrar uma,
+    [abra uma issue](https://github.com/NullSablex/PawnPro/issues).
 
-São duas peças, em processos diferentes:
+> **Alvo: servidor local de desenvolvimento.** Ao parar num breakpoint, o
+> servidor inteiro para junto — é o esperado de um depurador, não um problema.
+> Não use num servidor com jogadores.
 
-- **Adaptador DAP** — vem na extensão; é iniciado automaticamente. Fala com o
-  editor e com o plugin.
+## Como funciona
+
+São duas peças:
+
+- **Adaptador de depuração** — fica dentro do núcleo nativo que acompanha a
+  extensão. Não há nada a instalar: ele conversa com o editor e com o plugin.
 - **Plugin do servidor** — um binário (`.so`/`.dll`) que roda **dentro** do
-  servidor. **Você instala uma vez.** O mesmo binário serve SA-MP e open.mp.
+  servidor. **Você instala uma vez.** O mesmo arquivo serve SA-MP e open.mp.
 
-Quando você inicia a depuração, a extensão:
+Ao apertar **F5**, a extensão:
 
-1. **Recompila** o gamemode com informação de depuração (`-d3` é adicionado
-   automaticamente se você ainda não usa uma flag `-d`; sua configuração não é
-   alterada).
-2. Verifica se o **plugin** está instalado e registrado (e avisa se faltar algo).
-3. **Inicia o servidor** com as variáveis de depuração e **lança o adaptador**,
-   que conecta no plugin.
+1. **Compila** o script com informação de depuração. Qualquer `-d` da sua
+   configuração é trocado por `-d3` só nesta compilação; a configuração não é
+   alterada.
+2. **Confere o plugin** — se está instalado, registrado e é da arquitetura do
+   servidor — e avisa o que faltar.
+3. **Confere a porta**: se sobrou um servidor do projeto de uma execução
+   anterior, oferece encerrá-lo antes de subir outro.
+4. **Sobe o servidor**, que carrega o plugin e se conecta ao depurador.
 
-A única ação manual é **instalar o plugin no servidor** (uma vez).
+## Instalar o plugin no servidor
 
-## Passo único: instalar o plugin no servidor
+### 1. Obter o binário
 
-### 1. Obter o binário do plugin
-
-Baixe da [release do PawnPro Debugger](https://github.com/NullSablex/PawnPro-Debugger/releases):
+Baixe da [release do PawnPro Core](https://github.com/NullSablex/PawnPro-Core/releases):
 
 - **Linux:** `pawnpro_debug.so`
 - **Windows:** `pawnpro_debug.dll`
 
-> O mesmo arquivo funciona em **SA-MP e open.mp**. A release já publica com o nome
-> correto — **não renomeie**.
+> A release já publica com o nome correto — **não renomeie**. Os avisos de
+> licença das bibliotecas compiladas no plugin estão em
+> `pawnpro_debug-THIRD-PARTY.txt`, na mesma release. O servidor é de
+> 32 bits, e o plugin também: um binário de outra arquitetura é recusado pelo
+> servidor, e a extensão avisa antes de iniciar.
 
-Se preferir compilar (sem release disponível), o binário sai como
-`libpawnpro_debug.so` (Linux) / `pawnpro_debug.dll` (Windows); no Linux, tire o
-prefixo `lib` ao instalar:
+Para compilar a partir do fonte:
 
 ```bash
 git clone https://github.com/NullSablex/PawnPro-Core
 cd PawnPro-Core
-# Linux (servidor é 32-bit):
 rustup target add i686-unknown-linux-gnu
 cargo build --release -p pawnpro-debug-plugin --target i686-unknown-linux-gnu
 # binário em: target/i686-unknown-linux-gnu/release/libpawnpro_debug.so
 ```
 
-### 2. Instalar (a pasta depende do servidor)
+No Linux o compilador gera `libpawnpro_debug.so`: tire o prefixo `lib` ao
+instalar.
 
-Coloque o binário (já chamado **`pawnpro_debug.so`/`.dll`**) na pasta correta:
+### 2. Instalar
+
+Coloque `pawnpro_debug.so`/`.dll` na pasta que o seu servidor usa:
 
 === "open.mp (recomendado)"
 
-    O plugin é um **componente nativo** do open.mp. Coloque-o na pasta
-    **`components/`** — o servidor o **descobre automaticamente** no início.
-    **Nenhum registro no `config.json` é necessário.**
+    O plugin é um **componente nativo** do open.mp. Coloque-o em
+    **`components/`**: o servidor o descobre sozinho ao iniciar, sem registro
+    no `config.json`.
 
     ```bash
     # Linux
-    cp pawnpro_debug.so   /caminho/do/servidor/components/
+    cp pawnpro_debug.so /caminho/do/servidor/components/
     # Windows
-    copy pawnpro_debug.dll   C:\caminho\do\servidor\components\
+    copy pawnpro_debug.dll C:\caminho\do\servidor\components\
     ```
 
 === "open.mp (modo legado)"
@@ -83,54 +94,88 @@ Coloque o binário (já chamado **`pawnpro_debug.so`/`.dll`**) na pasta correta:
 
 === "SA-MP"
 
-    Coloque em `plugins/` e adicione à linha `plugins` do `server.cfg`:
+    Coloque em `plugins/` e acrescente à linha `plugins` do `server.cfg`:
 
     ```
-    # plugins/pawnpro_debug.so
     plugins pawnpro_debug.so
     ```
 
-Pronto — isso é feito **uma única vez** por servidor.
+Isso é feito **uma vez** por servidor.
 
 ## Depurar
 
-1. Abra o gamemode (`.pwn`) no editor.
+1. Abra a **pasta** do projeto e o script (`.pwn`) no editor.
 2. Clique na margem para colocar **breakpoints**.
-3. Pressione **F5** (ou crie uma configuração `launch.json` do tipo `pawn`).
+3. Aperte **F5**.
 
-A extensão recompila com `-d3`, verifica o plugin, sobe o servidor e conecta.
-Ao atingir um breakpoint, a execução pausa e você vê as **variáveis** em escopo.
+Sem `launch.json`, a extensão depura o `.amx` do arquivo Pawn aberto. Ao
+atingir um breakpoint, a execução pausa e as **variáveis** em escopo aparecem.
+
+A **saída do servidor** (inclusive `print` e o log do gamemode) aparece no
+**Console de Depuração**, sem terminal à parte.
+
+### Gamemode, filterscript e includes
+
+- **Filterscripts** são depurados como o gamemode: aponte `program` para o
+  `.amx` do filterscript. Só o programa em depuração para nos breakpoints — os
+  outros scripts carregados no servidor seguem rodando sem interferência, mesmo
+  com funções de mesmo nome.
+- **Breakpoints em includes** funcionam, inclusive nos incluídos por caminho
+  relativo (`#include "../include/x.inc"`).
 
 ### O que dá para fazer na pausa
 
-- **Percorrer a pilha de chamadas** — a lista de frames mostra quem chamou quem;
-  clicar em um frame faz a inspeção seguir para ele.
-- **Inspecionar arrays e strings** — arrays expandem elemento a elemento, e um
-  array de char é mostrado como texto quando o conteúdo é uma string.
+- **Percorrer a pilha de chamadas** — cada frame mostra o arquivo e a linha;
+  clicar num frame leva a inspeção para ele.
+- **Inspecionar arrays e strings** — arrays expandem elemento a elemento,
+  inclusive os de várias dimensões e os recebidos por referência; um array de
+  char aparece como texto quando o conteúdo é uma string.
 - **Avaliar expressões** no watch e no hover: aritmética (`+ - * / %`, com o
   truncamento do Pawn) e comparação (`== != < > <= >=`) sobre literais,
   variáveis e `arr[i]`. O console e o watch sugerem as variáveis em escopo.
-- **Editar valores** — `x = 1` ou `arr[i] = 10`. O array inteiro não é editável,
-  só os elementos.
-- **Ler a memória** — hex view da memória de dados a partir de qualquer variável.
+- **Editar valores** — `x = 1` ou `arr[i] = 10`. O novo valor só aparece depois
+  que o servidor confirma a escrita. O array inteiro não é editável, só os
+  elementos.
+- **Ler a memória** — visão hexadecimal da memória de dados a partir de
+  qualquer variável.
 
 ### Tipos de breakpoint
 
 Além do breakpoint de linha (**condicional**, por **contagem de acertos** e
 **logpoint**):
 
-- **Data breakpoint** — pausa quando um valor muda, seja global, local ou um
-  elemento de array (`arr[3]`). Watches de variáveis locais expiram quando a
+- **Data breakpoint** — pausa quando um valor muda: global, local ou elemento de
+  array (`arr[3]`, `grid[1][2]`). O de uma variável local expira quando a
   função dona retorna.
 - **Breakpoint de função** — para ao entrar numa função pelo nome.
 - **Pausa em erro de runtime** — divisão por zero, índice de array fora do
   limite, colisão entre pilha e heap, underflow de heap e acesso inválido à
   memória. Liga e desliga pelo painel de breakpoints.
 
-A **saída do servidor** (incluindo `print` e logs do gamemode) aparece no painel
-**Console de Depuração** do editor — não é preciso abrir um terminal à parte.
+### Parar e reiniciar
 
-### Exemplo de `launch.json`
+- **Parar** encerra o servidor na hora e fecha a sessão.
+- **Reiniciar** sobe o servidor de novo na mesma sessão, com os breakpoints
+  mantidos. Se o fonte mudou desde a última compilação — ou se o `.amx` não tem
+  informação de depuração —, a extensão recompila antes. Uma compilação com erro
+  cancela o reinício, em vez de subir o binário antigo.
+
+### Código editado durante a sessão
+
+Os breakpoints valem para o código **compilado**. Se você editar o arquivo com
+a sessão aberta, a extensão lembra o texto de quando compilou e leva cada
+breakpoint para a linha equivalente — inserir linhas acima não desloca o ponto
+de parada. Um breakpoint numa linha que não existia na compilação fica **não
+verificado** até reiniciar, e o reinício recompila.
+
+### Enquanto está pausado
+
+A máquina virtual do servidor para por inteiro: nenhum callback, timer ou
+comando executa. A rede continua de pé — o servidor segue respondendo à
+consulta de status —, e o que chegou durante a pausa é processado de uma vez ao
+continuar, inclusive os timers atrasados.
+
+## `launch.json`
 
 ```json
 {
@@ -144,26 +189,30 @@ A **saída do servidor** (incluindo `print` e logs do gamemode) aparece no paine
 
 | Campo | Descrição |
 |-------|-----------|
-| `program` | Caminho do `.amx`. O `.pwn` ao lado é recompilado com debug info. |
-| `cwd` | Diretório de trabalho do servidor (padrão: raiz do workspace). |
-| `session` | Id do canal interno (socket local). Gerado automaticamente se vazio. |
+| `program` | Caminho do `.amx`. O `.pwn` de mesmo nome ao lado é compilado com informação de depuração; sem ele, o `.amx` é usado como está. |
+| `cwd` | Diretório do servidor. Padrão: o resolvido pela seção `server` da configuração. |
 
-## Se o preflight avisar que falta algo
+O executável e os argumentos do servidor vêm da seção `server` da
+[configuração](configuration.md#servidor), a mesma do painel.
 
-Antes de iniciar, a extensão verifica se o plugin está **instalado** no local
-correto e **registrado** (quando o servidor exige). Ela também confirma que o
-arquivo é mesmo o **plugin oficial** — se houver outro plugin com o nome
-`pawnpro_debug` que não seja o do depurador, ela avisa do conflito em vez de
-prosseguir como se estivesse tudo certo.
+## Se o aviso de preparação aparecer
 
-Mesmo que você escolha iniciar assim mesmo, a depuração só funciona com o plugin
-correto: um plugin homônimo não abre o canal de depuração, então o adaptador
-falha ao conectar com uma mensagem explicando as causas prováveis.
+Antes de iniciar, a extensão verifica se o plugin está **instalado** no lugar
+certo, **registrado** (quando o servidor exige) e se é da **arquitetura** do
+servidor. Ela também confere que o arquivo é o **plugin oficial**: se houver
+outro plugin chamado `pawnpro_debug`, avisa do conflito em vez de seguir.
+
+Dá para iniciar assim mesmo, mas a depuração só funciona com o plugin correto.
+Sem ele o servidor sobe, nenhum breakpoint é atingido e, depois de um minuto, o
+console avisa que o plugin não conectou, com as causas prováveis.
 
 ## Limitações
 
 - **Alvo é desenvolvimento local.** Não é para servidor de produção com jogadores.
-- O `.amx` precisa ter sido compilado com `-d3` (a extensão cuida disso).
-- Sem *hot-reload* / *edit-and-continue*.
-- Nas expressões do watch e do hover, um operador de topo por vez — sem
-  encadear várias operações na mesma expressão.
+- Sem *edit-and-continue*: mudanças no código só valem depois de reiniciar.
+- Nas expressões do watch e do hover, um operador por vez — sem encadear várias
+  operações na mesma expressão.
+- **Windows:** o núcleo e o plugin são publicados para Windows, mas a depuração
+  ainda não foi verificada num servidor Windows real.
+- **macOS:** não há servidor SA-MP nem open.mp para macOS, então não há o que
+  depurar localmente.

@@ -1,9 +1,9 @@
 # Compiladores
 
-O PawnPro usa o compilador para mais do que gerar o `.amx`: a análise da engine
-e a depuração dependem do bloco de informação de debug (`-d3`). Um compilador
-que gere esse bloco em formato diferente quebra os breakpoints, ainda que o
-script rode.
+O PawnPro usa o compilador para mais do que gerar o `.amx`: a depuração depende
+do bloco de informação de debug (`-d3`), e as flags aplicadas saem do que o
+próprio `pawncc` diz aceitar. Um compilador que gere o bloco de debug em
+formato diferente quebra os breakpoints, ainda que o script rode.
 
 Esta página lista o que foi **verificado em uso real**. "Não testado" não
 significa que falhe — significa que ninguém confirmou.
@@ -43,13 +43,20 @@ binário veio.
 
 ## Onde o PawnPro procura
 
-A detecção automática busca o `pawncc` nos caminhos usuais do projeto:
-`qawno/`, `pawno/` e a raiz. Para apontar um caminho fixo, use `compiler.path`
-em `.pawnpro/config.json`, ou o campo **Caminho do compilador** na página de
-configurações.
+O `pawncc` é procurado nesta ordem, do mais explícito ao mais genérico:
+
+1. a variável de ambiente `PAWNCC`, que sobrepõe tudo;
+2. `compiler.path` em `.pawnpro/config.json` (ou o campo **Caminho do
+   compilador** na página de configurações);
+3. o `PATH`;
+4. as pastas do projeto `qawno/`, `pawno/`, `include/`, `tools/` e `bin/`;
+5. caminhos de instalação comuns do sistema.
+
+Com `compiler.autoDetect` desligado, um `compiler.path` que não serve é erro,
+em vez de cair num outro compilador.
 
 ## Outros compiladores
 
 Podem funcionar, mas não há verificação. Os riscos são um bloco de debug que o
-depurador não lê — os breakpoints não pegam, sem erro visível — ou construções
-que a análise da engine não reconhece.
+depurador não lê — os breakpoints ficam não verificados — ou construções da
+linguagem que a análise da engine não reconhece.

@@ -5,13 +5,17 @@ núcleo `pawnpro-core` (Rust, repositório `NullSablex/PawnPro-Core`).
 
 ## Arquitetura
 
-- `src/core/` — TypeScript sem `vscode`: cliente do núcleo (`client.ts`) e os
-  módulos que ainda não migraram para ele.
+- `src/core/` — TypeScript sem `vscode`: cliente do núcleo (`client.ts`) e a
+  apresentação que fica em TS (cores, temas, idioma das páginas).
 - `src/editor/` — adaptação às APIs do editor.
 - `assets-src/` — CSS/JS das WebViews. `l10n/` — traduções de runtime.
 - O núcleo roda um processo por janela, JSON-RPC 2.0 pelo stdio. Ele hospeda a
-  engine LSP (`engine.start` devolve o endereço de um soquete local) e entrega a
-  ela a configuração — a engine ignora `initializationOptions`.
+  engine LSP e o adaptador de depuração num soquete local único: `engine.start`
+  e `debug.start` devolvem o endereço, e cada conexão se apresenta na primeira
+  linha (`PAWNPRO/1 lsp` ou `PAWNPRO/1 dap`). A configuração chega à engine pelo
+  núcleo — ela ignora `initializationOptions`.
+- Compilação, resolução e log do servidor, RCON e processos também são do
+  núcleo; a extensão só chama e exibe.
 
 ## Regras absolutas
 
@@ -36,7 +40,7 @@ núcleo `pawnpro-core` (Rust, repositório `NullSablex/PawnPro-Core`).
 npm run compile        # type-check
 npm test               # testes em src/core/__tests__/
 npm run bundle         # esbuild → out/editor/extension.js
-npm run package:full   # VSIX com os binários de engines/
+npm run package:full   # VSIX com os binários de bin/
 ```
 
 ## Gotchas

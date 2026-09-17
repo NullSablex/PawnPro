@@ -1,155 +1,89 @@
-# Naming Assistant (offline)
+# Assistente de nomes
 
-Assistente de nomes para o código Pawn do usuário. **100% offline e
-determinístico** — sem modelo de IA, sem rede, sem envio de código para fora.
-"Inteligência" aqui = heurísticas + o contexto semântico que a engine já extrai
-da AST (`Symbol`, `Param`, tags). Alinhado à natureza da engine (Rust puro).
+Verificação de qualidade de nomes no código Pawn do usuário, com o diagnóstico
+`PP0018`. **Offline e determinística**: sem modelo de IA, sem rede, sem enviar
+código para fora — só regras sobre o que a engine já extrai do código.
 
-> Convenção: **genérica e configurável**. A ferramenta não impõe um idíge de
-> comunidade (ex.: `playerid`/`Iter_`); apenas detecta nomes pobres e aplica o
-> estilo de caixa escolhido por categoria de símbolo.
+A convenção é **genérica e configurável**: a ferramenta não impõe um padrão da
+comunidade (`playerid`, `Iter_`…); ela aponta nomes pobres e confere o estilo
+de caixa escolhido para cada categoria de identificador.
 
-## Por que não IA de verdade
+Para o uso e as chaves, veja [Configuração](configuration.md#nomenclatura-assistente-de-nomes).
+Esta página descreve o funcionamento por dentro.
+
+## Por que não IA
 
 | Opção | Veredito |
 |-------|----------|
-| Modelo local embarcado | Infla o pacote (centenas de MB), consome RAM/CPU, qualidade baixa para nomear. ❌ |
-| API (Claude/OpenAI) | Exige chave + rede + **envia código do gamemode para fora** (privacidade). ❌ |
-| Heurística determinística | Leve, instantânea, privada, sem dependências. ✅ |
+| Modelo local embarcado | Infla o pacote (centenas de MB), consome RAM e CPU, e nomeia mal. ❌ |
+| API externa | Exige chave e rede, e **envia o código do gamemode para fora**. ❌ |
+| Regras determinísticas | Leves, instantâneas, privadas e sem dependências. ✅ |
 
-Para nomes, a maior parte do valor vem de regras + contexto de tipo/escopo —
-não de um LLM.
+## O que é verificado
 
-## O que a engine já oferece
+Desligado por padrão (`analysis.naming.enabled: false`). Ligado, avalia:
 
-- `Symbol { name, kind, signature, params, line, col }`
-- `Param { name, tag: Option<String>, is_variadic }` — a `tag` carrega `Float:`,
-  tags de enum, etc.: insumo direto para sugerir nome por tipo.
-- Pipeline de diagnósticos (`analyzer/`) com `PawnDiagnostic` + `codes::PPxxxx`
-  + `MsgKey` (localizável). Próximo código livre: **PP0018**.
-- Capabilities LSP em `server.rs::server_capabilities()` — hoje **sem** rename
-  nem code action; serão adicionadas na Fase 2.
+- **Funções** definidas pelo usuário (`stock`, `public`, `static` e sem palavra-chave)
+  e seus **parâmetros**. Nativas e `forward` de include ficam de fora: são API
+  externa.
+- **Variáveis globais**, **constantes** (`const`, membros de `enum`) e **macros**
+  (`#define`).
+- **Variáveis locais** — `new`/`static` dentro de corpo, inclusive listas
+  (`new a, b, c`), tags (`Float:x`), dimensões e inicializadores.
 
-## Fases
+As regras, da mais específica para a mais geral — o primeiro motivo encontrado
+é o reportado:
 
-### Fase 1 — Diagnóstico de nomes pobres (`PP0018`)
+1. **Placeholder** — o nome está na lista de proibidos (`tmp`, `foo`…), sem
+   diferenciar maiúsculas.
+2. **Comprimento** — mais curto que `minLength`, exceto os índices de loop
+   tolerados num cabeçalho de loop e o descarte `_`.
+3. **Estilo** — a caixa não casa com nenhum critério da categoria. Lista vazia
+   desliga a checagem daquela categoria.
 
-Puramente analítica: reusa o pipeline de `analyzer/`, vira um diagnóstico novo.
-Sem capabilities LSP novas. Entrega valor imediato e é a base do resto.
+A severidade é sempre `hint`: é estilo, não erro.
 
-Detecta (configurável, tudo desligável):
-- **1 letra fora de contexto trivial**: `new a` em escopo não-loop. Toleráveis:
-  `i`/`j`/`k` em `for`, e o que a config liberar.
-- **Placeholders genéricos**: `tmp`, `temp`, `aux`, `foo`, `bar`, `data`, `var`,
-  `x1`/`x2` sequenciais — lista configurável.
-- **Estilo divergente** da convenção escolhida (ver Fase 3).
+## Estilos e padrão próprio
 
-Severidade: `hint`/`information` (nunca `error` — é estilo, não correção).
+Cada categoria (`functions`, `globals`, `locals`, `constants`, `macros`,
+`parameters`) aceita uma lista; o nome passa se casar com **qualquer** item.
 
-### Fase 2 — Sugestão de nome (rename + code action)
+- **Estilos embutidos:** `camelCase`, `snake_case`, `PascalCase`, `UPPER_CASE` e
+  `Capitalized_Snake`. As regras de cada um estão em
+  [Nomenclaturas aceitas](configuration.md#nomenclaturas-aceitas).
+- **Padrão próprio:** um item entre barras (`/^g_[a-z][a-zA-Z0-9]*$/`) é lido
+  como expressão regular, ancorado como `^(?:…)$` — descreve o nome inteiro.
+  Um padrão inválido é ignorado sem derrubar os demais critérios. O motor de
+  regex do Rust tem tempo linear garantido, então um padrão custoso não trava a
+  análise.
 
-Implementado:
+## Correções oferecidas
 
-- **Rename nativo** (`rename_provider` com `prepareProvider`): reusa
-  `get_references` para achar todas as ocorrências e devolve um `WorkspaceEdit`.
-  Em `src/intellisense/rename.rs`. Funciona em qualquer identificador, não só nos
-  sinalizados.
-- **Code action** (`code_action_provider`): sobre o identificador na seleção,
-  oferece converter para os estilos configurados em `naming.style`
-  (`src/naming/suggest.rs` → `naming::suggestions_for`), cada um como quick-fix
-  que aplica o rename. Associa-se ao diagnóstico `PP0018` quando presente.
+- **Quick fix** — sobre um identificador, oferece convertê-lo para cada estilo
+  embutido presente na configuração, de qualquer categoria
+  (`playerHealth` → `player_health`), aplicado como renomeação. Só com o
+  assistente ligado. Um padrão próprio não gera sugestão: de um regex
+  arbitrário dá para saber se o nome passa, não como reescrevê-lo.
+- **Renomear (`F2`)** funciona em qualquer identificador, sinalizado ou não, e
+  respeita escopo: um local só no bloco dele, um parâmetro só na própria função.
 
-A sugestão é **oferta**, não imposição: o usuário escolhe aplicar.
+A sugestão é só normalização de caixa. Derivar um nome do tipo (`Float:`) ou do
+inicializador (`GetPoolSize()` → `poolSize`) não está implementado: a heurística
+é arriscada e poderia sugerir algo pior que o original.
 
-**Escopo desta versão**: a sugestão é **normalização de caixa** ao estilo
-configurado (`playerHealth` → `player_health`). A derivação semântica que o
-desenho original previa — nome a partir de tag (`Float:`), do inicializador
-(`GetPoolSize()` → `poolSize`) ou do papel sintático — **não** está implementada;
-fica como evolução futura, pois exige heurística mais arriscada (e podia sugerir
-algo pior). O `split_words` de `suggest.rs` já reconhece as fronteiras
-(`snake`/`camel`/`Pascal`/`UPPER`), então a base para isso existe.
+## Onde fica o código
 
-### Fase 3 — Convenção configurável
+Em `pawnpro-core/crates/engine/src/`:
 
-Em `.pawnpro/config.json`, seção `naming` (genérica, sem domínio):
+| Arquivo | Papel |
+|---|---|
+| `naming/mod.rs` | `analyze` (avalia os identificadores) e `suggestions_for` (quick fix) |
+| `naming/rules.rs` | As três regras, na ordem acima |
+| `naming/style.rs` | Reconhecer os estilos embutidos e os padrões próprios |
+| `naming/suggest.rs` | Converter um nome para um estilo |
+| `naming/locals.rs` | Extrair as variáveis locais dos tokens |
+| `analyzer/naming.rs` | Transformar o resultado em `PP0018` |
+| `intellisense/rename.rs` | Renomeação com escopo |
 
-```jsonc
-{
-  "naming": {
-    "enabled": true,
-    "style": {
-      // Lista por categoria: o nome passa se casar com QUALQUER item.
-      // Lista vazia desliga a checagem daquela categoria.
-      "functions":  ["camelCase"],
-      "globals":    ["camelCase", "/^g_[a-z][a-zA-Z0-9]*$/"],
-      "locals":     ["camelCase"],
-      "constants":  ["UPPER_CASE"],
-      "macros":     ["UPPER_CASE"],
-      "parameters": ["camelCase"]
-    },
-    "minLength": 2,
-    "allowShortInLoops": ["i", "j", "k"],
-    "blocklist": ["tmp", "temp", "aux", "foo", "bar", "data"]
-  }
-}
-```
-
-Sem config, o assistente fica em modo conservador (só placeholders óbvios e
-nomes de 1 letra fora de loop) ou totalmente desligado — a definir na Fase 1.
-
-## Arquitetura proposta
-
-```
-src/naming/
-├── mod.rs        — API pública: analyze(symbols, cfg) -> Vec<NameIssue>
-├── rules.rs      — heurísticas de detecção (1 letra, blocklist, estilo)
-├── style.rs      — camelCase/snake_case/PascalCase: detectar e converter
-└── suggest.rs    — Fase 2: derivar nome a partir de tag/inicializador/papel
-```
-
-- `analyzer/` consome `naming::analyze` e emite `PP0018` (Fase 1).
-- `server.rs` ganha handlers de rename/code-action que chamam `naming::suggest`
-  (Fase 2).
-- Mensagens via `MsgKey` (novas chaves em `messages/`), localizadas como o resto.
-
-## Decisões em aberto (resolver ao implementar a Fase 1)
-
-1. **Default desligado ou conservador?** Recomendação: conservador (só sinais
-   fortes) para não irritar quem não pediu.
-2. **Escopo de "local"**: `symbols.rs` cobre top-level (funções/globais/enums);
-   variáveis locais já aparecem no `StmtTree` como `StmtKind::VarDecl` com
-   `depth`. Verificado: a Fase 1 alcança ambos — top-level via `Symbol`, locais
-   via `VarDecl` no StmtTree (resta extrair o identificador do token da decl).
-3. **Severidade exata** e se entra no "Problems" ou só como hint inline.
-
-## Status
-
-| Fase | Estado |
-|------|--------|
-| 1 — Diagnóstico `PP0018` | ✅ implementado (funções, parâmetros e locais) |
-| 2 — Sugestão (rename/code action) | ✅ implementado — rename nativo + quick-fix de estilo |
-| 3 — Convenção configurável (estilo) | ✅ implementado — estilo por categoria (functions/globals/locals/constants/parameters), `off` por padrão |
-
-### Cobertura atual da Fase 1
-
-- Avalia: nomes de **funções definidas pelo usuário** (stock/public/static/plain)
-  e seus **parâmetros**; e **variáveis locais** (`new`/`decl`/`static` dentro de
-  corpo, incl. listas `a, b, c`, tags `Float:x`, dimensões e inicializadores).
-  Exclui nativas/forwards de include (API externa) e globais de topo só entram
-  uma vez (via `parsed.symbols`).
-- Regras: **placeholder** (blocklist) e **comprimento mínimo** (com tolerância a
-  índices de loop e ao descarte `_`).
-- Severidade: `hint`. Desligado por padrão (`naming.enabled = false`).
-- Extração de locais: `src/naming/locals.rs` varre os tokens (o `StmtTree` não
-  guarda o identificador do `VarDecl`).
-- **Estilo de caixa** (`src/naming/style.rs`): por categoria, em
-  `analysis.naming.style` (`functions`/`globals`/`locals`/`constants`/
-  `parameters`), cada um `camelCase`/`snake_case`/`PascalCase`/`UPPER_CASE`/`Capitalized_Snake`/`off`.
-  Padrão `off` em todas — só checa o que o usuário pedir. Ordem das regras:
-  placeholder → comprimento → estilo (a mais específica vence).
-- **Padrão próprio**: um item da lista entre barras (`/^g_[a-z][a-zA-Z0-9]*$/`) é
-  lido como expressão regular, e convive com os estilos embutidos — o nome passa
-  se casar com qualquer critério da categoria. O padrão é âncorado como
-  `^(?:…)$`: descreve o nome inteiro. Um padrão inválido é ignorado sem derrubar
-  os demais critérios. Não gera sugestão de renomeação: de um regex arbitrário
-  dá para saber se o nome passa, não como reescrevê-lo.
+As listas de proibidos e de índices de loop vêm dos arquivos `.ban`/`.allow`,
+lidos pelo núcleo — ver [Listas de nomes](naming-lists.md).

@@ -58,10 +58,13 @@ documentação da função aparece ao passar o mouse.
 ### Na hora de compilar e testar
 
 - **`Ctrl+Alt+B` compila** — o `pawncc` é encontrado sozinho (via `$PAWNCC`,
-  `PATH` ou dentro do projeto). Os erros voltam clicáveis no painel de problemas.
+  `PATH` ou dentro do projeto), e a saída aparece no painel **Pawn Build**. Os
+  erros que o motor encontra já estão no painel de problemas, clicáveis, antes
+  mesmo de compilar.
 - **`F5` depura de verdade** — breakpoints (simples, condicionais, por contagem e
   logpoints), passo a passo, inspeção de variáveis, watch, call stack e
-  data breakpoints. Depuração real de gamemode, não `print()` espalhado.
+  data breakpoints, em gamemodes e filterscripts. Depuração real, não
+  `print()` espalhado — ainda instável.
 - **Servidor no painel lateral** — iniciar, parar, reiniciar e enviar comandos
   RCON sem abrir terminal. Histórico e favoritos com busca, e o log acompanhado
   em tempo real.
@@ -146,8 +149,9 @@ A análise não roda em JavaScript. Ela fica no núcleo nativo —
 **Rust** — que conversa com o editor pelo protocolo LSP. Isso é o que permite
 analisar um gamemode grande com todos os seus includes sem travar a digitação.
 
-A depuração segue o mesmo princípio: um adaptador DAP na extensão e um plugin
-dentro do servidor.
+A depuração segue o mesmo princípio: o adaptador DAP também vive no núcleo, e
+um plugin roda dentro do servidor. Os dois conversam pelo mesmo soquete local
+que o editor usa.
 
 ## Bom saber
 

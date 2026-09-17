@@ -10,7 +10,7 @@ As configurações do PawnPro são gerenciadas por arquivos JSON — **não** pe
 | `.pawnpro/config.json` | Projeto (sobrescreve global) |
 | `.pawnpro/state.json` | Estado local (favoritos, histórico do servidor) |
 
-O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra de status. As configurações também podem ser editadas pela interface gráfica acessível via comando `pawnpro.openSettings` ou pelo item **Configurações** no menu da barra de status.
+Nada precisa ser editado à mão: a página de configurações (`pawnpro.openSettings`, ou **Configurações** no menu do item **PawnPro** da barra de status) cobre todas as chaves. O arquivo do projeto prevalece sobre o global, chave a chave; um valor com tipo errado é ignorado e cai no padrão, sem descartar o resto do arquivo.
 
 ## Compilação
 
@@ -33,10 +33,10 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 
 | Chave | Padrão | Descrição |
 |-------|--------|-----------|
-| `compiler.autoDetect` | `true` | Detecta `pawncc` automaticamente. Ordem de busca: variável de ambiente `$PAWNCC`, `$PATH`, subdiretórios do workspace (`qawno/`, `pawno/`, `include/`, `tools/`, `bin/`), caminhos comuns do sistema |
+| `compiler.autoDetect` | `true` | Procura o `pawncc` quando `compiler.path` está vazio ou não serve. Ordem: variável de ambiente `PAWNCC` (vale sempre), `compiler.path`, `PATH`, pastas do projeto (`qawno/`, `pawno/`, `include/`, `tools/`, `bin/`) e caminhos comuns do sistema. Desligado, um `compiler.path` inválido é erro |
 | `compiler.path` | `""` | Caminho absoluto para o executável `pawncc`. Se apontar para um diretório, procura `pawncc` dentro dele. No painel de configurações gráfico, este campo fica **oculto** enquanto `compiler.autoDetect` está ligado (a detecção automática torna o caminho manual irrelevante); desligue a detecção automática para exibi-lo e editá-lo |
-| `compiler.args` | `[]` | Argumentos adicionais passados ao compilador |
-| `includePaths` | `["${workspaceFolder}/pawno/include"]` | Diretórios de includes; suporta `${workspaceFolder}`. Em runtime, a extensão também adiciona automaticamente `qawno/include`, `pawno/include` e `include` da raiz do workspace se existirem, além de paths vindos de `-i` em `compiler.args` |
+| `compiler.args` | `[]` | Argumentos passados ao compilador. Vazio: a extensão detecta as flags que o `pawncc` local aceita e aplica um conjunto mínimo. Flags que o compilador não aceita são removidas e informadas |
+| `includePaths` | `["${workspaceFolder}/pawno/include"]` | Diretórios de includes; suporta `${workspaceFolder}`. Também entram, se existirem, os caminhos de `-i` em `compiler.args` e `qawno/include`, `pawno/include` e `include` da raiz do workspace. Sem nenhum desses na raiz, procura a pasta de include subindo a partir do arquivo aberto |
 | `output.encoding` | `"windows1252"` | Codificação da saída do compilador: `utf8`, `windows1250`–`windows1257` ou `latin1` |
 | `build.showCommand` | `false` | Exibe o comando completo do compilador no painel de saída |
 
@@ -59,8 +59,8 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 |-------|--------|-----------|
 | `analysis.warnUnusedInInc` | `false` | Habilita PP0006 para stocks em arquivos `.inc` |
 | `analysis.suppressDiagnosticsInInc` | `false` | Suprime todos os diagnósticos dentro de arquivos `.inc` |
-| `analysis.sdk.platform` | `"auto"` | SDK base: `"auto"`, `"omp"`, `"samp"` ou `"none"`. `"auto"` procura `open.mp.inc` primeiro em `<workspace>/qawno/include/`, depois nos `includePaths`; se não encontrar, assume SA-MP. O painel de configurações gráfico expõe apenas `omp`, `samp` e `none` — `"auto"` só é configurável via JSON |
-| `analysis.sdk.filePath` | `""` | Caminho manual para o arquivo SDK centralizador (necessário principalmente para SA-MP, onde não há convenção de nome automática) |
+| `analysis.sdk.platform` | `"auto"` | SDK base: `"auto"`, `"omp"`, `"samp"` ou `"none"`. `"auto"` procura `open.mp.inc` primeiro em `<workspace>/qawno/include/`, depois nos `includePaths`; sem ele, as nativas vêm dos includes, como no SA-MP |
+| `analysis.sdk.filePath` | `""` | Caminho manual para o arquivo SDK centralizador. Vence a detecção, mas só se existir: um caminho inválido não cai num palpite |
 
 ## Formatação
 
@@ -70,7 +70,8 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
     "preset": "allman",
     "braceStyle": "nextLine",
     "spaceAroundOperators": true,
-    "emptyBlockSameLine": true
+    "emptyBlockSameLine": true,
+    "preserveArrayAlignment": false
   }
 }
 ```
@@ -81,6 +82,7 @@ O arquivo de projeto pode ser aberto rapidamente pelo item **PawnPro** na barra 
 | `format.braceStyle` | `"nextLine"` | `"nextLine"` ou `"sameLine"`. Só aplicado quando `preset` é `"custom"` |
 | `format.spaceAroundOperators` | `true` | Espaço em volta de operadores binários. Só no `"custom"` |
 | `format.emptyBlockSameLine` | `true` | Mantém blocos vazios colados ao controle. Só no `"custom"` |
+| `format.preserveArrayAlignment` | `false` | Preserva o alinhamento manual de inicializadores de array em várias linhas. Vale para qualquer preset |
 
 ## Nomenclatura (assistente de nomes)
 
@@ -112,10 +114,10 @@ Desligado por padrão. Quando ligado, emite o diagnóstico `PP0018`.
 |-------|--------|-----------|
 | `analysis.naming.enabled` | `false` | Liga o assistente de nomes |
 | `analysis.naming.minLength` | `2` | Comprimento mínimo antes de sinalizar (índices de loop são tolerados) |
-| `analysis.naming.maxListFileBytes` | `33554432` | Limite (bytes) que a engine processa de cada arquivo `.ban`/`.allow`. Não impede editá-los |
-| `analysis.naming.blocklistFile` | `.pawnpro/naming-blocklist.ban` | Arquivo com os nomes proibidos (um por linha, `#` comenta). Tem prioridade sobre a lista inline |
+| `analysis.naming.maxListFileBytes` | `33554432` | Limite (bytes) lido de cada arquivo `.ban`/`.allow`. Não impede editá-los |
+| `analysis.naming.blocklistFile` | `.pawnpro/naming-blocklist.ban` | Arquivo com os nomes proibidos (um por linha, `#` comenta). Com pelo menos um termo, prevalece sobre a lista inline |
 | `analysis.naming.loopIndicesFile` | `.pawnpro/naming-loop-indices.allow` | Arquivo com os índices de loop tolerados |
-| `analysis.naming.style.<categoria>` | `[]` | Lista de estilos aceitos por categoria (`functions`, `globals`, `locals`, `constants`, `macros`, `parameters`). Lista vazia = sem checagem; o nome é aceito se casar com **qualquer** estilo da lista. Ver [Nomenclaturas aceitas](#nomenclaturas-aceitas) abaixo |
+| `analysis.naming.style.<categoria>` | `[]` | Lista de estilos aceitos por categoria (`functions`, `globals`, `locals`, `constants`, `macros`, `parameters`). Lista vazia = sem checagem; o nome é aceito se casar com **qualquer** item. Além dos estilos, um item entre barras (`/^g_[a-z]+$/`) é um padrão próprio por expressão regular. Ver [Nomenclaturas aceitas](#nomenclaturas-aceitas) abaixo |
 
 > As listas grandes (`blocklist`/`allowShortInLoops`) ficam nos arquivos `.ban`/`.allow`, não no JSON. Ver o [guia de listas de nomes](naming-lists.md).
 
@@ -172,7 +174,7 @@ Observações:
 | `server.clearOnStart` | `true` | Limpa o painel de saída ao (re)iniciar o servidor |
 | `server.output.follow` | `"visible"` | Rola automaticamente o painel de log: `"visible"` (quando visível), `"always"` ou `"off"` |
 | `server.history.enabled` | `true` | Guarda em `.pawnpro/state.json` os comandos enviados ao servidor. `false` não registra nada. O arquivo é criado com permissão restrita ao seu usuário e não deve entrar no controle de versão |
-| `server.history.sensitiveCommands` | `[]` | Comandos do seu gamemode que recebem senha ou token e não devem ser guardados, além dos que a extensão já reconhece (`login`, `rcon_password`, `password`, `changepassword`, `setpassword`, e senha anunciada por rótulo como `--senha abc`). Comparados pelo primeiro termo, sem diferenciar maiúsculas |
+| `server.history.sensitiveCommands` | `[]` | Comandos do seu gamemode que recebem senha ou token e não devem ser guardados, além dos que a extensão já reconhece (`login`, `rcon_password`, `password`, `changepassword`, `setpassword`, senha anunciada por rótulo como `--senha abc` e argumentos com cara de credencial — ver [Servidor](server.md#comandos-com-senha-nunca-sao-guardados)). Comparados pelo primeiro termo, sem diferenciar maiúsculas |
 
 ## Interface e idioma
 
@@ -185,6 +187,7 @@ Observações:
   "ui": {
     "showIncludePaths": false,
     "animateTitle": false,
+    "accent": "",
     "locale": ""
   },
   "locale": ""
@@ -200,3 +203,17 @@ Observações:
 | `ui.accent` | `""` | Cor de destaque das páginas da extensão (botões, item ativo, foco, badges): `""` (automático, herda do tema do editor), `"blue"`, `"purple"`, `"green"`, `"amber"`, `"pink"` ou `"teal"`. Não altera o realce de sintaxe |
 | `ui.locale` | `""` | Idioma das **páginas da extensão** (Configurações, Ajuda, O que há de novo): `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"`. Independente de `locale` |
 | `locale` | `""` | Idioma dos **diagnósticos** do motor LSP e do debugger: `""` (automático, segue o editor), `"pt-BR"`, `"en"`, `"es"`, `"ro"` ou `"ru"` |
+
+## Diagnóstico
+
+```json
+{
+  "diagnostics": {
+    "level": "off"
+  }
+}
+```
+
+| Chave | Padrão | Descrição |
+|-------|--------|-----------|
+| `diagnostics.level` | `"off"` | Registro do que a extensão, o núcleo e a engine fazem, em `.pawnpro/logs/`: `"off"`, `"error"`, `"warn"` ou `"info"`. Desligado, nada é escrito e nenhuma pasta é criada. Também ajustável pelo comando **PawnPro: Nível do diagnóstico** |

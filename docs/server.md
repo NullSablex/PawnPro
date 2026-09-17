@@ -14,7 +14,7 @@ Os comandos ficam na paleta (`Ctrl+Shift+P`) e no menu da barra de status:
 | **PawnPro: Iniciar Servidor** | Sobe o servidor num terminal do editor |
 | **PawnPro: Parar Servidor** | Encerra o processo |
 | **PawnPro: Reiniciar Servidor** | Para e sobe de novo |
-| **PawnPro: Exibir Console do Servidor** | Abre o painel de comandos |
+| **PawnPro: Exibir Console do Servidor** | Abre a saída do servidor, que reúne o log e as respostas do RCON |
 | **PawnPro: Exibir Log do Servidor** | Abre o acompanhamento do log |
 
 Não é preciso configurar o caminho do executável: com `server.path` vazio, a
@@ -28,6 +28,11 @@ extensão procura nos subdiretórios usuais do projeto — a raiz, `server/`,
 O campo no topo do painel envia comandos ao servidor em execução. A senha do
 RCON **não precisa ser digitada**: a extensão a lê do `server.cfg` (chave
 `rcon_password`) ou do `config.json` do open.mp, e autentica sozinha.
+
+O RCON trafega a senha em texto claro, por isso o envio direto vale só para
+servidor **local**. Com servidor remoto, ou sem senha válida, o comando vai pela
+entrada do terminal do servidor. Se o `config.json` do open.mp desliga o RCON, a
+extensão avisa e oferece ligá-lo.
 
 <!-- imagem: campo de comando com um comando digitado -->
 
@@ -46,8 +51,9 @@ campo de busca filtra por qualquer trecho, e a lista carrega mais sob demanda.
 ### Onde isso fica guardado
 
 Em `.pawnpro/state.json`, dentro do projeto. O arquivo é criado com permissão
-restrita ao seu usuário e **não deve entrar no controle de versão** — o
-`.gitignore` do projeto já o cobre.
+restrita ao seu usuário e **não deve entrar no controle de versão** — a
+extensão cria um `.pawnpro/.gitignore` que o exclui, sem mexer no `.gitignore`
+do projeto.
 
 Para não guardar nada, desligue **Guardar comandos enviados** nas configurações
 (`server.history.enabled`).
@@ -58,9 +64,12 @@ Um comando que pareça carregar credencial é enviado normalmente, mas não entr
 no histórico. A extensão reconhece sozinha:
 
 - comandos conhecidos de autenticação — `login`, `rcon_password`, `password`,
-  `changepassword`, `setpassword`;
-- argumentos anunciados por rótulo — `--senha 1234`, `auth token abc`, `-pwd=x`
-  (também em inglês: `pass`, `pwd`, `key`, `secret`, `apikey`).
+  `changepass`/`changepassword`, `setpass`/`setpassword`;
+- argumentos anunciados por rótulo — `--senha 1234`, `auth token abc`: `senha`,
+  `chave`, `segredo`, `pass`, `passwd`, `password`, `pwd`, `token`, `key`,
+  `secret`, `auth`, `apikey`, com ou sem `-`/`--`, também na forma `--senha=1234`;
+- argumentos com cara de credencial — 8 caracteres ou mais, misturando letras e
+  dígitos. Números, IPs e coordenadas não contam.
 
 Se o seu gamemode tem um comando próprio que recebe senha, acrescente-o em
 **Comandos que não devem ser guardados** (`server.history.sensitiveCommands`).

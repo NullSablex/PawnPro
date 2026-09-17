@@ -6,8 +6,9 @@ critérios de decisão e as armadilhas já conhecidas.
 
 Arquivos: [`src/editor/server.ts`](../src/editor/server.ts),
 [`src/editor/serverRegistry.ts`](../src/editor/serverRegistry.ts),
-[`src/editor/debugAdapter.ts`](../src/editor/debugAdapter.ts).
-Adaptador DAP (repositório irmão): `crates/dap-adapter/src/main.rs`.
+[`src/editor/debugAdapter.ts`](../src/editor/debugAdapter.ts),
+[`src/core/debugCycle.ts`](../src/core/debugCycle.ts).
+Adaptador DAP: `crates/debugger/adapter/` no repositório irmão `pawnpro-core`.
 
 ---
 
@@ -23,7 +24,7 @@ costuma ser porque uma delas foi violada.
    terminal **pedem**. Quem confirma é a sondagem seguinte. Foi exatamente essa
    confusão que gerou o bug do órfão fantasma.
 3. **Estado que caduca não decide fluxo.** A origem do registry expira sozinha
-   (ver [tolerância](#tolerância-e-o-perigo-dela)). Ela serve para *exibir*.
+   (ver [tolerância](#tolerancia-e-o-perigo-dela)). Ela serve para *exibir*.
    Para *decidir como parar*, o critério é a sessão que o editor entregou —
    um fato, não uma estimativa.
 4. **Escopo de operação é parâmetro, não campo.** `restarting` viaja como
@@ -99,12 +100,14 @@ stop({ restarting }) → boolean
   │
   ├─ COMO parar (exclusivo, nesta ordem):
   │     ├─ há terminal → envia `exit`, aguarda 600 ms, dispose
-  │     └─ há debugSession → stopDebugging(session)
-  │            └─ o adaptador emite `terminated` e, na MESMA iteração,
-  │               mata o filho (SIGKILL) e o colhe. Não há o que esperar:
-  │               esperar o evento seria esperar o marco errado.
+  │     ├─ há debugSession → stopDebugging(session)
+  │     │      └─ a sessão no core mata o servidor (SIGKILL), o colhe e
+  │     │         emite `terminated`. A barra é a do tracker da depuração,
+  │     │         não a do stop — com as duas, "Parando" aparecia duas vezes.
+  │     └─ nenhum dos dois (servidor nosso, subido por fora)
+  │            └─ resolvePortConflict(offerKeep: false) ──► 'free' ? true : false
   │
-  └─ LAÇO: waitForPort(false, 6 s)  ← barra de progresso
+  └─ LAÇO: waitForPort(false, 6 s)  ← barra de progresso (só sem depuração)
         ├─ calou → registry.markStopped() + "parado" ───────────► true
         └─ ainda responde → resolvePortConflict(offerKeep: false)
                               └─ 'free' ? true : false
@@ -125,10 +128,11 @@ restart()
   │
   ├─ sem terminal E há debugSession?      ← DEPURAÇÃO
   │     └─ workbench.action.debug.restart
-  │           │  o adaptador troca o processo por baixo e MANTÉM a sessão;
-  │           │  não há terminal nem evento de parada para observar.
-  │           └─ LAÇO: waitForPort(false, 5 s) → waitForPort(true, 15 s)
-  │                 └─ "reiniciado" ──────────────────────────────► fim
+  │           │  a sessão troca o processo por baixo e MANTÉM a sessão,
+  │           │  recompilando antes se o fonte mudou.
+  │           └─ só delega ───────────────────────────────────────► fim
+  │              (a barra é a do tracker; a vigilância periódica
+  │               atualiza o painel)
   │
   └─ TERMINAL
         ├─ stop({ restarting: true }) → false ? ───────────────► fim
@@ -139,27 +143,30 @@ restart()
 parar; repeti-la significava sondar a porta duas vezes para dar a mesma
 resposta, e antes gerava **duas mensagens** sobre o mesmo processo.
 
-**A queda pode passar despercebida** entre duas sondagens, e tudo bem: o
-primeiro `waitForPort(false, …)` é oportunista. O que decide é o segundo.
-
 ---
 
 ## Depuração: quem é dono de quem
 
 ```
-editor ──spawn──► adaptador DAP ──spawn──► omp-server
-                       │                      (filho)
-                       └── Drop: SIGKILL + wait()
-                       └── PR_SET_PDEATHSIG (Linux): morre com o pai
+editor ──stdio──► pawnpro-core ── debug.start ──► endereço do soquete
+  │                   │
+  │                   └─ sessão DAP (thread) ──spawn──► omp-server + plugin
+  │                            ├─ Drop: SIGKILL + wait()
+  │                            └─ PR_SET_PDEATHSIG (Linux): o servidor
+  │                               morre com a thread da sessão
+  │
+  └─ soquete: `PAWNPRO/1 dap`          plugin: `PAWNPRO/1 plugin <sessão>`
 ```
+
+Um soquete só no core atende LSP, DAP e o plugin; a primeira linha de cada
+conexão diz a que canal ela pertence. A extensão fala DAP por um adaptador
+inline (`SocketDebugAdapter`) e não rastreia processo nenhum.
 
 Consequências que o painel precisa respeitar:
 
-- **O painel não mata esse servidor.** Só o adaptador o encerra. Por isso o
-  `stop` delega em vez de procurar PIDs.
-- **No restart o adaptador sobrevive** e só o servidor é trocado. Verificado:
-  sete reinícios seguidos, PID do servidor mudando, adaptador o mesmo, nenhum
-  zumbi.
+- **O painel não mata esse servidor.** Só a sessão de depuração o encerra. Por
+  isso o `stop` delega em vez de procurar PIDs.
+- **No restart a sessão sobrevive** e só o servidor é trocado.
 - **Não há terminal.** O console vem do tail do arquivo de log, que independe de
   quem subiu o servidor.
 
@@ -169,6 +176,24 @@ Ciclo de vida da sessão no painel:
 |---|---|
 | `onDidStartDebugSession` (type `pawn`) | guarda a sessão; `origin='external'` |
 | `onDidTerminateDebugSession` | limpa **se o `id` bater** — outra sessão viva não pode ser apagada |
+
+### A barra de progresso da depuração
+
+Os controles nativos (barra flutuante, F5, Shift+F5) não passam pelo painel. Um
+tracker lê o tráfego DAP, e a decisão fica em `DebugCycle`, testada com a
+sequência real de mensagens:
+
+| Mensagem | Efeito |
+|---|---|
+| requisição `restart` | abre "Reiniciando" |
+| requisição `terminate` / `disconnect` | abre "Parando" |
+| evento `pawnproRebuild` | a compilação reusa a barra aberta, trocando o título |
+| evento `continued` | fecha: o servidor novo está de pé |
+| evento `terminated` ou resposta ao `disconnect` | fecha e marca o fim |
+
+Depois do fim nada reabre a barra. Ao parar, o editor manda `terminate`, recebe
+`terminated` e só então `disconnect`: abrir "Parando" nesse `disconnect` e
+esperar outro `terminated` deixava a barra presa.
 
 ---
 
@@ -223,15 +248,19 @@ resolveDebugConfigurationWithSubstitutedVariables
   └─ doResolve
        ├─ expande ${workspaceFolder} / ${file}
        ├─ `program` definido? ──── não → aborta
-       ├─ ensureDebugBuild → compila com -d3 (só injeta se não houver -d)
-       ├─ gera `session` (canal plugin ↔ adaptador)
+       ├─ ensureDebugBuild → compila com -d3 (o core troca qualquer -d)
        ├─ resolve `locale` (mesma fonte do LSP)
        └─ prepareServer
             ├─ resolve exe/args/cwd
             ├─ preflight do plugin (arquitetura, nome, registro)
             │     └─ falhou → "iniciar mesmo assim" / cancelar
             └─ grava `serverCommand` — NÃO sobe o servidor
-                  (quem sobe é o adaptador, para o processo ser filho dele)
+                  (quem sobe é a sessão no core, para o processo ser filho dela)
+
+createDebugAdapterDescriptor
+  └─ debug.start → endereço → conecta com `PAWNPRO/1 dap`
+       └─ o `launch` leva o `serverCommand`; a sessão sobe o servidor com as
+          variáveis que o plugin lê (endpoint, sessão, `.amx`, idioma)
 ```
 
 `ensurePortFree` roda entre o preflight e a gravação do `serverCommand`, com o
@@ -261,7 +290,7 @@ subida — matar o processo não basta.
 
 ```bash
 # nenhum sobrevivente, nenhum zumbi
-ps -eo pid,ppid,etimes,comm= | rg 'omp-server|pawnpro-dap'
+ps -eo pid,ppid,etimes,comm= | rg 'omp-server|pawnpro-core'
 lsof -ti udp:7777 | while read p; do echo "$p -> $(readlink -f /proc/$p/exe)"; done
 
 # órfãs e faltantes nos bundles
@@ -278,5 +307,5 @@ EOF
 
 > Subir um zumbi para teste (leva ~10 s para aparecer na porta):
 > ```bash
-> cd ~/Downloads/open.mp-linux-x86/Server && (setsid ./omp-server >/dev/null 2>&1 &)
+> cd /caminho/do/servidor && (setsid ./omp-server >/dev/null 2>&1 &)
 > ```

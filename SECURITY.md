@@ -15,13 +15,14 @@ Inclua, se possível: uma descrição do problema, os passos para reproduzir, a 
 
 ## Escopo
 
-Esta política cobre o código-fonte da extensão PawnPro (`NullSablex/PawnPro`) e o núcleo nativo, que inclui o motor LSP ([`NullSablex/PawnPro-Core`](https://github.com/NullSablex/PawnPro-Core)).
+Esta política cobre o código-fonte da extensão PawnPro (`NullSablex/PawnPro`) e o núcleo nativo ([`NullSablex/PawnPro-Core`](https://github.com/NullSablex/PawnPro-Core)), que inclui o motor LSP, o adaptador de depuração e o plugin de depuração que roda dentro do servidor.
 
 O que **está** no escopo:
 
 - Execução de código, escalonamento de privilégios ou vazamento de dados a partir da extensão ou do motor.
 - Tratamento inseguro de arquivos do projeto, configuração (`.pawnpro/`), entrada do compilador ou do servidor.
 - Manuseio de credenciais (ex.: senha RCON) e de conexões de rede da extensão.
+- O soquete local do núcleo, pelo qual passam o LSP, a depuração e o plugin do servidor.
 
 O que **não** está no escopo:
 

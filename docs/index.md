@@ -21,16 +21,16 @@ Extensão moderna para desenvolver **Pawn** — com motor IntelliSense em Rust, 
 
 ## Recursos
 
-- **IntelliSense completo** — auto-complete, hover, signature help, CodeLens e coloração semântica para Pawn, incluindo todos os includes transitivos.
-- **Diagnósticos** — 19 códigos `PP####` cobrindo erros de estrutura, símbolos não declarados, código morto, depreciação e nomenclatura (ver [Recursos](features.md)).
+- **IntelliSense completo** — auto-complete, hover, signature help, ir para definição, renomeação com escopo, CodeLens e coloração semântica, incluindo todos os includes transitivos.
+- **Diagnósticos** — 19 códigos `PP####` cobrindo erros de estrutura, símbolos não declarados, código morto, depreciação e nomenclatura; 13 com correção automática (ver [Recursos](features.md)).
 - **Compilação** — `Ctrl+Alt+B` compila o `.pwn` ativo; detecção automática do `pawncc`.
-- **Depuração** — sessão via DAP (`F5`) com breakpoints, passo a passo e inspeção de variáveis (ver [Depuração](debugging.md)).
+- **Depuração** — sessão via DAP (`F5`) com breakpoints, passo a passo e inspeção de variáveis; ainda instável (ver [Depuração](debugging.md)).
 - **Formatação** — documento e seleção (`Ctrl+K Ctrl+F`), com estilos configuráveis.
-- **Servidor SA-MP / open.mp** — Start, Stop, Restart e envio de comandos RCON direto do editor.
+- **Servidor SA-MP / open.mp** — iniciar, parar, reiniciar e enviar comandos RCON direto do editor, com histórico, favoritos e log acompanhado (ver [Servidor](server.md)).
 - **Templates** — cria Gamemode e Filterscript (open.mp e SA-MP) e Include (open.mp) a partir de templates embutidos via status bar; filtra pela plataforma configurada.
 - **Painel de configurações** — interface gráfica (`pawnpro.openSettings`) para editar todas as configurações sem editar JSON manualmente.
 - **Temas de sintaxe** — cinco esquemas (`auto`, `classic_white`, `classic_dark`, `modern_white`, `modern_dark`) com aplicação automática ao trocar o tema do editor.
-- **Motor Rust LSP** — análise nativa pelo núcleo [pawnpro-core](https://github.com/NullSablex/PawnPro-Core); iniciado automaticamente se o binário estiver presente.
+- **Motor Rust LSP** — análise nativa pelo núcleo [pawnpro-core](https://github.com/NullSablex/PawnPro-Core), que acompanha a extensão e inicia sozinho.
 - **Suporte a `.pwn`, `.inc`, `.p` e `.pawn`** — todos os arquivos Pawn recebem IntelliSense e diagnósticos.
 
 ## Configuração
@@ -40,9 +40,10 @@ As configurações são gerenciadas por arquivos JSON:
 | Arquivo | Escopo |
 |---------|--------|
 | `~/.pawnpro/config.json` | Global |
-| `.pawnpro/config.json` | Projeto |
+| `.pawnpro/config.json` | Projeto (sobrescreve o global) |
+| `.pawnpro/state.json` | Estado local (favoritos e histórico do servidor) |
 
-Acesse rapidamente pelo item **PawnPro** na barra de status. Para a referência completa, consulte [Configuração](configuration.md).
+A página de configurações, aberta pelo item **PawnPro** na barra de status, cobre todas as chaves. Para a referência completa, consulte [Configuração](configuration.md).
 
 ## Licença
 

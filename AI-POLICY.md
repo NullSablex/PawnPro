@@ -61,7 +61,7 @@ com ou sem IA, precisa:
 
 - Seguir as [regras de código](CONTRIBUTING.md#regras-de-código) e a arquitetura
   do projeto.
-- Passar na verificação de tipos (`npx tsc --noEmit -p .`) e ser testado.
+- Passar na verificação de tipos e nos testes (`npm run compile`, `npm test`) e ser testado manualmente.
 - Respeitar licenças de terceiros — código de terceiros (gerado por IA ou não)
   só entra com licença compatível e a devida atribuição (ver
   [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).

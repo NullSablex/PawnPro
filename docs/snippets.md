@@ -1,6 +1,6 @@
 # Snippets
 
-Snippets disponíveis para arquivos `.pwn` e `.inc`. Acionados pelo prefixo na paleta de completions do editor.
+Snippets disponíveis em todo arquivo Pawn (`.pwn`, `.inc`, `.p` e `.pawn`). Acionados pelo prefixo, na lista de sugestões do editor.
 
 ## Estruturas de controle
 

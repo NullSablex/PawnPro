@@ -21,6 +21,7 @@ nav:
   - Para desenvolvedores:
       - Assistente de nomes: naming-assistant.md
       - Listas de nomes (.ban/.allow): naming-lists.md
+      - Fluxos do servidor e do depurador: server-panel-flow.md
 
 theme:
   name: material

@@ -4,6 +4,36 @@ Este projeto inclui componentes de terceiros, sob suas respectivas licenças.
 
 ---
 
+## Dependências JavaScript empacotadas
+
+O `out/editor/extension.js` do VSIX embute, pelo bundle, estas dependências de
+runtime e as delas:
+
+| Pacote | Licença |
+|---|---|
+| [vscode-languageclient](https://github.com/microsoft/vscode-languageserver-node) | MIT |
+| [vscode-languageserver-protocol](https://github.com/microsoft/vscode-languageserver-node) | MIT |
+| [vscode-languageserver-types](https://github.com/microsoft/vscode-languageserver-node) | MIT |
+| [vscode-languageserver-textdocument](https://github.com/microsoft/vscode-languageserver-node) | MIT |
+| [vscode-jsonrpc](https://github.com/microsoft/vscode-languageserver-node) | MIT |
+| [minimatch](https://github.com/isaacs/minimatch) | BlueOak-1.0.0 |
+| [semver](https://github.com/npm/node-semver) | ISC |
+| [brace-expansion](https://github.com/juliangruber/brace-expansion) | MIT |
+| [balanced-match](https://github.com/juliangruber/balanced-match) | MIT |
+
+As ferramentas de build e teste (`devDependencies`) não são distribuídas.
+
+---
+
+## Núcleo nativo (`bin/pawnpro-core-*`)
+
+O VSIX traz o binário do [PawnPro-Core](https://github.com/NullSablex/PawnPro-Core),
+sob a licença PawnPro-Core v1.1. As bibliotecas Rust compiladas nele têm as
+próprias licenças, com o texto completo em `bin/pawnpro-core-THIRD-PARTY.txt`,
+que acompanha o binário no VSIX e em cada release do núcleo.
+
+---
+
 ## Gramática TOML (`syntaxes/toml.tmLanguage.json`)
 
 Adaptada da gramática TextMate da extensão **Even Better TOML**

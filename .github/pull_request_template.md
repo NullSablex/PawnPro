@@ -24,7 +24,7 @@ O uso de IA é permitido — você é responsável pelo que envia. Ver AI-POLICY
 
 ## Checklist
 
-- [ ] `npx tsc --noEmit -p .` passa sem erros
+- [ ] `npm run compile` e `npm test` passam sem erros
 - [ ] Testei manualmente a mudança (`F5`)
 - [ ] Mensagens ao usuário via `src/editor/nls.ts` (sem strings hardcoded)
 - [ ] Atualizei o `CHANGELOG.md` (se a mudança é visível ao usuário)
