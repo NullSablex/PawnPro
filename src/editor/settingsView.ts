@@ -543,8 +543,8 @@ function namingStyleRow(category: string): string {
         spellcheck="false" autocapitalize="off" autocomplete="off"
         placeholder="/^g_[a-z][a-zA-Z0-9]*$/"
         data-i18n-aria="namingRegex"
-        data-on="input" data-action="onNamingRegexInput" data-args='["${category}"]'
-        data-on="change" data-action="commitNamingRegex" data-args='["${category}"]' />
+        data-on="input change" data-action-input="onNamingRegexInput"
+        data-action-change="commitNamingRegex" data-args='["${category}"]' />
     </div>
   </div>`;
 }

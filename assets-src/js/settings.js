@@ -755,13 +755,18 @@ function dispatch(e) {
     return;
   }
 
-  const acao = ACTIONS[alvo.dataset.action];
+  // Um controle que reage a mais de um evento declara a ação de cada um
+  // (`data-action-input`, `data-action-change`): atributo repetido no mesmo
+  // elemento não funciona, o HTML fica só com a primeira ocorrência.
+  const perEvent = 'action' + e.type.charAt(0).toUpperCase() + e.type.slice(1);
+  const actionName = alvo.dataset[perEvent] ?? alvo.dataset.action;
+  const acao = ACTIONS[actionName];
   if (!acao) {
     // Um `data-action` sem função é erro de programação, não do usuário: sem
     // este aviso, o controle ficaria mudo do mesmo jeito que antes.
     vscode.postMessage({
       type: 'pageError',
-      message: `ação desconhecida no HTML: ${alvo.dataset.action}`,
+      message: `ação desconhecida no HTML: ${actionName}`,
     });
     return;
   }
