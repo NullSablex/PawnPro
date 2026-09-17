@@ -17,10 +17,7 @@
   "command.openSettings": "PawnPro: Setări",
   "command.openStore": "PawnPro: Bibliotecă de resurse",
   "debug.program": "Calea către `.amx` de depanat (gamemode, filterscript sau alt script Pawn). Sursa `.pwn` alăturată este recompilată automat cu informații de depanare la pornire.",
-  "debug.server": "Calea către executabilul serverului (SA-MP/open.mp). Gol: folosește detectarea automată a extensiei.",
   "debug.cwd": "Directorul de lucru la pornirea serverului pentru depanare.",
-  "debug.session": "Identificatorul sesiunii de depanare (socket local între adaptor și plugin). Se generează automat dacă este gol.",
-  "debug.stopOnEntry": "Oprește chiar la intrarea în script.",
   "pawnpro.diagnostics.setLevel": "Nivel de diagnosticare",
   "pawnpro.diagnostics.openLog": "Deschide jurnalul de diagnosticare",
   "pawnpro.diagnostics.clear": "Șterge jurnalul de diagnosticare"

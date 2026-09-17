@@ -17,10 +17,7 @@
   "command.openSettings": "PawnPro: Settings",
   "command.openStore": "PawnPro: Resource Library",
   "debug.program": "Path of the `.amx` to debug (gamemode, filterscript or other Pawn script). The adjacent `.pwn` source is automatically recompiled with debug info on start.",
-  "debug.server": "Path to the server executable (SA-MP/open.mp). Empty: use the extension's auto-detection.",
   "debug.cwd": "Working directory when starting the server for debugging.",
-  "debug.session": "Debug session identifier (local socket between the adapter and the plugin). Auto-generated if empty.",
-  "debug.stopOnEntry": "Pause right at the script entry.",
   "pawnpro.diagnostics.setLevel": "Diagnostics level",
   "pawnpro.diagnostics.openLog": "Open diagnostics log",
   "pawnpro.diagnostics.clear": "Clear diagnostics log"

@@ -282,23 +282,10 @@
                 "description": "%debug.program%",
                 "default": "${workspaceFolder}/gamemodes/${command:AskForProgramName}.amx"
               },
-              "server": {
-                "type": "string",
-                "description": "%debug.server%"
-              },
               "cwd": {
                 "type": "string",
                 "description": "%debug.cwd%",
                 "default": "${workspaceFolder}"
-              },
-              "session": {
-                "type": "string",
-                "description": "%debug.session%"
-              },
-              "stopOnEntry": {
-                "type": "boolean",
-                "description": "%debug.stopOnEntry%",
-                "default": false
               }
             }
           }
