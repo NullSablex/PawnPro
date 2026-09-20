@@ -28,7 +28,7 @@ As ferramentas de build e teste (`devDependencies`) não são distribuídas.
 ## Núcleo nativo (`bin/pawnpro-core-*`)
 
 O VSIX traz o binário do [PawnPro-Core](https://github.com/NullSablex/PawnPro-Core),
-sob a licença PawnPro-Core v1.1. As bibliotecas Rust compiladas nele têm as
+sob a licença PawnPro-Core v1.0. As bibliotecas Rust compiladas nele têm as
 próprias licenças, com o texto completo em `bin/pawnpro-core-THIRD-PARTY.txt`,
 que acompanha o binário no VSIX e em cada release do núcleo.
 

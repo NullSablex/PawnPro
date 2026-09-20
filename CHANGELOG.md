@@ -69,7 +69,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 - Documentação revista contra o código: guia de depuração reescrito, ordem real de detecção do compilador, chaves e comandos que faltavam, severidade e correção de cada diagnóstico, e os guias do assistente de nomes e de idiomas no estado atual.
 - Os textos novos ganham tradução em inglês, espanhol, romeno e russo.
-- Sai o `iconv-lite`; a decodificação do log e da saída do compilador é do núcleo.
+- Dependências: sai o `iconv-lite` — a decodificação do log e da saída do compilador é do núcleo —, e sobem `@types/node` (26.5.1) e `jszip` (3.10.2), usadas no build.
 - Licença revisada, sem contradições no texto.
 
 ### Corrigido
@@ -78,6 +78,7 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 
 - **A tela de configurações voltou a responder aos cliques.** A política de segurança da página usa nonce, e nonce não vale para atributo de evento: os `onclick`/`onchange` dos controles eram bloqueados pelo navegador, e o sintoma era a página inteira muda, sem erro visível. Os controles passaram a declarar a intenção em `data-*`, e o script os liga por delegação. A Biblioteca de Recursos recebeu o mesmo tratamento e deixou de precisar de `unsafe-inline`.
 - **A extensão não depende mais do IntelliSense subir para ativar.** Ela ficava presa numa chamada sem prazo, e o que vinha depois — tela de configurações, biblioteca e barra de status — nunca chegava a existir.
+- **A página "O que há de novo" renderiza o resumo da versão.** O resumo é escrito como citação no changelog, e a página o mostrava com os `>` no meio do texto.
 - Os títulos das correções rápidas ("Remover variável não usada", "Corrigir a indentação"…) apareciam sempre em português; agora seguem o idioma configurado, como os diagnósticos.
 
 #### Análise de código
