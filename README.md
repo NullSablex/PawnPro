@@ -12,6 +12,7 @@
   [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/NullSablex/PawnPro/badge?style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/NullSablex/PawnPro)
   [![Downloads](https://img.shields.io/github/downloads/NullSablex/PawnPro/total?style=flat-square&logo=github&label=downloads)](https://github.com/NullSablex/PawnPro/releases)
   [![Stars](https://img.shields.io/github/stars/NullSablex/PawnPro?style=flat-square&logo=github&label=stars)](https://github.com/NullSablex/PawnPro/stargazers)
+  [![Issues](https://img.shields.io/github/issues/NullSablex/PawnPro?style=flat-square&logo=github&label=issues)](https://github.com/NullSablex/PawnPro/issues)
   [![License](https://img.shields.io/badge/licença-Source--Available-blue?style=flat-square)](LICENSE.md)
 
   ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11&logoColor=white)
@@ -52,7 +53,11 @@ documentação da função aparece ao passar o mouse.
 - **19 diagnósticos** com código próprio (`PP####`) — include que não existe,
   chave sem fechar, código inalcançável, função depreciada, variável não usada.
   **13 deles têm correção automática** (`Ctrl+.`).
-- **Ir para a definição, referências e renomear** em todo o projeto.
+- **Ir para a definição, referências e renomear** — a renomeação respeita
+  escopo: um local muda só no bloco dele, e um parâmetro, só na função.
+- **O programa inteiro, e só ele** — a análise enxerga tudo o que é compilado
+  junto com o arquivo aberto, inclusive o `.inc` irmão que você não abriu, e
+  nunca outro programa: gamemode e filterscript não se misturam.
 - **Prévia de cor** nos literais `0xRRGGBBAA` e `{RRGGBB}`, com seletor de cores.
 
 ### Na hora de compilar e testar
@@ -87,6 +92,9 @@ documentação da função aparece ao passar o mouse.
 - **Temas de sintaxe** claro e escuro, que acompanham o tema do editor.
 - **Cor de destaque** — seis cores para a interface da extensão, ou o padrão que
   herda do seu tema.
+- **Registro de diagnóstico** — desligado de fábrica; ligado, a extensão, o
+  núcleo e o motor gravam o que fazem em `.pawnpro/logs/`, para um relato de
+  problema vir com o que aconteceu de fato.
 
 ## Instalação
 
