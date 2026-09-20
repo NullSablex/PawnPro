@@ -37,6 +37,18 @@
     color: var(--vscode-textPreformat-foreground, #9cdcfe);
     margin: 1.75rem 0 .6rem;
   }
+  /* O resumo da versão, escrito como citação no changelog. */
+  blockquote {
+    border-left: 3px solid var(--pp-accent);
+    background: var(--vscode-textBlockQuote-background, rgba(255,255,255,.03));
+    border-radius: 0 6px 6px 0;
+    margin: 1rem 0;
+    padding: .7rem 1rem;
+  }
+  blockquote p { margin: .4rem 0; }
+  blockquote p:first-child { margin-top: 0; }
+  blockquote p:last-child { margin-bottom: 0; }
+
   /* Cada seção (Adicionado, Corrigido, ...) é UM card com seus itens dentro. */
   .card-section {
     background: var(--vscode-sideBar-background, rgba(255,255,255,.04));
