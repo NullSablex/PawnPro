@@ -43,11 +43,23 @@ test('negrito, código e link são reconhecidos', () => {
 
 test('HTML do changelog é escapado', () => {
   // O changelog cita tipos e tags; renderizá-los cruamente injetaria marcação
-  // na página.
-  const html = mdToHtml('- um `<script>` e a & comercial');
-  assert.match(html, /&lt;script&gt;/);
+  // na página. A caixa do que veio no texto não importa: o escape é por
+  // caractere, e a verificação também tem de ser — procurar só por `<script>`
+  // minúsculo deixaria passar o dia em que ela deixasse de ser.
+  const html = mdToHtml(
+    '- um `<ScRiPt>` , a & comercial e um <img src=x onerror=alert(1)>',
+  );
+  assert.match(html, /&lt;ScRiPt&gt;/);
   assert.match(html, /&amp;/);
-  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  // Nenhuma marcação do texto sobrevive: o que abre tag no resultado é só o
+  // que o renderizador emitiu.
+  for (const tag of [...html.matchAll(/<\/?([a-zA-Z][\w-]*)/g)].map((m) => m[1].toLowerCase())) {
+    assert.ok(
+      ['ul', 'li', 'p', 'code', 'strong', 'a', 'em', 'pre', 'div', 'h2', 'blockquote'].includes(tag),
+      `tag inesperada no resultado: ${tag}`,
+    );
+  }
 });
 
 test('o changelog real da 4.0.0 não deixa marcador solto', () => {
