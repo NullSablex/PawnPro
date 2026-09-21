@@ -70,6 +70,8 @@ Podem existir falhas ou itens não declarados, causados por falha humana ou por 
 - Documentação revista contra o código: guia de depuração reescrito, ordem real de detecção do compilador, chaves e comandos que faltavam, severidade e correção de cada diagnóstico, e os guias do assistente de nomes e de idiomas no estado atual.
 - Os textos novos ganham tradução em inglês, espanhol, romeno e russo.
 - Dependências: sai o `iconv-lite` — a decodificação do log e da saída do compilador é do núcleo —, e sobem `@types/node` (26.5.1) e `jszip` (3.10.2), usadas no build.
+- README atualizado com o que a 4.0.0 trouxe e com a badge de issues abertas.
+- Os testes passam a rodar no CI, em job próprio, além da verificação local; o teste do escape do changelog deixou de depender da caixa das letras no HTML gerado.
 - Licença revisada, sem contradições no texto.
 
 ### Corrigido
