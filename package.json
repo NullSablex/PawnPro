@@ -421,5 +421,13 @@
     "ajv": "8.18.0",
     "markdown-it": "14.2.0",
     "underscore": "1.13.8"
+  },
+  "coreChecksums": {
+    "pawnpro-core-linux-x64": "4f2a2543b5d51c2dfdd085ac09faf3e10e4e3a4456ea717d5f076dbae39bc859",
+    "pawnpro-core-linux-arm64": "0f6ac2df51159f8a4689b318bb87c4227bbdb9f2ad15b99acaf924d9520263da",
+    "pawnpro-core-win32-x64.exe": "3fb8a579ffa41f520a1d23ca9d56e6bc2f9310b60fd4b3fb469b3b03c4c6732c",
+    "pawnpro-core-darwin-x64": "f1f36eaf29b898403ccfa99d0990fe91f8c7d1821b1ea166997ade2c1f1e895e",
+    "pawnpro-core-darwin-arm64": "09d458170116d7d974ff289d43920c5f8f0576bba78ff77f06ec722f9c7f4113",
+    "pawnpro-core-THIRD-PARTY.txt": "9d8c772c3ca2151d38aa5f603bcef7173f646a5b81321ca0bae788d70dd691ba"
   }
 }
