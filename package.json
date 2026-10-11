@@ -404,7 +404,7 @@
     "package:pre": "npm run bundle && npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
   },
   "devDependencies": {
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.4",
     "@types/vscode": "1.106.0",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/vsce": "^4.0.0",
@@ -417,9 +417,9 @@
   },
   "overrides": {
     "minimatch": "10.2.3",
-    "qs": "6.15.2",
+    "qs": "6.16.0",
     "ajv": "8.18.0",
-    "markdown-it": "14.2.0",
+    "markdown-it": "14.3.2",
     "underscore": "1.13.8"
   },
   "coreChecksums": {
