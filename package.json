@@ -404,10 +404,10 @@
     "package:pre": "npm run bundle && npx @vscode/vsce package --pre-release --no-dependencies --no-yarn && node scripts/repack-vsix.js"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/vscode": "1.106.0",
     "@vscode/l10n-dev": "^0.0.35",
-    "@vscode/vsce": "^4.0.0",
+    "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.2",
     "jszip": "^3.10.2",
     "typescript": "^7.0.2"
