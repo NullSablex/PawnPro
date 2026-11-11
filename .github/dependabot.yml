@@ -1,26 +1,16 @@
 version: 2
+
+# Uma entrada por área, para que cada PR de atualização só mexa (e só dispare
+# os checks de CI) da própria área: a extensão, os workflows e o gerador da
+# documentação.
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(deps)"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore(deps)"
+      prefix: build(deps)
     # `@types/vscode` acompanha o `engines.vscode` e só sobe junto com ele, à
     # mão: tipos mais novos que o `engines` fazem o `vsce package` recusar e
     # liberam APIs que a versão mínima prometida não tem.
@@ -28,22 +18,25 @@ updates:
       - dependency-name: "@types/vscode"
     groups:
       npm:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-  - package-ecosystem: "pip"
-    directory: "/docs"
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(deps)"
+      prefix: ci(deps)
     groups:
-      pip:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: docs(deps)

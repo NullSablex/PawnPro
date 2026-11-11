@@ -1,0 +1,68 @@
+[project]
+site_name = "PawnPro"
+site_url = "https://pawnpro.nullsablex.com/"
+site_description = "Extensão para a linguagem Pawn (SA-MP / open.mp)"
+repo_name = "NullSablex/PawnPro"
+repo_url = "https://github.com/NullSablex/PawnPro"
+edit_uri = "edit/master/docs/"
+docs_dir = "docs"
+site_dir = "site"
+nav = [
+  { "Introdução" = "index.md" },
+  { "Guia do usuário" = [
+    { "Recursos" = "features.md" },
+    { "Configuração" = "configuration.md" },
+    { "Comandos" = "commands.md" },
+    { "Servidor" = "server.md" },
+    { "Depuração" = "debugging.md" },
+    { "Compiladores" = "compilers.md" },
+    { "Snippets" = "snippets.md" },
+    { "Idiomas (i18n)" = "i18n.md" },
+  ] },
+  { "Para desenvolvedores" = [
+    { "Assistente de nomes" = "naming-assistant.md" },
+    { "Listas de nomes (.ban/.allow)" = "naming-lists.md" },
+    { "Fluxos do servidor e do depurador" = "server-panel-flow.md" },
+  ] },
+]
+
+[project.theme]
+language = "pt"
+logo = "icon.svg"
+favicon = "icon.svg"
+features = [
+  "navigation.instant",
+  "navigation.top",
+  "search.highlight",
+  "search.suggest",
+  "content.action.edit",
+  "content.code.copy",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "light blue"
+accent = "light blue"
+toggle.icon = "lucide/moon"
+toggle.name = "Mudar para modo escuro"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "light blue"
+accent = "light blue"
+toggle.icon = "lucide/sun"
+toggle.name = "Mudar para modo claro"
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+[project.markdown_extensions.pymdownx.superfences]
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.tables]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]

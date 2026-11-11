@@ -9,3 +9,4 @@ site/
 /docs/store-plan.md
 # Rascunhos locais (posts, anotações) — não versionados
 notes/
+/.cache/
