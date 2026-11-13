@@ -55,16 +55,19 @@ jobs:
             files=''
           fi
           printf 'Changed files:\n%s\n' "${files:-(full run)}"
-          # Definições de CI afetam todos os checks: rodam tudo.
-          if grep -qE '^\.github/workflows/' <<< "$files"; then all=true; fi
+          # O ci.yml decide o que roda: se ele muda, roda tudo. Cada workflow
+          # reutilizável liga só o próprio check (veja os padrões abaixo), e
+          # qualquer workflow liga o CodeQL, que também analisa os Actions.
+          if grep -qE '^\.github/workflows/ci\.yml$' <<< "$files"; then all=true; fi
           match() {
             if [ "$all" = true ] || grep -qE "$1" <<< "$files"; then echo true; else echo false; fi
           }
-          node=$(match '^(src/|scripts/|package(-lock)?\.json$|tsconfig[^/]*\.json$)')
+          node=$(match '(^(src/|scripts/|package(-lock)?\.json$|tsconfig[^/]*\.json$)|^\.github/workflows/node\.yml$)')
+          workflows=$(match '^\.github/(workflows/|codeql/)')
           {
             echo "node=$node"
-            echo "docs=$(match '^(docs/|zensical\.toml$|requirements-docs\.txt$)')"
-            if [ "$node" = true ] || [ "$all" = true ]; then echo codeql=true; else echo codeql=false; fi
+            echo "docs=$(match '(^(docs/|zensical\.toml$|requirements-docs\.txt$)|^\.github/workflows/docs\.yml$)')"
+            if [ "$node" = true ] || [ "$workflows" = true ] || [ "$all" = true ]; then echo codeql=true; else echo codeql=false; fi
           } | tee -a "$GITHUB_OUTPUT"
 
   node:
